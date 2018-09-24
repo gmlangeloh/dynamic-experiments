@@ -120,7 +120,7 @@ class DynamicEngine:
     #Unless I'm mistaken, we can also implement the restricted algorithm
     #easily working with Minkowski sums: it is enough to sum the previously
     #accepted vertex with the polytope of the new basis element!
-    def next(self, G, iterations=5):
+    def next(self, G, iterations):
         for i in range(iterations):
             w, v, v_decomposed = self._random_minkowski_vertex(G)
             I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
@@ -140,7 +140,7 @@ def spol(f, g):
     l = R.monomial_lcm(f.lm(), g.lm())
     return R(l / f.lt()) * f - R(l / g.lt()) * g
 
-def buchberger(I):
+def buchberger(I, iterations=15):
     '''
     Very naive implementation of Buchberger's algorithm with support for a
     dynamic engine.
@@ -156,6 +156,6 @@ def buchberger(I):
         if f != 0:
             P = P + [ (i, len(G)) for i in range(len(G)) ]
             G.append(BasisElement(f))
-            dynamic.next(G)
+            dynamic.next(G, iterations)
     J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
     return len(J)
