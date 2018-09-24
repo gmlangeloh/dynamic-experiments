@@ -17,6 +17,7 @@ class BasisElement:
     '''
     def __init__(self, f):
         self._newton_polyhedron = None
+        self._normal_fan = None
         self._polynomial = f
 
     def polynomial(self):
@@ -48,10 +49,12 @@ class BasisElement:
         The normal fan of this polynomial's Newton polyhedron as a list of
         normal cones of its vertices.
         '''
-        fan = {}
-        for v in self.newton_polyhedron().vertices():
-            fan[tuple(v)] = self._normal_cone(v)
-        return fan
+        if self._normal_fan is None:
+            fan = {}
+            for v in self.newton_polyhedron().vertices():
+                fan[tuple(v)] = self._normal_cone(v)
+            self._normal_fan = fan
+        return self._normal_fan
 
     def change_order(self, w):
         new_order = TermOrder("wdegrevlex", w)
@@ -111,6 +114,10 @@ class DynamicEngine:
         return vector(coords)
 
     def _random_minkowski_vertex(self, G):
+        '''
+        Returns a random vertex of the Minkowski sum of the Newton polyhedra
+        in G.
+        '''
         w = self._random_vector()
         minkowski_vertex = vector([0] * self._n)
         vertex_decomposition = []
@@ -139,6 +146,9 @@ class DynamicEngine:
     #easily working with Minkowski sums: it is enough to sum the previously
     #accepted vertex with the polytope of the new basis element!
     def next(self, G, iterations, period):
+        '''
+        Obtain a new monomial order for G.
+        '''
         self._call += 1
         if self._call % period != 1:
             return
@@ -152,6 +162,33 @@ class DynamicEngine:
         for g in G:
             g.change_order(best_order)
         print("Chose order: " + str(w))
+
+    def _neighborhood(self, G, v_decomposed):
+        N = []
+        for i in range(len(G)):
+            NP = G[i].newton_polyhedron()
+            v = v_decomposed[i]
+            for u in v.neighbors():
+                pass
+        return N
+
+    def _local_search(self, G):
+        visited = {}
+        w, v, v_decomposed = self._random_minkowski_vertex(G)
+        i = 0
+        to_visit = []
+        while i < iterations and to_visit:
+            #Generate neighbors of current node
+            i += 1
+
+    def next2(self, G, iterations, period):
+        self._call += 1
+        if self._call % period != 1:
+            return
+        #Generate an initial vertex of the Minkowski sum
+        w, v, v_decomposed = self._random_minkowski_vertex(G)
+        #Do some kind of local search around it
+        best = self._local_search(G)
 
 def spol(f, g):
     '''
