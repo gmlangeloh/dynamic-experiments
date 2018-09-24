@@ -36,6 +36,23 @@ class BasisElement:
                 negative_orthant(n)
         return self._newton_polyhedron
 
+    def _normal_cone(self, v):
+        rays = []
+        for u in self.newton_polyhedron():
+            if u != v:
+                rays.append(vector(v) - vector(u))
+        return Cone(rays)
+
+    def normal_fan(self):
+        '''
+        The normal fan of this polynomial's Newton polyhedron as a list of
+        normal cones of its vertices.
+        '''
+        fan = {}
+        for v in self.newton_polyhedron().vertices():
+            fan[tuple(v)] = self._normal_cone(v)
+        return fan
+
     def change_order(self, w):
         new_order = TermOrder("wdegrevlex", w)
         new_ring = self._polynomial.parent().change_ring(order=new_order)
@@ -84,6 +101,7 @@ class DynamicEngine:
         self._n = n
         self._ring = R
         self._best_ideal = None
+        self._call = 0
 
     def order(self):
         return _order
@@ -120,7 +138,10 @@ class DynamicEngine:
     #Unless I'm mistaken, we can also implement the restricted algorithm
     #easily working with Minkowski sums: it is enough to sum the previously
     #accepted vertex with the polytope of the new basis element!
-    def next(self, G, iterations):
+    def next(self, G, iterations, period):
+        self._call += 1
+        if self._call % period != 1:
+            return
         for i in range(iterations):
             w, v, v_decomposed = self._random_minkowski_vertex(G)
             I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
@@ -140,7 +161,7 @@ def spol(f, g):
     l = R.monomial_lcm(f.lm(), g.lm())
     return R(l / f.lt()) * f - R(l / g.lt()) * g
 
-def buchberger(I, iterations=15):
+def buchberger(I, iterations=15, period=10):
     '''
     Very naive implementation of Buchberger's algorithm with support for a
     dynamic engine.
@@ -156,6 +177,6 @@ def buchberger(I, iterations=15):
         if f != 0:
             P = P + [ (i, len(G)) for i in range(len(G)) ]
             G.append(BasisElement(f))
-            dynamic.next(G, iterations)
+            dynamic.next(G, iterations, period)
     J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
     return len(J)
