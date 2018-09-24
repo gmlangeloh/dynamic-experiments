@@ -16,6 +16,7 @@ class BasisElement:
     Newton Polyhedron.
     '''
     def __init__(self, f):
+        self._newton_polyhedron = None
         self._polynomial = f
 
     def polynomial(self):
@@ -30,13 +31,50 @@ class BasisElement:
         the input polynomial.
         '''
         if self._newton_polyhedron is None:
-            n = self.polynomial.parent().ngens()
+            n = self.polynomial().parent().ngens()
             self._newton_polyhedron = self.polynomial().newton_polytope() + \
                 negative_orthant(n)
         return self._newton_polyhedron
 
-    def change_ring(self, R):
-        self._polynomial = R(self._polynomial)
+    def change_order(self, w):
+        new_order = TermOrder("wdegrevlex", w)
+        new_ring = self._polynomial.parent().change_ring(order=new_order)
+        self._polynomial = new_ring(self._polynomial)
+
+class MonomialIdeal:
+    '''
+    A MonomialIdeal is used to keep an ideal with its associated Hilbert
+    Function. MonomialIdeals can be compared with respect to their Hilbert
+    Polynomials.
+    '''
+    def __init__(self, I, w):
+        self._ideal = I
+        self._weights = w
+        self._hilbert = None
+
+    def hilbert(self):
+        if self._hilbert is None:
+            self._hilbert = self._ideal.hilbert_polynomial()
+        return self._hilbert
+
+    def weights(self):
+        return self._weights
+
+    def __cmp__(self, other):
+        '''
+        self < other iff the degree of its Hilbert Polynomial is smaller or
+        degrees are the same and leading coefficient is smaller.
+        '''
+        HP1 = self.hilbert()
+        HP2 = other.hilbert()
+        if HP1.degree() < HP2.degree():
+            return -1
+        elif HP1.degree() == HP2.degree():
+            if HP1.lc() < HP2.lc():
+                return -1
+            elif HP1.lc() == HP2.lc():
+                return 0
+        return 1
 
 class DynamicEngine:
 
@@ -45,6 +83,7 @@ class DynamicEngine:
         self._order = TermOrder("wdegrevlex", [1] * n)
         self._n = n
         self._ring = R
+        self._best_ideal = None
 
     def order(self):
         return _order
@@ -62,20 +101,36 @@ class DynamicEngine:
             lp, var = NP.to_linear_program(return_variable = True)
             lp.set_objective(sum([ w[i] * var[i] for i in range(self._n)]))
             lp.solve()
-            vertex = [ lp.get_values(var)[i] for i in range(self._n) ]
+            values = lp.get_values(var)
+            vertex = [ values[i] for i in range(self._n) ]
             minkowski_vertex += vector(vertex)
             vertex_decomposition.append(vector(vertex))
-        return w, minkowski_vertex, vertex_decomposition
+        return list(w), minkowski_vertex, vertex_decomposition
 
     def _monomial_from_vertex(self, v):
-        return prod([ R.gens()[i]^v[i] for i in self._n ])
+        return prod([ self._ring.gens()[i]^v[i] for i in range(self._n) ])
 
-    def next(self, G):
-        w, v, v_decomposed = _random_minkowski_vertex(self, G)
-        #Continue here
-        #Unless I'm mistaken, we can also implement the restricted algorithm
-        #easily working with Minkowski sums: it is enough to sum the previously
-        #accepted vertex with the polytope of the new basis element!
+    def _ideal_from_decomposition(self, decomposition):
+        G = [ self._monomial_from_vertex(v) for v in decomposition ]
+        return ideal(G)
+
+    def change_order(self, w):
+        self._order = TermOrder("wdegrevlex", w)
+
+    #Unless I'm mistaken, we can also implement the restricted algorithm
+    #easily working with Minkowski sums: it is enough to sum the previously
+    #accepted vertex with the polytope of the new basis element!
+    def next(self, G, iterations=5):
+        for i in range(iterations):
+            w, v, v_decomposed = self._random_minkowski_vertex(G)
+            I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
+            if self._best_ideal is None or I < self._best_ideal:
+                self._best_ideal = I
+        best_order = self._best_ideal.weights()
+        self.change_order(w)
+        for g in G:
+            g.change_order(best_order)
+        print("Chose order: " + str(w))
 
 def spol(f, g):
     '''
@@ -92,6 +147,7 @@ def buchberger(I):
     '''
     G = [ BasisElement(g) for g in I.gens() ]
     P = [ (i, j) for i in range(len(G)) for j in range(i) ]
+    dynamic = DynamicEngine(I.ring())
     while P:
         (i, j) = P[0]
         P = P[1:]
@@ -100,4 +156,6 @@ def buchberger(I):
         if f != 0:
             P = P + [ (i, len(G)) for i in range(len(G)) ]
             G.append(BasisElement(f))
-    return G
+            dynamic.next(G)
+    J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
+    return len(J)
