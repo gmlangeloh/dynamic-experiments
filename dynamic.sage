@@ -127,6 +127,7 @@ class DynamicEngine:
 
     def _find_vertices(self, G, w):
         #This is O(mk), where m = |G| and k = max(len(g)) for g in G
+        #TODO definitely not efficient. Make this better
         vertices = []
         for g in G:
             NP = g.newton_polyhedron()
@@ -147,7 +148,8 @@ class DynamicEngine:
         '''
         w = self._random_vector()
         vertex_decomposition = self._find_vertices(G, w)
-        return list(w), vertex_decomposition
+        v = sum([ vector(v) for v in vertex_decomposition])
+        return list(w), tuple(v), vertex_decomposition
 
     def _monomial_from_vertex(self, v):
         return prod([ self._ring.gens()[i]^v[i] for i in range(self._n) ])
@@ -156,8 +158,11 @@ class DynamicEngine:
         G = [ self._monomial_from_vertex(v) for v in decomposition ]
         return ideal(G)
 
-    def change_order(self, w):
+    def change_order(self, w, G):
+        print("Chose order: " + str(w))
         self._order = TermOrder("wdegrevlex", w)
+        for g in G:
+            g.change_order(w)
 
     def next(self, G, iterations, period):
         '''
@@ -167,15 +172,13 @@ class DynamicEngine:
         if self._call % period != 1:
             return
         for i in range(iterations):
-            w, v_decomposed = self._random_minkowski_vertex(G)
+            w, v, v_decomposed = self._random_minkowski_vertex(G)
             I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
             if self._best_ideal is None or I < self._best_ideal:
                 self._best_ideal = I
         best_order = self._best_ideal.weights()
         print("Chose order: " + str(best_order))
-        self.change_order(best_order)
-        for g in G:
-            g.change_order(best_order)
+        self.change_order(best_order, G)
 
     def _neighborhood(self, G, v_decomposed):
         N = []
@@ -193,29 +196,33 @@ class DynamicEngine:
                         continue
                     new_decomposition = self._find_vertices(G, edge_normal)
                     new_decomposition[i] = u
-                    N.append((list(edge_normal), new_decomposition))
+                    new_vertex = sum([ vector(v) for v in new_decomposition ])
+                    N.append((list(edge_normal), tuple(new_vertex), new_decomposition))
         return N
 
     def _local_search(self, G, iterations):
-        visited = {} #TODO i probably have to use this!
+        visited = {}
         initial_sol = self._random_minkowski_vertex(G)
         i = 0
         to_visit = [ initial_sol ]
+        current = None
         while i < iterations and to_visit:
             #Visit node
-            w, v_decomposed = to_visit[0]
+            w, v, v_decomposed = to_visit[0]
             to_visit = to_visit[1:]
+            if v in visited:
+                continue
+            visited[v] = True
             I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
-            if self._best_ideal is None or I < self._best_ideal:
-                self._best_ideal = I
+            if current is None or I < current:
+                current = I
             #Generate neighbors, put them in the queue
             to_visit += self._neighborhood(G, v_decomposed)
             i += 1
+        if self._best_ideal is None or current < self._best_ideal:
+            self._best_ideal = current
         best_order = self._best_ideal.weights()
-        print("Chose order: " + str(best_order))
-        self.change_order(best_order)
-        for g in G:
-            g.change_order(best_order)
+        self.change_order(best_order, G)
 
     def next2(self, G, iterations, period):
         self._call += 1
