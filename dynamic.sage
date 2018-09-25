@@ -37,24 +37,36 @@ class BasisElement:
                 negative_orthant(n)
         return self._newton_polyhedron
 
-    def _normal_cone(self, v):
-        rays = []
-        for u in self.newton_polyhedron():
-            if u != v:
-                rays.append(vector(v) - vector(u))
-        return Cone(rays)
+    #def _normal_cone(self, v):
+    #    rays = []
+    #    for u in self.newton_polyhedron().vertices():
+    #        if u != v:
+    #            rays.append(vector(v) - vector(u))
+    #    return Cone(rays)
 
     def normal_fan(self):
-        '''
-        The normal fan of this polynomial's Newton polyhedron as a list of
-        normal cones of its vertices.
-        '''
         if self._normal_fan is None:
             fan = {}
-            for v in self.newton_polyhedron().vertices():
-                fan[tuple(v)] = self._normal_cone(v)
+            NP = self.newton_polyhedron()
+            rays = [ -ieq.A() for ieq in NP.inequalities() ]
+            for vertex in NP.vertices():
+                indices = [ ieq.index() for ieq in vertex.incident() ]
+                v_rays = [ rays[i] for i in indices ]
+                fan[tuple(vertex)] = Cone(v_rays)
             self._normal_fan = fan
         return self._normal_fan
+
+    #def normal_fan(self):
+    #    '''
+    #    The normal fan of this polynomial's Newton polyhedron as a list of
+    #    normal cones of its vertices.
+    #    '''
+    #    if self._normal_fan is None:
+    #        fan = {}
+    #        for v in self.newton_polyhedron().vertices():
+    #            fan[tuple(v)] = self._normal_cone(v)
+    #        self._normal_fan = fan
+    #    return self._normal_fan
 
     def change_order(self, w):
         new_order = TermOrder("wdegrevlex", w)
@@ -113,24 +125,29 @@ class DynamicEngine:
         coords = [ randint(1, 100) for i in range(self._n)]
         return vector(coords)
 
+    def _find_vertices(self, G, w):
+        #This is O(mk), where m = |G| and k = max(len(g)) for g in G
+        vertices = []
+        for g in G:
+            NP = g.newton_polyhedron()
+            min_val = float("inf")
+            min_vertex = None
+            for v in NP.vertices():
+                val = sum([ v[i] * w[i] for i in range(self._n) ])
+                if val < min_val:
+                    min_val = val
+                    min_vertex = v
+            vertices.append(min_vertex)
+        return vertices
+
     def _random_minkowski_vertex(self, G):
         '''
         Returns a random vertex of the Minkowski sum of the Newton polyhedra
         in G.
         '''
         w = self._random_vector()
-        minkowski_vertex = vector([0] * self._n)
-        vertex_decomposition = []
-        for g in G:
-            NP = g.newton_polyhedron()
-            lp, var = NP.to_linear_program(return_variable = True)
-            lp.set_objective(sum([ w[i] * var[i] for i in range(self._n)]))
-            lp.solve()
-            values = lp.get_values(var)
-            vertex = [ values[i] for i in range(self._n) ]
-            minkowski_vertex += vector(vertex)
-            vertex_decomposition.append(vector(vertex))
-        return list(w), minkowski_vertex, vertex_decomposition
+        vertex_decomposition = self._find_vertices(G, w)
+        return list(w), vertex_decomposition
 
     def _monomial_from_vertex(self, v):
         return prod([ self._ring.gens()[i]^v[i] for i in range(self._n) ])
@@ -142,9 +159,6 @@ class DynamicEngine:
     def change_order(self, w):
         self._order = TermOrder("wdegrevlex", w)
 
-    #Unless I'm mistaken, we can also implement the restricted algorithm
-    #easily working with Minkowski sums: it is enough to sum the previously
-    #accepted vertex with the polytope of the new basis element!
     def next(self, G, iterations, period):
         '''
         Obtain a new monomial order for G.
@@ -153,42 +167,61 @@ class DynamicEngine:
         if self._call % period != 1:
             return
         for i in range(iterations):
-            w, v, v_decomposed = self._random_minkowski_vertex(G)
+            w, v_decomposed = self._random_minkowski_vertex(G)
             I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
             if self._best_ideal is None or I < self._best_ideal:
                 self._best_ideal = I
         best_order = self._best_ideal.weights()
-        self.change_order(w)
+        print("Chose order: " + str(best_order))
+        self.change_order(best_order)
         for g in G:
             g.change_order(best_order)
-        print("Chose order: " + str(w))
 
     def _neighborhood(self, G, v_decomposed):
         N = []
         for i in range(len(G)):
             NP = G[i].newton_polyhedron()
+            NFan = G[i].normal_fan()
             v = v_decomposed[i]
+            C1 = NFan[tuple(v)]
             for u in v.neighbors():
-                pass
+                if u.is_vertex():
+                    C2 = NFan[tuple(u)]
+                    C3 = C1.intersection(C2)
+                    edge_normal = sum(C3)
+                    if edge_normal == 0:
+                        continue
+                    new_decomposition = self._find_vertices(G, edge_normal)
+                    new_decomposition[i] = u
+                    N.append((list(edge_normal), new_decomposition))
         return N
 
-    def _local_search(self, G):
-        visited = {}
-        w, v, v_decomposed = self._random_minkowski_vertex(G)
+    def _local_search(self, G, iterations):
+        visited = {} #TODO i probably have to use this!
+        initial_sol = self._random_minkowski_vertex(G)
         i = 0
-        to_visit = []
+        to_visit = [ initial_sol ]
         while i < iterations and to_visit:
-            #Generate neighbors of current node
+            #Visit node
+            w, v_decomposed = to_visit[0]
+            to_visit = to_visit[1:]
+            I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
+            if self._best_ideal is None or I < self._best_ideal:
+                self._best_ideal = I
+            #Generate neighbors, put them in the queue
+            to_visit += self._neighborhood(G, v_decomposed)
             i += 1
+        best_order = self._best_ideal.weights()
+        print("Chose order: " + str(best_order))
+        self.change_order(best_order)
+        for g in G:
+            g.change_order(best_order)
 
     def next2(self, G, iterations, period):
         self._call += 1
         if self._call % period != 1:
             return
-        #Generate an initial vertex of the Minkowski sum
-        w, v, v_decomposed = self._random_minkowski_vertex(G)
-        #Do some kind of local search around it
-        best = self._local_search(G)
+        self._local_search(G, iterations)
 
 def spol(f, g):
     '''
@@ -214,6 +247,6 @@ def buchberger(I, iterations=15, period=10):
         if f != 0:
             P = P + [ (i, len(G)) for i in range(len(G)) ]
             G.append(BasisElement(f))
-            dynamic.next(G, iterations, period)
+            dynamic.next2(G, iterations, period)
     J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
     return len(J)
