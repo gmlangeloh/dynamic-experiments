@@ -3,6 +3,7 @@ Simple implementation of Dynamic (unrestricted) Buchberger.
 '''
 
 from random import randint
+from random import shuffle
 
 def negative_orthant(n):
     '''
@@ -37,13 +38,6 @@ class BasisElement:
                 negative_orthant(n)
         return self._newton_polyhedron
 
-    #def _normal_cone(self, v):
-    #    rays = []
-    #    for u in self.newton_polyhedron().vertices():
-    #        if u != v:
-    #            rays.append(vector(v) - vector(u))
-    #    return Cone(rays)
-
     def normal_fan(self):
         if self._normal_fan is None:
             fan = {}
@@ -55,18 +49,6 @@ class BasisElement:
                 fan[tuple(vertex)] = Cone(v_rays)
             self._normal_fan = fan
         return self._normal_fan
-
-    #def normal_fan(self):
-    #    '''
-    #    The normal fan of this polynomial's Newton polyhedron as a list of
-    #    normal cones of its vertices.
-    #    '''
-    #    if self._normal_fan is None:
-    #        fan = {}
-    #        for v in self.newton_polyhedron().vertices():
-    #            fan[tuple(v)] = self._normal_cone(v)
-    #        self._normal_fan = fan
-    #    return self._normal_fan
 
     def change_order(self, w):
         new_order = TermOrder("wdegrevlex", w)
@@ -116,25 +98,26 @@ class DynamicEngine:
         self._n = n
         self._ring = R
         self._best_ideal = None
-        self._call = 0
+        self._call = -1
 
     def order(self):
         return _order
 
     def _random_vector(self):
-        coords = [ randint(1, 100) for i in range(self._n)]
+        coords = [ randint(1, 1000) for i in xrange(self._n)]
         return vector(coords)
 
     def _find_vertices(self, G, w):
         #This is O(mk), where m = |G| and k = max(len(g)) for g in G
         #TODO definitely not efficient. Make this better
         vertices = []
+        w_vec = vector(w)
         for g in G:
             NP = g.newton_polyhedron()
             min_val = float("inf")
             min_vertex = None
             for v in NP.vertices():
-                val = sum([ v[i] * w[i] for i in range(self._n) ])
+                val = vector(v) * w_vec
                 if val < min_val:
                     min_val = val
                     min_vertex = v
@@ -152,7 +135,7 @@ class DynamicEngine:
         return list(w), tuple(v), vertex_decomposition
 
     def _monomial_from_vertex(self, v):
-        return prod([ self._ring.gens()[i]^v[i] for i in range(self._n) ])
+        return prod([ self._ring.gens()[i]^v[i] for i in xrange(self._n) ])
 
     def _ideal_from_decomposition(self, decomposition):
         G = [ self._monomial_from_vertex(v) for v in decomposition ]
@@ -169,9 +152,9 @@ class DynamicEngine:
         Obtain a new monomial order for G.
         '''
         self._call += 1
-        if self._call % period != 1:
+        if self._call % period != 0:
             return
-        for i in range(iterations):
+        for i in xrange(iterations):
             w, v, v_decomposed = self._random_minkowski_vertex(G)
             I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
             if self._best_ideal is None or I < self._best_ideal:
@@ -182,7 +165,7 @@ class DynamicEngine:
 
     def _neighborhood(self, G, v_decomposed):
         N = []
-        for i in range(len(G)):
+        for i in xrange(len(G)):
             NP = G[i].newton_polyhedron()
             NFan = G[i].normal_fan()
             v = v_decomposed[i]
@@ -224,11 +207,58 @@ class DynamicEngine:
         best_order = self._best_ideal.weights()
         self.change_order(best_order, G)
 
+    def _neighborhood2(self, G, v_decomposed):
+        #TODO can do this MUCH better. Prioritize neighbors in new polys!
+        for i in xrange(len(G) - 1, -1, -1):
+            NP = G[i].newton_polyhedron()
+            NFan = G[i].normal_fan()
+            v = v_decomposed[i]
+            C1 = NFan[tuple(v)]
+            for u in v.neighbors():
+                if u.is_vertex():
+                    C2 = NFan[tuple(u)]
+                    C3 = C1.intersection(C2)
+                    edge_normal = sum(C3)
+                    new_decomposition = self._find_vertices(G, edge_normal)
+                    new_decomposition[i] = u
+                    new_vertex = sum([ vector(v) for v in new_decomposition ])
+                    yield (list(edge_normal), tuple(new_vertex), new_decomposition)
+
+    def _local_search2(self, G, iterations):
+        w, v, v_decomposed = self._random_minkowski_vertex(G)
+        print(w)
+        current = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
+        to_visit = self._neighborhood2(G, v_decomposed)
+        i = 0
+        while i < iterations:
+            try:
+                #Visit node
+                w, v, v_decomposed = next(to_visit)
+                I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
+                if I < current:
+                    print(w)
+                    current = I
+                    #Change current neighborhood to the next one (first improvement)
+                    to_visit = self._neighborhood2(G, v_decomposed)
+                i += 1
+            except StopIteration:
+                break
+        #TODO make better checks if we should take current or not!!!
+        self._best_ideal = current
+        best_order = self._best_ideal.weights()
+        self.change_order(best_order, G)
+
     def next2(self, G, iterations, period):
         self._call += 1
-        if self._call % period != 1:
+        if self._call % period != 0:
             return
         self._local_search(G, iterations)
+
+    def next3(self, G, iterations, period):
+        self._call += 1
+        if self._call % period != 0:
+            return
+        self._local_search2(G, iterations)
 
 def spol(f, g):
     '''
@@ -244,7 +274,7 @@ def buchberger(I, iterations=15, period=10):
     dynamic engine.
     '''
     G = [ BasisElement(g) for g in I.gens() ]
-    P = [ (i, j) for i in range(len(G)) for j in range(i) ]
+    P = [ (i, j) for i in xrange(len(G)) for j in xrange(i) ]
     dynamic = DynamicEngine(I.ring())
     while P:
         (i, j) = P[0]
@@ -252,8 +282,8 @@ def buchberger(I, iterations=15, period=10):
         s = spol(G[i].polynomial(), G[j].polynomial())
         f = s.reduce([ g.polynomial() for g in G])
         if f != 0:
-            P = P + [ (i, len(G)) for i in range(len(G)) ]
+            P = P + [ (i, len(G)) for i in xrange(len(G)) ]
             G.append(BasisElement(f))
-            dynamic.next2(G, iterations, period)
+            dynamic.next3(G, iterations, period)
     J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
     return len(J)
