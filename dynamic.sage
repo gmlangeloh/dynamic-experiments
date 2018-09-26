@@ -213,16 +213,15 @@ class DynamicEngine:
             NP = G[i].newton_polyhedron()
             NFan = G[i].normal_fan()
             v = v_decomposed[i]
-            C1 = NFan[tuple(v)]
+            #This is slow, Sage computes the entire face lattice of the Polyhedron...
             for u in v.neighbors():
                 if u.is_vertex():
-                    C2 = NFan[tuple(u)]
-                    C3 = C1.intersection(C2)
-                    edge_normal = sum(C3)
-                    new_decomposition = self._find_vertices(G, edge_normal)
+                    cone_u = NFan[tuple(u)]
+                    new_w = sum(cone_u)
+                    new_decomposition = self._find_vertices(G, new_w)
                     new_decomposition[i] = u
                     new_vertex = sum([ vector(v) for v in new_decomposition ])
-                    yield (list(edge_normal), tuple(new_vertex), new_decomposition)
+                    yield (list(new_w), tuple(new_vertex), new_decomposition)
 
     def _local_search2(self, G, iterations):
         w, v, v_decomposed = self._random_minkowski_vertex(G)
