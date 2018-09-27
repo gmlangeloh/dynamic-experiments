@@ -47,7 +47,7 @@ class BasisElement:
             for vertex in NP.vertices():
                 indices = [ ieq.index() for ieq in vertex.incident() ]
                 v_rays = [ rays[i] for i in indices ]
-                fan[tuple(vertex)] = sum(v_rays)#Cone(v_rays)
+                fan[tuple(vertex)] = sum(v_rays)
             self._normal_fan = fan
         return self._normal_fan
 
@@ -115,7 +115,6 @@ class DynamicEngine:
 
     def _find_vertices(self, G, w):
         #This is O(mk), where m = |G| and k = max(len(g)) for g in G
-        #TODO definitely not efficient. Make this better
         vertices = []
         w_vec = vector(w)
         for g in G:
@@ -153,16 +152,13 @@ class DynamicEngine:
             g.change_order(w)
 
     def _neighborhood(self, G, v_decomposed, restricted):
-        #TODO can do this MUCH better. Prioritize neighbors in new polys!
         R = [ -1 ] if restricted else xrange(len(G) - 1, -1, -1) 
         for i in R:
             NFan = G[i].normal_fan()
             graph = G[i].graph()
             v = v_decomposed[i]
-            #This is slow, Sage computes the entire face lattice of the Polyhedron...
             for u in graph.neighbors(v):
-                #cone_u = NFan[tuple(u)]
-                new_w = NFan[tuple(u)] #sum(cone_u)
+                new_w = NFan[tuple(u)]
                 new_decomposition = self._find_vertices(G, new_w)
                 new_decomposition[i] = u
                 yield (list(new_w), new_decomposition)
@@ -229,9 +225,11 @@ def buchberger(I, use_dynamic = True, iterations=15, period=10, restricted = Fal
         s = spol(G[i].polynomial(), G[j].polynomial())
         f = s.reduce([ g.polynomial() for g in G])
         if f != 0:
-            P = P + [ (i, len(G)) for i in xrange(len(G)) ]
+            #P = P + [ (i, len(G)) for i in xrange(len(G)) ]
             G.append(BasisElement(f))
             if use_dynamic:
                 dynamic.next(G, iterations, period, restricted)
+            #TODO could take interreduced basis here!!!
+            P = [ (i, j) for i in xrange(len(G)) for j in xrange(i) ] #in unrestricted case, this is needed!
     J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
     return len(J)
