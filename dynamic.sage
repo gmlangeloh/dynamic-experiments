@@ -152,9 +152,10 @@ class DynamicEngine:
         for g in G:
             g.change_order(w)
 
-    def _neighborhood(self, G, v_decomposed):
+    def _neighborhood(self, G, v_decomposed, restricted):
         #TODO can do this MUCH better. Prioritize neighbors in new polys!
-        for i in xrange(len(G) - 1, -1, -1):
+        R = [ -1 ] if restricted else xrange(len(G) - 1, -1, -1) 
+        for i in R:
             NFan = G[i].normal_fan()
             graph = G[i].graph()
             v = v_decomposed[i]
@@ -166,11 +167,11 @@ class DynamicEngine:
                 new_decomposition[i] = u
                 yield (list(new_w), new_decomposition)
 
-    def _local_search(self, G, iterations):
+    def _local_search(self, G, iterations, restricted):
         w, v_decomposed = self._random_minkowski_vertex(G)
         print(w)
         current = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
-        to_visit = self._neighborhood(G, v_decomposed)
+        to_visit = self._neighborhood(G, v_decomposed, restricted)
         i = 0
         while i < iterations:
             try:
@@ -181,7 +182,7 @@ class DynamicEngine:
                     print(w)
                     current = I
                     #Change current neighborhood to the next one (first improvement)
-                    to_visit = self._neighborhood(G, v_decomposed)
+                    to_visit = self._neighborhood(G, v_decomposed, restricted)
                 i += 1
             except StopIteration:
                 break
@@ -199,11 +200,11 @@ class DynamicEngine:
                 best_order = self._best_ideal.weights()
                 self.change_order(best_order, G)
 
-    def next(self, G, iterations, period):
+    def next(self, G, iterations, period, restricted):
         self._call += 1
         if self._call % period != 0:
             return
-        self._local_search(G, iterations)
+        self._local_search(G, iterations, restricted)
 
 def spol(f, g):
     '''
@@ -213,7 +214,7 @@ def spol(f, g):
     l = R.monomial_lcm(f.lm(), g.lm())
     return R(l / f.lt()) * f - R(l / g.lt()) * g
 
-def buchberger(I, use_dynamic = True, iterations=15, period=10):
+def buchberger(I, use_dynamic = True, iterations=15, period=10, restricted = False):
     '''
     Very naive implementation of Buchberger's algorithm with support for a
     dynamic engine.
@@ -231,6 +232,6 @@ def buchberger(I, use_dynamic = True, iterations=15, period=10):
             P = P + [ (i, len(G)) for i in xrange(len(G)) ]
             G.append(BasisElement(f))
             if use_dynamic:
-                dynamic.next(G, iterations, period)
+                dynamic.next(G, iterations, period, restricted)
     J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
     return len(J)
