@@ -167,21 +167,21 @@ class DynamicEngine:
                 yield (list(new_w), new_decomposition)
 
     def _local_search(self, G, iterations):
-        w, v, v_decomposed = self._random_minkowski_vertex(G)
+        w, v_decomposed = self._random_minkowski_vertex(G)
         print(w)
         current = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
-        to_visit = self._neighborhood2(G, v_decomposed)
+        to_visit = self._neighborhood(G, v_decomposed)
         i = 0
         while i < iterations:
             try:
                 #Visit node
-                w, v, v_decomposed = next(to_visit)
+                w, v_decomposed = next(to_visit)
                 I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
                 if I < current:
                     print(w)
                     current = I
                     #Change current neighborhood to the next one (first improvement)
-                    to_visit = self._neighborhood2(G, v_decomposed)
+                    to_visit = self._neighborhood(G, v_decomposed)
                 i += 1
             except StopIteration:
                 break
@@ -213,14 +213,15 @@ def spol(f, g):
     l = R.monomial_lcm(f.lm(), g.lm())
     return R(l / f.lt()) * f - R(l / g.lt()) * g
 
-def buchberger(I, iterations=15, period=10):
+def buchberger(I, use_dynamic = True, iterations=15, period=10):
     '''
     Very naive implementation of Buchberger's algorithm with support for a
     dynamic engine.
     '''
     G = [ BasisElement(g) for g in I.gens() ]
     P = [ (i, j) for i in xrange(len(G)) for j in xrange(i) ]
-    dynamic = DynamicEngine(I.ring())
+    if use_dynamic:
+        dynamic = DynamicEngine(I.ring())
     while P:
         (i, j) = P[0]
         P = P[1:]
@@ -229,6 +230,7 @@ def buchberger(I, iterations=15, period=10):
         if f != 0:
             P = P + [ (i, len(G)) for i in xrange(len(G)) ]
             G.append(BasisElement(f))
-            dynamic.next(G, iterations, period)
+            if use_dynamic:
+                dynamic.next(G, iterations, period)
     J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
     return len(J)
