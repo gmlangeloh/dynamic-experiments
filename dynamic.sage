@@ -230,6 +230,8 @@ def buchberger(I, use_dynamic = True, iterations=15, period=10, restricted = Fal
             if use_dynamic:
                 dynamic.next(G, iterations, period, restricted)
             #TODO could take interreduced basis here!!!
+            J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
+            G = [ BasisElement(g) for g in J ]
             P = [ (i, j) for i in xrange(len(G)) for j in xrange(i) ] #in unrestricted case, this is needed!
     J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
     return len(J)
