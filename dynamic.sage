@@ -17,6 +17,7 @@ class BasisElement:
     Newton Polyhedron.
     '''
     def __init__(self, f):
+        self._graph = None
         self._newton_polyhedron = None
         self._normal_fan = None
         self._polynomial = f
@@ -46,9 +47,14 @@ class BasisElement:
             for vertex in NP.vertices():
                 indices = [ ieq.index() for ieq in vertex.incident() ]
                 v_rays = [ rays[i] for i in indices ]
-                fan[tuple(vertex)] = Cone(v_rays)
+                fan[tuple(vertex)] = sum(v_rays)#Cone(v_rays)
             self._normal_fan = fan
         return self._normal_fan
+
+    def graph(self):
+        if self._graph is None:
+            self._graph = self.newton_polyhedron().vertex_graph()
+        return self._graph
 
     def change_order(self, w):
         new_order = TermOrder("wdegrevlex", w)
@@ -113,10 +119,10 @@ class DynamicEngine:
         vertices = []
         w_vec = vector(w)
         for g in G:
-            NP = g.newton_polyhedron()
+            graph = g.graph()
             min_val = float("inf")
             min_vertex = None
-            for v in NP.vertices():
+            for v in graph.vertices():
                 val = vector(v) * w_vec
                 if val < min_val:
                     min_val = val
@@ -131,8 +137,7 @@ class DynamicEngine:
         '''
         w = self._random_vector()
         vertex_decomposition = self._find_vertices(G, w)
-        v = sum([ vector(v) for v in vertex_decomposition])
-        return list(w), tuple(v), vertex_decomposition
+        return list(w), vertex_decomposition
 
     def _monomial_from_vertex(self, v):
         return prod([ self._ring.gens()[i]^v[i] for i in xrange(self._n) ])
@@ -147,83 +152,21 @@ class DynamicEngine:
         for g in G:
             g.change_order(w)
 
-    def next(self, G, iterations, period):
-        '''
-        Obtain a new monomial order for G.
-        '''
-        self._call += 1
-        if self._call % period != 0:
-            return
-        for i in xrange(iterations):
-            w, v, v_decomposed = self._random_minkowski_vertex(G)
-            I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
-            if self._best_ideal is None or I < self._best_ideal:
-                self._best_ideal = I
-        best_order = self._best_ideal.weights()
-        print("Chose order: " + str(best_order))
-        self.change_order(best_order, G)
-
     def _neighborhood(self, G, v_decomposed):
-        N = []
-        for i in xrange(len(G)):
-            NP = G[i].newton_polyhedron()
-            NFan = G[i].normal_fan()
-            v = v_decomposed[i]
-            C1 = NFan[tuple(v)]
-            for u in v.neighbors():
-                if u.is_vertex():
-                    C2 = NFan[tuple(u)]
-                    C3 = C1.intersection(C2)
-                    edge_normal = sum(C3)
-                    if edge_normal == 0:
-                        continue
-                    new_decomposition = self._find_vertices(G, edge_normal)
-                    new_decomposition[i] = u
-                    new_vertex = sum([ vector(v) for v in new_decomposition ])
-                    N.append((list(edge_normal), tuple(new_vertex), new_decomposition))
-        return N
-
-    def _local_search(self, G, iterations):
-        visited = {}
-        initial_sol = self._random_minkowski_vertex(G)
-        i = 0
-        to_visit = [ initial_sol ]
-        current = None
-        while i < iterations and to_visit:
-            #Visit node
-            w, v, v_decomposed = to_visit[0]
-            to_visit = to_visit[1:]
-            if v in visited:
-                continue
-            visited[v] = True
-            I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
-            if current is None or I < current:
-                current = I
-            #Generate neighbors, put them in the queue
-            to_visit += self._neighborhood(G, v_decomposed)
-            i += 1
-        if self._best_ideal is None or current < self._best_ideal:
-            self._best_ideal = current
-        best_order = self._best_ideal.weights()
-        self.change_order(best_order, G)
-
-    def _neighborhood2(self, G, v_decomposed):
         #TODO can do this MUCH better. Prioritize neighbors in new polys!
         for i in xrange(len(G) - 1, -1, -1):
-            NP = G[i].newton_polyhedron()
             NFan = G[i].normal_fan()
+            graph = G[i].graph()
             v = v_decomposed[i]
             #This is slow, Sage computes the entire face lattice of the Polyhedron...
-            for u in v.neighbors():
-                if u.is_vertex():
-                    cone_u = NFan[tuple(u)]
-                    new_w = sum(cone_u)
-                    new_decomposition = self._find_vertices(G, new_w)
-                    new_decomposition[i] = u
-                    new_vertex = sum([ vector(v) for v in new_decomposition ])
-                    yield (list(new_w), tuple(new_vertex), new_decomposition)
+            for u in graph.neighbors(v):
+                #cone_u = NFan[tuple(u)]
+                new_w = NFan[tuple(u)] #sum(cone_u)
+                new_decomposition = self._find_vertices(G, new_w)
+                new_decomposition[i] = u
+                yield (list(new_w), new_decomposition)
 
-    def _local_search2(self, G, iterations):
+    def _local_search(self, G, iterations):
         w, v, v_decomposed = self._random_minkowski_vertex(G)
         print(w)
         current = MonomialIdeal(self._ideal_from_decomposition(v_decomposed), w)
@@ -242,22 +185,25 @@ class DynamicEngine:
                 i += 1
             except StopIteration:
                 break
-        #TODO make better checks if we should take current or not!!!
-        self._best_ideal = current
-        best_order = self._best_ideal.weights()
-        self.change_order(best_order, G)
+        if self._best_ideal is None:
+            self._best_ideal = current
+            best_order = self._best_ideal.weights()
+            self.change_order(best_order, G)
+        else:
+            prev_weights = self._best_ideal.weights()
+            prev_decomposition = self._find_vertices(G, prev_weights)
+            previous = MonomialIdeal(self._ideal_from_decomposition( \
+                prev_decomposition), prev_weights)
+            if current < previous:
+                self._best_ideal = current
+                best_order = self._best_ideal.weights()
+                self.change_order(best_order, G)
 
-    def next2(self, G, iterations, period):
+    def next(self, G, iterations, period):
         self._call += 1
         if self._call % period != 0:
             return
         self._local_search(G, iterations)
-
-    def next3(self, G, iterations, period):
-        self._call += 1
-        if self._call % period != 0:
-            return
-        self._local_search2(G, iterations)
 
 def spol(f, g):
     '''
@@ -283,6 +229,6 @@ def buchberger(I, iterations=15, period=10):
         if f != 0:
             P = P + [ (i, len(G)) for i in xrange(len(G)) ]
             G.append(BasisElement(f))
-            dynamic.next3(G, iterations, period)
+            dynamic.next(G, iterations, period)
     J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
     return len(J)
