@@ -70,7 +70,7 @@ class MonomialIdeal:
     def __init__(self, I, w, vertices = None):
         self._ideal = I
         self._ring = I.ring()
-        self._weights = w
+        self._weights = vector(w)
         self._n = I.ring().ngens()
         self._vertices = vertices
         self._hilbert = None
@@ -174,7 +174,7 @@ class DynamicEngine:
         print(self._best_ideal.hilbert().degree(), self._best_ideal.hilbert().lc())
         self._order = TermOrder("wdegrevlex", w)
         for g in G:
-            g.change_order(w)
+            g.change_order(list(w))
 
     def _neighborhood(self, G, v_decomposed):
         for i in xrange(len(G) - 1, -1, -1):
@@ -273,11 +273,10 @@ class DynamicEngine:
             if current is None or I < current:
                 current = I
                 min_cone = C_int
-        if current is None:
-            print(G[-1].polynomial())
+        #TODO for some reason, sometimes it chooses 0-weight vectors
+        if any([ w == 0 for w in current.weights() ]):
+            return
         self._cone = min_cone
-        #print(self._best_ideal._ideal)
-        #print(current._ideal)
         self._best_ideal = current
         best_order = self._best_ideal.weights()
         print("R: Chose order " + str(list(best_order)))
@@ -289,13 +288,32 @@ def spol(f, g):
     '''
     R = f.parent()
     l = R.monomial_lcm(f.lm(), g.lm())
-    return R(l / f.lt()) * f - R(l / g.lt()) * g
+    a = R.monomial_quotient(l, f.lt())
+    b = R.monomial_quotient(l, g.lt())
+    return a * f - b * g
+
+reductions = 0
+useful_reductions = 0
+
+def clear_metadata():
+    global reductions
+    reductions = 0
+    useful_reductions = 0
+
+def print_metadata(G):
+    print("S-reductions: " + str(reductions))
+    print("S-reductions (useful): " + str(useful_reductions))
+    print("Size (before interreduction): " + str(len(G)))
+    J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
+    print("Size (after interreduction): " + str(len(J)))
 
 def buchberger(I, use_dynamic = True, iterations=15, period=10):
     '''
     Very naive implementation of Buchberger's algorithm with support for a
     dynamic engine.
     '''
+    global reductions, useful_reductions
+    clear_metadata()
     G = [ BasisElement(g) for g in I.gens() ]
     P = [ (i, j) for i in xrange(len(G)) for j in xrange(i) ]
     if use_dynamic:
@@ -305,10 +323,10 @@ def buchberger(I, use_dynamic = True, iterations=15, period=10):
         P = P[1:]
         s = spol(G[i].polynomial(), G[j].polynomial())
         f = s.reduce([ g.polynomial() for g in G])
+        reductions += 1
         if f != 0:
-            #P = P + [ (i, len(G)) for i in xrange(len(G)) ]
+            useful_reductions += 1
             G.append(BasisElement(f))
             if use_dynamic:
                 G, P = dynamic.next(G, P, iterations, period)
-    J = ideal([ g.polynomial() for g in G ]).interreduced_basis()
-    return len(J)
+    print_metadata(G)
