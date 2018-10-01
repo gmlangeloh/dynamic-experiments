@@ -135,7 +135,7 @@ class DynamicEngine:
         return _order
 
     def _random_vector(self):
-        coords = [ randint(1, 1000) for i in xrange(self._n)]
+        coords = [ randint(1, 10) for i in xrange(self._n)]
         return vector(coords)
 
     def _find_vertices(self, G, w):
@@ -144,14 +144,14 @@ class DynamicEngine:
         w_vec = vector(w)
         for g in G:
             graph = g.graph()
-            min_val = float("inf")
-            min_vertex = None
+            max_val = float("-inf")
+            max_vertex = None
             for v in graph.vertices():
                 val = vector(v) * w_vec
-                if val < min_val:
-                    min_val = val
-                    min_vertex = v
-            vertices.append(min_vertex)
+                if val > max_val:
+                    max_val = val
+                    max_vertex = v
+            vertices.append(max_vertex)
         return vertices
 
     def _random_minkowski_vertex(self, G):
@@ -177,7 +177,9 @@ class DynamicEngine:
             g.change_order(list(w))
 
     def _neighborhood(self, G, v_decomposed):
-        for i in xrange(len(G) - 1, -1, -1):
+        R = xrange(len(G) - 1, -1, -1)
+        #R = xrange(len(G))
+        for i in R:
             NFan = G[i].normal_fan()
             graph = G[i].graph()
             v = v_decomposed[i]
@@ -185,7 +187,6 @@ class DynamicEngine:
                 C = NFan[tuple(u)] #This could maybe be optimized...
                 new_w = sum(C)
                 new_decomposition = self._find_vertices(G, new_w)
-                new_decomposition[i] = u
                 yield (list(new_w), new_decomposition)
 
     def _local_search(self, G, iterations):
@@ -214,7 +215,6 @@ class DynamicEngine:
             print("U: Chose order: " + str(w))
             self.change_order(best_order, G)
         else:
-            #This can be optimized a little
             self._best_ideal.update(G[-1])
             if current < self._best_ideal:
                 self._best_ideal = current
@@ -249,6 +249,7 @@ class DynamicEngine:
             return self._recompute_basis_pairs(G)
 
     def _restricted_search(self, G):
+        #TODO for some reason, this always goes towards grevlex
         '''
         A very naive implementation of Caboara and Perry's restricted
         dynamic step.
@@ -273,7 +274,6 @@ class DynamicEngine:
             if current is None or I < current:
                 current = I
                 min_cone = C_int
-        #TODO for some reason, sometimes it chooses 0-weight vectors
         if any([ w == 0 for w in current.weights() ]):
             return
         self._cone = min_cone
@@ -296,7 +296,7 @@ reductions = 0
 useful_reductions = 0
 
 def clear_metadata():
-    global reductions
+    global reductions, useful_reductions
     reductions = 0
     useful_reductions = 0
 
@@ -329,4 +329,6 @@ def buchberger(I, use_dynamic = True, iterations=15, period=10):
             G.append(BasisElement(f))
             if use_dynamic:
                 G, P = dynamic.next(G, P, iterations, period)
+            else:
+                P = P + [ (i, len(G) - 1) for i in xrange(len(G)) ]
     print_metadata(G)
