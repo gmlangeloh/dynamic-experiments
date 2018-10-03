@@ -50,6 +50,8 @@ class HilbertGraph:
 
     def __init__(self, polyhedron, G):
         gr = polyhedron.vertex_graph()
+        self._polyhedron = polyhedron
+        self._polynomial_system = G
         self._graph = DiGraph()
         self._graph.add_vertices(gr.vertices())
         edges = []
@@ -71,6 +73,24 @@ class HilbertGraph:
                         edges.append(e2)
         self._graph.add_edges(edges)
 
+    def graph(self):
+        return self._graph
+
+    def heights(self):
+
+        def height(v):
+            Iv = ideal_lt_from_vertex(v, self._polyhedron, self._polynomial_system)
+            return Iv.hilbert().degree() * 10 + float(Iv.hilbert().lc())
+
+        h_dict = {}
+        for v in self.graph().vertices():
+            h = height(v)
+            if h not in h_dict:
+                h_dict[h] = [v]
+            else:
+                h_dict[h].append(v)
+        return h_dict
+
 def graph(G):
     r'''
     Computes the Hilbert graph of the polynomial system G.
@@ -78,8 +98,12 @@ def graph(G):
     P = minkowski_sum(G)
     return HilbertGraph(P, G)
 
+def graph_partial(G, i):
+    P = minkowski_sum([G[i]])
+    return HilbertGraph(P, [G[i]])
+
 def test():
     R = PolynomialRing(GF(32003), "x", 3)
     G = [ R.random_element(degree=5, terms=10) for j in range(3) ]
     gr = graph(G)
-    gr._graph.show()
+    gr._graph.show(edge_style="dashed")

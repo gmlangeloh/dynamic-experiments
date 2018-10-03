@@ -81,6 +81,12 @@ class DynamicEngine:
         coords = [ randint(1, 10) for i in xrange(self._n)]
         return vector(coords)
 
+    def _not_so_random_vector(self):
+        coords = [ randint(1, 10) for i in xrange(self._n)]
+        perturb = randint(0, self._n - 1)
+        coords[perturb] = randint(100, 10000)
+        return vector(coords)
+
     def _find_vertices(self, G, w):
         #This is O(mk), where m = |G| and k = max(len(g)) for g in G
         vertices = []
@@ -102,7 +108,9 @@ class DynamicEngine:
         Returns a random vertex of the Minkowski sum of the Newton polyhedra
         in G.
         '''
-        w = self._random_vector()
+        #w = self._random_vector()
+        w = self._not_so_random_vector()
+        print(w)
         vertex_decomposition = self._find_vertices(G, w)
         return list(w), vertex_decomposition
 
@@ -120,16 +128,46 @@ class DynamicEngine:
             g.change_order(list(w))
 
     def _neighborhood(self, G, v_decomposed):
+
+        def diff(L1, L2):
+            assert(len(L1) == len(L2))
+            equal = 0
+            for i in range(len(L1)):
+                if L1[i] == L2[i]:
+                    equal += 1
+            return equal
+
+        def mink(G):
+            S = G[0].newton_polyhedron()
+            for i in xrange(1, len(G)):
+                S += G[i].newton_polyhedron()
+            return S
+
         R = xrange(len(G) - 1, -1, -1)
+        M = mink(G)
         #R = xrange(len(G))
         for i in R:
             NFan = G[i].normal_fan()
             graph = G[i].graph()
             v = v_decomposed[i]
+            #S = sum(vector(u) for u in v_decomposed)
+            S = sum(v_decomposed)
+            Cv = NFan[tuple(v)]
             for u in graph.neighbors(v):
-                C = NFan[tuple(u)] #This could maybe be optimized...
-                new_w = sum(C)
+                Cu = NFan[tuple(u)] #This could maybe be optimized...
+                C = Cv.intersection(Cu)
+                new_w = 10000 * sum(C) + sum(Cu) #Integer version of taking an epsilon...
                 new_decomposition = self._find_vertices(G, new_w)
+                #S2 = sum(vector(u2) for u2 in new_decomposition)
+                S2 = sum(new_decomposition)
+                if S2 in list(S.neighbors()):
+                    print("HEEY")
+                assert(new_decomposition[i] == u)
+                assert(Cu.relative_interior_contains(new_w))
+                e = diff(v_decomposed, new_decomposition)
+                if len(v_decomposed) - e == 1:
+                    print("HULLLO")
+                #print(e, len(v_decomposed) - e, sum([ vector(v) for v in new_decomposition]))
                 yield (list(new_w), new_decomposition)
 
     def _local_search(self, G, iterations):
