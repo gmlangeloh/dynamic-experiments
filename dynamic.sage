@@ -108,9 +108,8 @@ class DynamicEngine:
         Returns a random vertex of the Minkowski sum of the Newton polyhedra
         in G.
         '''
-        #w = self._random_vector()
-        w = self._not_so_random_vector()
-        print(w)
+        w = self._random_vector()
+        #w = self._not_so_random_vector()
         vertex_decomposition = self._find_vertices(G, w)
         return list(w), vertex_decomposition
 
@@ -128,89 +127,74 @@ class DynamicEngine:
             g.change_order(list(w))
 
     def _neighborhood(self, G, v_decomposed):
-
-        def diff(L1, L2):
-            assert(len(L1) == len(L2))
-            equal = 0
-            for i in range(len(L1)):
-                if L1[i] == L2[i]:
-                    equal += 1
-            return equal
-
-        def mink(G):
-            S = G[0].newton_polyhedron()
-            for i in xrange(1, len(G)):
-                S += G[i].newton_polyhedron()
-            return S
-
-        def vertex_in(v, P):
-            m = len(v)
-            for u in P.vertices():
-                if all([v[i] == u[i] for i in range(m)]):
-                    return u
-            return None
-
         R = xrange(len(G) - 1, -1, -1)
-        #M = mink(G)
-        #R = xrange(len(G))
         for i in R:
             NFan = G[i].normal_fan()
             graph = G[i].graph()
             v = v_decomposed[i]
-            #S = sum(vector(u) for u in v_decomposed)
-            #S = sum([vector(u) for u in v_decomposed])
-            #S = vertex_in(S, M)
-            #s = len([u for u in S.neighbors() if u.is_vertex()])
-            #print("N:" + str(s))
             Cv = NFan[tuple(v)]
             for u in graph.neighbors(v):
                 Cu = NFan[tuple(u)] #This could maybe be optimized...
                 C = Cv.intersection(Cu)
                 new_w = 10000 * sum(C) + sum(Cu) #Integer version of taking an epsilon...
                 new_decomposition = self._find_vertices(G, new_w)
-                #S2 = sum(vector(u2) for u2 in new_decomposition)
-                #S2 = sum([vector(u2) for u2 in new_decomposition])
-                #S2 = vertex_in(S2, M)
-                #if S2 in list(S.neighbors()):
-                #    print("HEEY")
                 assert(new_decomposition[i] == u)
                 assert(Cu.relative_interior_contains(new_w))
-                #e = diff(v_decomposed, new_decomposition)
-                #print(e, len(v_decomposed) - e, sum([ vector(v) for v in new_decomposition]))
                 yield (list(new_w), new_decomposition)
+
+    def _neighborhood2(self, G, w):
+        new_w = w[:]
+        for i in range(self._n):
+            new_w[i] += 1
+            yield (list(new_w), self._find_vertices(G, new_w))
+            if new_w[i] > 2:
+                new_w[i] -= 2
+                yield (list(new_w), self._find_vertices(G, new_w))
+                new_w[i] += 1
+            else:
+                new_w[i] -= 1
 
     def _local_search(self, G, iterations):
         w, v_decomposed = self._random_minkowski_vertex(G)
         current = MonomialIdeal(self._ideal_from_decomposition(v_decomposed),\
                                 w, v_decomposed)
-        to_visit = self._neighborhood(G, v_decomposed)
+        #to_visit = self._neighborhood(G, v_decomposed)
+        to_visit = self._neighborhood2(G, w)
+        visited = {}
+        v = sum(vector(u) for u in v_decomposed)
+        visited[tuple(v)] = True
         i = 0
         while i < iterations:
             try:
                 #Visit node
+                #Save which nodes were visited!!!
                 w, v_decomposed = next(to_visit)
+                v = sum(vector(u) for u in v_decomposed)
+                if tuple(v) in visited:
+                    continue
+                visited[tuple(v)] = True
                 I = MonomialIdeal(self._ideal_from_decomposition(v_decomposed),\
                                   w, v_decomposed)
                 if I < current:
                     current = I
                     #Change current neighborhood to the next one (first improvement)
-                    to_visit = self._neighborhood(G, v_decomposed)
+                    to_visit = self._neighborhood2(G, w)
                 i += 1
             except StopIteration:
                 break
         if self._best_ideal is None:
             self._best_ideal = current
             best_order = self._best_ideal.weights()
-            self._cone = self._initial_cone(G, self._best_ideal.vertices())
-            print("U: Chose order: " + str(w))
+            #self._cone = self._initial_cone(G, self._best_ideal.vertices())
+            print("U: Chose order: " + str(best_order))
             self.change_order(best_order, G)
         else:
             self._best_ideal.update(G[-1])
             if current < self._best_ideal:
                 self._best_ideal = current
-                self._cone = self._initial_cone(G, self._best_ideal.vertices())
+                #self._cone = self._initial_cone(G, self._best_ideal.vertices())
                 best_order = self._best_ideal.weights()
-                print("U: Chose order: " + str(w))
+                print("U: Chose order: " + str(best_order))
                 self.change_order(best_order, G)
 
     def _initial_cone(self, G, decomposition):
