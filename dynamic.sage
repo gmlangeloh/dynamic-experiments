@@ -143,15 +143,25 @@ class DynamicEngine:
                 S += G[i].newton_polyhedron()
             return S
 
+        def vertex_in(v, P):
+            m = len(v)
+            for u in P.vertices():
+                if all([v[i] == u[i] for i in range(m)]):
+                    return u
+            return None
+
         R = xrange(len(G) - 1, -1, -1)
-        M = mink(G)
+        #M = mink(G)
         #R = xrange(len(G))
         for i in R:
             NFan = G[i].normal_fan()
             graph = G[i].graph()
             v = v_decomposed[i]
             #S = sum(vector(u) for u in v_decomposed)
-            S = sum(v_decomposed)
+            #S = sum([vector(u) for u in v_decomposed])
+            #S = vertex_in(S, M)
+            #s = len([u for u in S.neighbors() if u.is_vertex()])
+            #print("N:" + str(s))
             Cv = NFan[tuple(v)]
             for u in graph.neighbors(v):
                 Cu = NFan[tuple(u)] #This could maybe be optimized...
@@ -159,14 +169,13 @@ class DynamicEngine:
                 new_w = 10000 * sum(C) + sum(Cu) #Integer version of taking an epsilon...
                 new_decomposition = self._find_vertices(G, new_w)
                 #S2 = sum(vector(u2) for u2 in new_decomposition)
-                S2 = sum(new_decomposition)
-                if S2 in list(S.neighbors()):
-                    print("HEEY")
+                #S2 = sum([vector(u2) for u2 in new_decomposition])
+                #S2 = vertex_in(S2, M)
+                #if S2 in list(S.neighbors()):
+                #    print("HEEY")
                 assert(new_decomposition[i] == u)
                 assert(Cu.relative_interior_contains(new_w))
-                e = diff(v_decomposed, new_decomposition)
-                if len(v_decomposed) - e == 1:
-                    print("HULLLO")
+                #e = diff(v_decomposed, new_decomposition)
                 #print(e, len(v_decomposed) - e, sum([ vector(v) for v in new_decomposition]))
                 yield (list(new_w), new_decomposition)
 
