@@ -698,7 +698,8 @@ cpdef int hs_heuristic(f, g):
 
     if f[1] == g[1]: return 0
     else:
-      return (f[1]-g[1]).numerator().coefficients()[-1]
+      C = (f[1]-g[1]).numerator().coefficients()
+      return C[len(C)-1]
 
   else: return f[0].degree() - g[0].degree()
 
@@ -1067,13 +1068,13 @@ cpdef deg_of_critical_pair(tuple pair):
 # the next three functions are used for sorting the critical pairs
 
 @cython.profile(True)
-cpdef last_element(tuple p): return p[-1] # b/c cython doesn't allow lambda experessions, I think
+cpdef last_element(tuple p): return p[len(p)-1] # b/c cython doesn't allow lambda experessions, I think
 
 @cython.profile(True)
-cpdef lcm_then_last_element(tuple p): return (lcm_of_critical_pair(p), p[-1])
+cpdef lcm_then_last_element(tuple p): return (lcm_of_critical_pair(p), p[len(p)-1])
 
 @cython.profile(True)
-cpdef last_element_then_lcm(tuple p): return (p[-1], lcm_of_critical_pair(p))
+cpdef last_element_then_lcm(tuple p): return (p[len(p)-1], lcm_of_critical_pair(p))
 
 @cython.profile(True)
 cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, strategy):
@@ -1371,7 +1372,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
     if d < dmax: # don't go further than requested
 
       # compute s-polynomials
-      if sugar_strategy: print "current sugar", Pd[-1]
+      if sugar_strategy: print "current sugar", Pd[len(Pd)-1]
       s = spoly(Pd, generators)
       number_of_spolynomials += 1
 
@@ -1407,7 +1408,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
           #print "old LTs", oldLTs
           #print "new LTs", LTs
   
-          if len(oldLTs) > 2 and oldLTs != LTs[:-1]:
+          if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
             raise ValueError, "leading terms changed" # this should never happen
 
           for k in xrange(len(generators)):
