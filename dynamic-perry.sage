@@ -43,6 +43,7 @@ from sage.rings.polynomial.multi_polynomial_libsingular cimport MPolynomialRing_
 
 from sage.rings.integer_ring import IntegerRing
 
+from sage.modules.free_module_element import vector
 from sage.modules.vector_integer_dense cimport Vector_integer_dense
 from sage.geometry.polyhedron.constructor import Polyhedron
 
@@ -799,7 +800,7 @@ cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
   #Compute the Minkowski sum
   for v1, lold in old_vertices:
     for v2 in new_polyhedron.vertex_generator():
-      vec_v1 = v1()
+      vec_v1 = vector(v1)
       vec_v2 = v2()
       new_vertices.append((list(vec_v1 + vec_v2), lold + [list(v2)]))
 
@@ -824,6 +825,7 @@ cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
     gens = []
     for s in summands:
       gens.append(prod([ R.gens()[i]**s[i] for i in xrange(n) ]))
+    CLTs.append(gens)
   LTs = min_CLT_by_Hilbert_heuristic(R, CLTs)
 
   #STEP 3: obtain a weight vector for the chosen order using linear programming
@@ -847,7 +849,9 @@ cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
     p = G[i].value()
     for m in p.monomials():
       if m != LTs[i]:
-        constraint = tuple(LTs[i].exponents()[0] - m.exponents()[0])
+        vec_v1 = vector(LTs[i].exponents()[0])
+        vec_v2 = vector(m.exponents()[0])
+        constraint = tuple(vec_v1 - vec_v2)
         lp.add_constraint(lp.sum([constraint[k]*lp[k] for k in xrange(n)]),min=tolerance_cone)
 
   lp.solve()
@@ -1524,6 +1528,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
           else:
             current_ordering, lp, boundary_vectors = choose_an_ordering(G, LTs[:m], m, current_ordering, \
               lp, rejects, boundary_vectors, use_boundary_vectors, use_disjoint_cones)
+
           # set up a ring with the current ordering
           print "current ordering", current_ordering
           PR = PolynomialRing(PR.base_ring(), PR.gens(), order=create_order(current_ordering))
@@ -1539,7 +1544,10 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
           #print "new LTs", LTs
   
           if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
-            raise ValueError, "leading terms changed" # this should never happen
+            if unrestricted: # rebuild P - this is necessary because we changed leading terms
+              pass
+            else:
+              raise ValueError, "leading terms changed" # this should never happen
 
           for k in xrange(len(generators)):
             generators[k].set_value(PR(generators[k].value()))
