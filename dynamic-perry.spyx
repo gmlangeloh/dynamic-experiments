@@ -25,6 +25,7 @@ import cython
 from cython.parallel cimport prange
 
 from sage.matrix.constructor import matrix
+from sage.matrix.special import identity_matrix
 
 from sage.libs.singular.decl cimport p_DivisibleBy
 
@@ -41,6 +42,9 @@ from sage.rings.polynomial.multi_polynomial_libsingular cimport MPolynomial_libs
 from sage.rings.polynomial.multi_polynomial_libsingular cimport MPolynomialRing_libsingular
 
 from sage.rings.integer_ring import IntegerRing
+
+from sage.modules.vector_integer_dense cimport Vector_integer_dense
+from sage.geometry.polyhedron.constructor import Polyhedron
 
 # globals, until/unless I make a class out of this
 
@@ -733,6 +737,124 @@ cpdef list sort_CLTs_by_Hilbert_heuristic(MPolynomialRing_libsingular R, list cu
 
   return CLTs
 
+cpdef list min_CLT_by_Hilbert_heuristic(MPolynomialRing_libsingular R, list CLTs):
+  r"""
+    Sorts the compatible leading monomials using the Hilbert heuristic
+    recommended by Caboara in his 1993 paper.
+    Preferable leading monomials appear earlier in the list.
+
+    INPUTS:
+    - `R` -- current ring (updated according to latest ordering!)
+    - `current_Ts` -- current list of leading terms
+    - `CLTs` -- compatible leading terms from which we want to select leading term
+      of new polynomial
+  """
+
+  cdef list leads #lists of leading monomials in CLTs
+
+  CLTs = [(R.ideal(leads).hilbert_polynomial(),
+           R.ideal(leads).hilbert_series(),
+           leads)
+          for leads in CLTs]
+  CLTs.sort(cmp=hs_heuristic)
+  #TODO this could be optimized, we are sorting just to find the minimum...
+  return CLTs[0][2]
+
+@cython.profile(True)
+cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
+  r"""
+  Chooses a weight vector for a term ordering for the basis ``G`` that minimizes the Hilbert
+  tentative function among the viable orderings from G. See [Gritzmann & Sturmfels 1993] for
+  a description of the algorithm.
+
+  INPUTS:
+
+  - ``G`` -- a basis of a polynomial ideal
+  - ``old_vertices`` -- list of tuples (``v``, summands) where ``v`` is a
+  vertex of the previous Minkowski sum
+
+  OUTPUTS:
+
+  - a weighted ordering optimizing the Hilbert heuristic
+  - a list of tuples (``v``, summands) where ``v`` is a vertex of the
+  Minkowski sum
+  """
+
+  cdef list CLTs, new_vertices, lold, summands, gens, w, LTs
+  cdef Vector_integer_dense vec_v1, vec_v2
+  cdef tuple tup, constraint
+  cdef MPolynomialRing_libsingular R = G[0].value().parent() # current ring
+  cdef MPolynomial_libsingular p = G[len(G)-1].value()
+  cdef int n = R.ngens()
+
+  #STEP 1: find candidate LTs computing a Minkowski sum
+
+  #Affine Newton polyhedron of the newest basis element
+  new_polyhedron = p.newton_polytope() + Polyhedron(rays=(-identity_matrix(n)).rows())
+
+  #List of tuples potentially in the new Minkowski sum
+  #(vertex, summands)
+  new_vertices = []
+
+  #Compute the Minkowski sum
+  for v1, lold in old_vertices:
+    for v2 in new_polyhedron.vertex_generator():
+      vec_v1 = v1()
+      vec_v2 = v2()
+      new_vertices.append((list(vec_v1 + vec_v2), lold + [list(v2)]))
+
+  #If this is the first time we are calling this, old_vertices is empty.
+  if not old_vertices:
+    new_vertices = [ (list(v),[list(v)]) for v in new_polyhedron.vertices() ]
+
+  M = new_polyhedron.parent().element_class(new_polyhedron.parent(), \
+                                            [[tup[0] for tup in new_vertices], new_polyhedron.rays(), []], \
+                                            None)
+
+  #Keep only vertices that are extreme points in the Minkowski sum ``M``
+  new_vertices = [ tup for tup in new_vertices \
+                   if tup[0] in map(list, M.vertices()) ]
+
+  #STEP 2: evaluate candidates using the Hilbert heuristic
+
+  #Compute the list of candidate LTs from the list of vertices
+  CLTs = []
+  for tup in new_vertices:
+    summands = tup[1]
+    gens = []
+    for s in summands:
+      gens.append(prod([ R.gens()[i]**s[i] for i in xrange(n) ]))
+  LTs = min_CLT_by_Hilbert_heuristic(R, CLTs)
+
+  #STEP 3: obtain a weight vector for the chosen order using linear programming
+
+  import sage.numerical.backends.glpk_backend as glpk_backend
+  lp = new_linear_program()
+  lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, glpk_backend.glp_simplex_then_intopt)
+
+  # need positive weights
+  for k in xrange(n):
+    lp.add_constraint(lp[k],min=tolerance_cone)
+    #lp.set_min(lp[k],tolerance_cone)
+    lp.set_integer(lp[k])
+    lp.set_max(lp[k],upper_bound)
+
+  # objective function: in reality, we only want a feasible solution
+  lp.set_objective(lp.sum([lp[k] for k in xrange(n)]))
+
+  # add constraints relative to each choice of LT
+  for i in xrange(len(G)):
+    p = G[i].value()
+    for m in p.monomials():
+      if m != LTs[i]:
+        constraint = tuple(LTs[i].exponents()[0] - m.exponents()[0])
+        lp.add_constraint(lp.sum([constraint[k]*lp[k] for k in xrange(n)]),min=tolerance_cone)
+
+  lp.solve()
+  w = lp.get_values([lp[k] for k in xrange(n)])
+
+  return w, new_vertices
+
 @cython.profile(True)
 cpdef tuple choose_an_ordering(list G, list current_Ts, int mold, list current_ordering, MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, int use_dcs):
   r"""
@@ -1237,7 +1359,8 @@ def create_order(list w):
 
 @cython.profile(True)
 cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimize_homogeneous=False, \
-    weighted_sugar = 0, use_boundary_vectors=True, use_disjoint_cones=True):
+                       weighted_sugar = 0, use_boundary_vectors=True, use_disjoint_cones=True, \
+                       unrestricted=False):
   r"""
     Computes a dynamic Groebner basis of the polynomial ideal generated by ``F``,
     up to degree ``dmax``.
@@ -1258,6 +1381,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
         `use_disjoint_cones` to `False` is similar to Caboara's old method
       - `use_disjoint_cones` -- whether to use disjoint cones; setting this and
         `use_boundary_vectors` to `False` is similar to Caboara's old method
+      - `unrestricted` -- uses Gritzmann-Sturmfels' dynamic algorithm instead of Caboara's
   """
   global sugar_type
   # counters
@@ -1288,6 +1412,9 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
   # variables related to the critical pairs
   cdef list P
   cdef tuple Pd
+
+  # variables related to unrestricted dynamic algorithm
+  cdef list old_vertices = list()
 
   # check the strategy first
   if strategy == 'sugar':
@@ -1392,7 +1519,10 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
 
         if not static: # choose a new ordering, coerce to new 
 
-          current_ordering, lp, boundary_vectors = choose_an_ordering(G, LTs[:m], m, current_ordering, \
+          if unrestricted:
+            current_ordering, old_vertices = choose_ordering_unrestricted(G, old_vertices)
+          else:
+            current_ordering, lp, boundary_vectors = choose_an_ordering(G, LTs[:m], m, current_ordering, \
               lp, rejects, boundary_vectors, use_boundary_vectors, use_disjoint_cones)
           # set up a ring with the current ordering
           print "current ordering", current_ordering
