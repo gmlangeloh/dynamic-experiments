@@ -856,6 +856,7 @@ cpdef list choose_local_ordering(list G, list current_ordering, int iterations =
 
   #Choose random initial vector
   curr_w = [ randint(1, 10) for i in xrange(n) ]
+  print "initial order: ", curr_w
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(curr_w))
   LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
   CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), curr_w) ]
@@ -864,7 +865,7 @@ cpdef list choose_local_ordering(list G, list current_ordering, int iterations =
   for i in xrange(iterations):
     w = curr_w[:]
     j = randint(0, n-1)
-    if w[j] == 0:
+    if w[j] < 2:
       incr = 1
     else:
       incr = choice([1, -1])
@@ -881,11 +882,13 @@ cpdef list choose_local_ordering(list G, list current_ordering, int iterations =
     CLTs = CLTs[:1]
 
   #Choose best order between `current_ordering` and `curr_w`
-  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
+  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
   LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
+  CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
   CLTs.sort(cmp=hs_heuristic)
-  return CLTs[0][2]
+  curr_w = CLTs[0][2]
+  print "finally chose order: ", curr_w
+  return curr_w
 
 @cython.profile(True)
 cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
