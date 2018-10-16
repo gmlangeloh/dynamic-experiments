@@ -790,6 +790,55 @@ cpdef list min_weights_by_Hilbert_heuristic(MPolynomialRing_libsingular R, list 
   #TODO this could be optimized, we are sorting just to find the minimum...
   return CLTs[0][2]
 
+cpdef make_solver(list G):
+  from sage.numerical.backends.generic_backend import get_solver
+  lp = get_solver(solver="GLPK")
+
+  return lp
+
+cpdef append_linear_program(glpk, MPolynomial_libsingular p):
+  r"""
+  Appends constraints and variables of the Newton polyhedron of `p` to the current
+  linear program in `glpk`.
+  """
+
+  cdef float lb, ub
+  cdef int n
+  cdef tuple a
+  cdef list variables, coefs
+
+  NP = p.newton_polytope() + Polyhedron(rays=(-identity_matrix(n)).rows())
+  lp = NP.to_linear_program(solver="GLPK")
+  n = glpk.ncols()
+  glpk.add_variables(lp.number_of_variables())
+
+  for lb, a, ub in lp.constraints():
+    variables, coefs = a
+    variables = [ i + n for i in variables ]
+    glpk.add_linear_constraint(list(zip(variables, coefs)), min=lb, max=ub)
+
+@cython.profile(True)
+cpdef list choose_simplex_ordering(list G, list current_ordering, lp, int iterations = 10):
+  r"""
+
+  """
+  cdef MPolynomialRing_libsingular R = G[0].parent()
+  cdef int k = len(G)
+  cdef int n = R.ngens()
+
+  #Initial random ordering
+  w = [ randint(1, 10) for i in xrange(n) ]
+
+  #Transform stuff in G to linear program, set objective function given by w and solve
+  append_linear_program(lp, G[len(G)-1].value())
+  lp.set_objective(w * k)
+  lp.solve()
+
+  #Get current LTs to compare with Hilbert heuristic
+
+  #Do sensitivity analysis to get neighbor
+  basic = [ i for i in lp.ncols() if lp.variable_is_basic(i) ]
+
 @cython.profile(True)
 cpdef list choose_random_ordering(list G, list current_ordering, int iterations = 10):
   r"""
