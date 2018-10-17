@@ -48,6 +48,8 @@ from sage.modules.free_module_element import vector
 from sage.modules.vector_integer_dense cimport Vector_integer_dense
 from sage.geometry.polyhedron.constructor import Polyhedron
 
+from sage.numerical.backends.glpk_backend cimport GLPKBackend
+
 # globals, until/unless I make a class out of this
 
 ZZ = IntegerRing()
@@ -790,16 +792,28 @@ cpdef list min_weights_by_Hilbert_heuristic(MPolynomialRing_libsingular R, list 
   #TODO this could be optimized, we are sorting just to find the minimum...
   return CLTs[0][2]
 
-cpdef make_solver(list G):
+cpdef GLPKBackend make_solver():
+  r"""
+  Creates an empty model in a GLPK backend solver.
+
+  OUTPUTS:
+  - a GLPK backend
+  """
+
   from sage.numerical.backends.generic_backend import get_solver
   lp = get_solver(solver="GLPK")
 
   return lp
 
-cpdef append_linear_program(glpk, MPolynomial_libsingular p):
+cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p):
   r"""
   Appends constraints and variables of the Newton polyhedron of `p` to the current
   linear program in `glpk`.
+
+  INPUTS:
+
+  - `glpk` -- current representation of the linear programming model in GLPK
+  - `p` -- polynomial whose affine Newton Polyhedron will be added to the linear programming model
   """
 
   cdef float lb, ub
@@ -817,64 +831,20 @@ cpdef append_linear_program(glpk, MPolynomial_libsingular p):
     variables = [ i + n for i in variables ]
     glpk.add_linear_constraint(list(zip(variables, coefs)), min=lb, max=ub)
 
+  return
+
 @cython.profile(True)
-cpdef list choose_simplex_ordering(list G, list current_ordering, lp, int iterations = 10):
+cpdef void sensitivity(GLPKBackend lp, int n, int k):
   r"""
+  Changes the current lp objective function to point to a neighbor.
 
+  INPUTS:
+
+  - `lp` - a GLPK linear programming model pointing to the current chosen order
+  - `n` - the number of variables in the input polynomial system
+  - `k` - the number of polynomials currently in the basis
   """
-  cdef MPolynomialRing_libsingular R = G[0].parent()
-  cdef MPolynomialRing_libsingular newR
-  cdef int k = len(G)
-  cdef int n = R.ngens()
-  cdef int m
-  cdef int i, j, it = 0
 
-  #Initial random ordering
-  w = [ randint(1, 10) for i in xrange(n) ]
-
-  #Transform last element of G to linear program, set objective function given by w and solve
-  append_linear_program(lp, G[len(G)-1].value())
-  m = lp.nrows()
-  lp.set_objective(w * k)
-  lp.solve()
-
-  #Get current LTs to compare with Hilbert heuristic
-  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
-  LTs = []
-  for i in xrange(k):
-    #build i-th leading monomial
-    monomial = 1
-    for j in xrange(n):
-      e = int(lp.get_variable_value(j + i * n))
-      monomial *= newR.gens()[j]**e
-    LTs.append(monomial)
-
-  #Do sensitivity analysis to get neighbor
-  while it < iterations:
-    change = randint(0, n-1)
-    basic = []
-    nonbasic = []
-    for i in xrange(lp.ncols()):
-      if lp.variable_is_basic(i):
-        basic.append(i)
-      else:
-        nonbasic.append(i)
-    change_basic = [ m + change + i * n for i in xrange(k) if lp.variable_is_basic(change + i * n) ]
-    #get rows corresponding to the basic and non-basic vars I want to change
-    rows = [ lp.eval_tab_row(i) for i in change_basic ]
-    min_t = float("inf")
-    max_t = float("-inf")
-
-    #compute B^{-1}N^T * c_B + c_N
-
-    #compute range
-
-    #modify right outside of range, solve again
-
-    it += 1
-
-@cython.profile(True)
-cpdef sensitivity(lp, n):
   #Classify variables in basic/nonbasic
   basic = []
   nonbasic = []
@@ -922,13 +892,98 @@ cpdef sensitivity(lp, n):
     if DzN == 0 and zN == 0:
       val = 0
     else:
-      val = - float(DzN) / zN
+      val = -float(DzN) / zN
     if val > max_t:
       max_t = val
     if val < min_t:
       min_t = val
   min_t = 1.0/min_t
   max_t = 1.0/max_t
+  #Change the objective function according to range found
+  if min_t == float("-inf") and max_t == float("inf"):
+    return
+  if max_t == float("inf"):
+    new_value = ceil(min_t - 1)
+  if min_t == float("inf"):
+    new_value = floor(max_t + 1)
+  else:
+    new_value = floor(max_t + 1)
+  for i in xrange(k):
+    old_value = lp.objective_coefficient(change + i * n)
+    lp.objective_coefficient(change + i * n, old_value + new_value)
+  return
+
+@cython.profile(True)
+cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, list w, int k):
+  r"""
+  Obtains the leading monomials chosen by the order w in the linear programming model.
+
+  INPUTS:
+
+  - `lp` -- linear programming model (must be already solved)
+  - `R` -- the previous polynomial ring
+  - `w` -- the list of weights
+  - `k` -- number of polynomials in current basis
+
+  OUTPUTS:
+
+  - a list of leading monomials
+  """
+  cdef int n = R.ngens()
+  cdef list LTs = []
+  cdef int i, j
+  cdef MPolynomial_libsingular monomial
+  cdef MPolynomialRing_libsingular newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
+  for i in xrange(k):
+    #build i-th leading monomial
+    monomial = 1
+    for j in xrange(n):
+      e = int(lp.get_variable_value(j + i * n))
+      monomial *= newR.gens()[j]**e
+      LTs.append(monomial)
+  return LTs
+
+@cython.profile(True)
+cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 10):
+  r"""
+
+  INPUTS:
+
+  - `G` -- the current system of generators
+  - `current_ordering` -- the current weight ordering
+  - `lp` -- 
+
+  OUTPUTS:
+
+  - 
+  """
+  cdef MPolynomialRing_libsingular R = G[0].parent()
+  cdef int k = len(G)
+  cdef int n = R.ngens()
+  cdef int i, j, it = 0
+  cdef list CLTs, LTs, w
+
+  #Initial random ordering
+  w = [ randint(1, 10) for i in xrange(n) ]
+
+  #Transform last element of G to linear program, set objective function given by w and solve
+  append_linear_program(lp, G[len(G)-1].value())
+  lp.set_objective(w * k)
+  lp.solve()
+
+  #Get current LTs to compare with Hilbert heuristic
+  LTs = find_monomials(lp, R, w, k)
+  CLTs = [ LTs ]
+
+  #Do sensitivity analysis to get neighbor, compare
+  while it < iterations:
+    sensitivity(lp, n, k)
+    lp.solve()
+    LTs = find_monomials(lp, R, w, k)
+    CLTs.append(LTs)
+    #Do comparisons using Hilbert Function
+    it += 1
+
 
 @cython.profile(True)
 cpdef list choose_random_ordering(list G, list current_ordering, int iterations = 10):
