@@ -826,6 +826,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, lp, int iterat
   cdef MPolynomialRing_libsingular newR
   cdef int k = len(G)
   cdef int n = R.ngens()
+  cdef int m
   cdef int i, j, it = 0
 
   #Initial random ordering
@@ -833,6 +834,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, lp, int iterat
 
   #Transform last element of G to linear program, set objective function given by w and solve
   append_linear_program(lp, G[len(G)-1].value())
+  m = lp.nrows()
   lp.set_objective(w * k)
   lp.solve()
 
@@ -849,8 +851,19 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, lp, int iterat
 
   #Do sensitivity analysis to get neighbor
   while it < iterations:
-    basic = [ i for i in lp.ncols() if lp.variable_is_basic(i) ]
+    change = randint(0, n-1)
+    basic = []
+    nonbasic = []
+    for i in xrange(lp.ncols()):
+      if lp.variable_is_basic(i):
+        basic.append(i)
+      else:
+        nonbasic.append(i)
+    change_basic = [ m + change + i * n for i in xrange(k) if lp.variable_is_basic(change + i * n) ]
     #get rows corresponding to the basic and non-basic vars I want to change
+    rows = [ lp.eval_tab_row(i) for i in change_basic ]
+    min_t = float("inf")
+    max_t = float("-inf")
 
     #compute B^{-1}N^T * c_B + c_N
 
@@ -859,6 +872,63 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, lp, int iterat
     #modify right outside of range, solve again
 
     it += 1
+
+@cython.profile(True)
+cpdef sensitivity(lp, n):
+  #Classify variables in basic/nonbasic
+  basic = []
+  nonbasic = []
+  for i in xrange(lp.ncols()):
+    if lp.variable_is_basic(i):
+      basic.append(i)
+    else:
+      nonbasic.append(i)
+  #Compute tableau
+  Bm1N = []
+  m = lp.nrows()
+  for i in basic:
+    row = []
+    row_indices, row_coefs = lp.eval_tab_row(m + i)
+    for j in nonbasic:
+      if j in row_indices:
+        row.append(row_coefs[j])
+      else:
+        row.append(0)
+    Bm1N.append(row)
+  Bm1NT = matrix(Bm1N).transpose()
+  cB = vector([ lp.objective_coefficient(i) for i in basic ])
+  cN = vector([ lp.objective_coefficient(i) for i in nonbasic ])
+  zN = Bm1NT * cB - cN
+  #Compute delta zN
+  change = randint(0, n-1)
+  DcB = []
+  DcN = []
+  for i in xrange(lp.ncols()):
+    if lp.variable_is_basic(i):
+      if i % n == change:
+        DcB.append(i)
+      else:
+        DcB.append(0)
+    else:
+      if i % n == change:
+        DcN.append(i)
+      else:
+        DcN.append(0)
+  DzN = Bm1NT * DcB - DcN
+  #Compute min/max interval
+  min_t = float("inf")
+  max_t = float("-inf")
+  for i in xrange(len(zN)):
+    if DzN == 0 and zN == 0:
+      val = 0
+    else:
+      val = - float(DzN) / zN
+    if val > max_t:
+      max_t = val
+    if val < min_t:
+      min_t = val
+  min_t = 1.0/min_t
+  max_t = 1.0/max_t
 
 @cython.profile(True)
 cpdef list choose_random_ordering(list G, list current_ordering, int iterations = 10):
