@@ -823,21 +823,42 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, lp, int iterat
 
   """
   cdef MPolynomialRing_libsingular R = G[0].parent()
+  cdef MPolynomialRing_libsingular newR
   cdef int k = len(G)
   cdef int n = R.ngens()
+  cdef int i, j, it = 0
 
   #Initial random ordering
   w = [ randint(1, 10) for i in xrange(n) ]
 
-  #Transform stuff in G to linear program, set objective function given by w and solve
+  #Transform last element of G to linear program, set objective function given by w and solve
   append_linear_program(lp, G[len(G)-1].value())
   lp.set_objective(w * k)
   lp.solve()
 
   #Get current LTs to compare with Hilbert heuristic
+  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
+  LTs = []
+  for i in xrange(k):
+    #build i-th leading monomial
+    monomial = 1
+    for j in xrange(n):
+      e = int(lp.get_variable_value(j + i * n))
+      monomial *= newR.gens()[j]**e
+    LTs.append(monomial)
 
   #Do sensitivity analysis to get neighbor
-  basic = [ i for i in lp.ncols() if lp.variable_is_basic(i) ]
+  while it < iterations:
+    basic = [ i for i in lp.ncols() if lp.variable_is_basic(i) ]
+    #get rows corresponding to the basic and non-basic vars I want to change
+
+    #compute B^{-1}N^T * c_B + c_N
+
+    #compute range
+
+    #modify right outside of range, solve again
+
+    it += 1
 
 @cython.profile(True)
 cpdef list choose_random_ordering(list G, list current_ordering, int iterations = 10):
