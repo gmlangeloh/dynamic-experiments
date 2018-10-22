@@ -834,7 +834,7 @@ cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p):
   return
 
 @cython.profile(True)
-cpdef void sensitivity(GLPKBackend lp, int n, int k):
+cpdef list sensitivity(GLPKBackend lp, int n, int k):
   r"""
   Changes the current lp objective function to point to a neighbor.
 
@@ -911,18 +911,21 @@ cpdef void sensitivity(GLPKBackend lp, int n, int k):
   for i in xrange(k):
     old_value = lp.objective_coefficient(change + i * n)
     lp.objective_coefficient(change + i * n, old_value + new_value)
-  return
+  #Compute new weight vector
+  w = []
+  for i in xrange(n):
+    w.append(lp.objective_coefficient(i))
+  return w
 
 @cython.profile(True)
-cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, list w, int k):
+cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
   r"""
   Obtains the leading monomials chosen by the order w in the linear programming model.
 
   INPUTS:
 
   - `lp` -- linear programming model (must be already solved)
-  - `R` -- the previous polynomial ring
-  - `w` -- the list of weights
+  - `R` -- a polynomial ring
   - `k` -- number of polynomials in current basis
 
   OUTPUTS:
@@ -933,13 +936,12 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, list w,
   cdef list LTs = []
   cdef int i, j
   cdef MPolynomial_libsingular monomial
-  cdef MPolynomialRing_libsingular newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
   for i in xrange(k):
     #build i-th leading monomial
     monomial = 1
     for j in xrange(n):
       e = int(lp.get_variable_value(j + i * n))
-      monomial *= newR.gens()[j]**e
+      monomial *= R.gens()[j]**e
       LTs.append(monomial)
   return LTs
 
@@ -951,20 +953,23 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
 
   - `G` -- the current system of generators
   - `current_ordering` -- the current weight ordering
-  - `lp` -- 
+  - `lp` -- previous GLPK linear programming model
+  - `iterations` -- number of neighbors to visit
 
   OUTPUTS:
 
-  - 
+  - a list of weights representing a monomial order
   """
   cdef MPolynomialRing_libsingular R = G[0].parent()
+  cdef MPolynomialRing_libsingular newR
   cdef int k = len(G)
   cdef int n = R.ngens()
   cdef int i, j, it = 0
-  cdef list CLTs, LTs, w
+  cdef list CLTs, LTs, w, best_w
 
   #Initial random ordering
   w = [ randint(1, 10) for i in xrange(n) ]
+  best_w = w
 
   #Transform last element of G to linear program, set objective function given by w and solve
   append_linear_program(lp, G[len(G)-1].value())
@@ -972,17 +977,31 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   lp.solve()
 
   #Get current LTs to compare with Hilbert heuristic
-  LTs = find_monomials(lp, R, w, k)
-  CLTs = [ LTs ]
+  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
+  LTs = find_monomials(lp, newR, k)
+  CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w ) ]
 
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
-    sensitivity(lp, n, k)
+    w = sensitivity(lp, n, k)
     lp.solve()
-    LTs = find_monomials(lp, R, w, k)
-    CLTs.append(LTs)
-    #Do comparisons using Hilbert Function
+    newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
+    LTs = find_monomials(lp, newR, k)
+    CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
+    CLTs.sort(cmp=hs_heuristic)
+    best_w = CLTs[0][2] #Take first improvement
+    CLTs = CLTs[:1]
     it += 1
+
+  #Compare with current_ordering
+  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
+  LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
+  CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
+  CLTs.sort(cmp=hs_heuristic)
+  best_w = CLTs[0][2]
+
+  return best_w
+
 
 
 @cython.profile(True)
