@@ -50,6 +50,8 @@ from sage.geometry.polyhedron.constructor import Polyhedron
 
 from sage.numerical.backends.glpk_backend cimport GLPKBackend
 
+from sage.functions.other import floor, ceil
+
 # globals, until/unless I make a class out of this
 
 ZZ = IntegerRing()
@@ -801,7 +803,9 @@ cpdef GLPKBackend make_solver():
   """
 
   from sage.numerical.backends.generic_backend import get_solver
+  import sage.numerical.backends.glpk_backend as backend
   lp = get_solver(solver="GLPK")
+  lp.solver_parameter(backend.glp_simplex_or_intopt, backend.glp_simplex_only)
 
   return lp
 
@@ -816,8 +820,7 @@ cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p):
   - `p` -- polynomial whose affine Newton Polyhedron will be added to the linear programming model
   """
 
-  cdef float lb, ub
-  cdef int n
+  cdef int n = p.parent().ngens()
   cdef tuple a
   cdef list variables, coefs
 
@@ -829,7 +832,7 @@ cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p):
   for lb, a, ub in lp.constraints():
     variables, coefs = a
     variables = [ i + n for i in variables ]
-    glpk.add_linear_constraint(list(zip(variables, coefs)), min=lb, max=ub)
+    glpk.add_linear_constraint(list(zip(variables, coefs)), lb, ub)
 
   return
 
@@ -845,66 +848,96 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   - `k` - the number of polynomials currently in the basis
   """
 
+  n = lp.ncols()
+  m = lp.nrows()
   #Classify variables in basic/nonbasic
   basic = []
   nonbasic = []
-  for i in xrange(lp.ncols()):
-    if lp.variable_is_basic(i):
+  for i in xrange(n):
+    if lp.is_variable_basic(i):
+      basic.append(m + i)
+    else:
+      nonbasic.append(m + i)
+  for i in xrange(m):
+    if lp.is_slack_variable_basic(i):
       basic.append(i)
     else:
       nonbasic.append(i)
-  #Compute tableau
+  #Compute tableau, cN, cB, zN
   Bm1N = []
-  m = lp.nrows()
   for i in basic:
     row = []
-    row_indices, row_coefs = lp.eval_tab_row(m + i)
+    row_indices, row_coefs = lp.eval_tab_row(i)
+    idx = 0
     for j in nonbasic:
       if j in row_indices:
-        row.append(row_coefs[j])
+        row.append(row_coefs[idx])
+        idx += 1
       else:
         row.append(0)
     Bm1N.append(row)
   Bm1NT = matrix(Bm1N).transpose()
-  cB = vector([ lp.objective_coefficient(i) for i in basic ])
-  cN = vector([ lp.objective_coefficient(i) for i in nonbasic ])
+  cB = []
+  for i in basic:
+    if i >= m:
+      cB.append(lp.objective_coefficient(i - m))
+    else: #is slack variable
+      cB.append(0)
+  cB = vector(cB)
+  cN = []
+  for i in nonbasic:
+    if i >= m:
+      cN.append(lp.objective_coefficient(i - m))
+    else:
+      cN.append(0)
+  cN = vector(cN)
   zN = Bm1NT * cB - cN
   #Compute delta zN
   change = randint(0, n-1)
-  DcB = []
-  DcN = []
-  for i in xrange(lp.ncols()):
-    if lp.variable_is_basic(i):
-      if i % n == change:
-        DcB.append(i)
-      else:
-        DcB.append(0)
-    else:
-      if i % n == change:
-        DcN.append(i)
-      else:
-        DcN.append(0)
+  DcB = [ 0 ] * len(cB)
+  DcN = [ 0 ] * len(cN)
+  for idx, i in enumerate(basic):
+    if i >= m and (i - m) % n == change:
+      DcB[idx] = 1
+  for idx, i in enumerate(nonbasic):
+    if i >= m and (i - m) % n == change:
+      DcN[idx] = 1
+  DcB = vector(DcB)
+  DcN = vector(DcN)
   DzN = Bm1NT * DcB - DcN
   #Compute min/max interval
   min_t = float("inf")
   max_t = float("-inf")
   for i in xrange(len(zN)):
-    if DzN == 0 and zN == 0:
-      val = 0
+    if DzN[i] == 0 and zN[i] == 0:
+      val = 0.0
+    elif zN[i] == 0:
+      val = float("-inf") if DzN[i] > 0 else float("inf")
     else:
-      val = -float(DzN) / zN
+      val = -float(DzN[i]) / float(zN[i])
     if val > max_t:
       max_t = val
     if val < min_t:
       min_t = val
-  min_t = 1.0/min_t
-  max_t = 1.0/max_t
+  if min_t == 0:
+    min_t = float("-inf")
+  else:
+    min_t = 1.0/min_t
+  if max_t == 0:
+    max_t = float("inf")
+  else:
+    max_t = 1.0/max_t
+  assert(min_t <= 0 and max_t >= 0)
   #Change the objective function according to range found
+  print min_t, max_t
   if min_t == float("-inf") and max_t == float("inf"):
     return
   if max_t == float("inf"):
+    #TODO still segfaults around here
     new_value = ceil(min_t - 1)
-  if min_t == float("inf"):
+    if lp.objective_coefficient(change) + new_value <= 0:
+      return
+  elif min_t == float("-inf"):
     new_value = floor(max_t + 1)
   else:
     new_value = floor(max_t + 1)
@@ -938,11 +971,11 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
   cdef MPolynomial_libsingular monomial
   for i in xrange(k):
     #build i-th leading monomial
-    monomial = 1
+    monomial = R(1)
     for j in xrange(n):
       e = int(lp.get_variable_value(j + i * n))
       monomial *= R.gens()[j]**e
-      LTs.append(monomial)
+    LTs.append(monomial)
   return LTs
 
 @cython.profile(True)
@@ -960,7 +993,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
 
   - a list of weights representing a monomial order
   """
-  cdef MPolynomialRing_libsingular R = G[0].parent()
+  cdef MPolynomialRing_libsingular R = G[0].value().parent()
   cdef MPolynomialRing_libsingular newR
   cdef int k = len(G)
   cdef int n = R.ngens()
@@ -968,7 +1001,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   cdef list CLTs, LTs, w, best_w
 
   #Initial random ordering
-  w = [ randint(1, 10) for i in xrange(n) ]
+  w = [1] * n #[ randint(1, 10) for i in xrange(n) ]
   best_w = w
 
   #Transform last element of G to linear program, set objective function given by w and solve
@@ -979,11 +1012,14 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #Get current LTs to compare with Hilbert heuristic
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
   LTs = find_monomials(lp, newR, k)
+  print LTs
   CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w ) ]
 
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
     w = sensitivity(lp, n, k)
+    if w is None:
+      continue
     lp.solve()
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials(lp, newR, k)
@@ -1001,8 +1037,6 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   best_w = CLTs[0][2]
 
   return best_w
-
-
 
 @cython.profile(True)
 cpdef list choose_random_ordering(list G, list current_ordering, int iterations = 10):
@@ -1707,7 +1741,7 @@ def create_order(list w):
 @cython.profile(True)
 cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimize_homogeneous=False, \
                        weighted_sugar = 0, use_boundary_vectors=True, use_disjoint_cones=True, \
-                       unrestricted=False, random=False, perturbation=False, max_calls=Infinity):
+                       unrestricted=False, random=False, perturbation=False, simplex=False, max_calls=Infinity):
   r"""
     Computes a dynamic Groebner basis of the polynomial ideal generated by ``F``,
     up to degree ``dmax``.
@@ -1788,6 +1822,8 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
   # when solving integer programs, perform simplex first, then integer optimization
   # (avoids a GLPK bug IIRC)
   lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, glpk_backend.glp_simplex_then_intopt)
+
+  slp = make_solver()
 
   # need positive weights
   for k in xrange(n):
@@ -1877,6 +1913,8 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
             current_ordering = choose_random_ordering(G, current_ordering)
           elif perturbation:
             current_ordering = choose_local_ordering(G, current_ordering)
+          elif simplex:
+            current_ordering = choose_simplex_ordering(G, current_ordering, slp)
           else:
             current_ordering, lp, boundary_vectors = choose_ordering_restricted(G, LTs[:m], m, current_ordering, \
               lp, rejects, boundary_vectors, use_boundary_vectors, use_disjoint_cones)
