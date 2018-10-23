@@ -1018,7 +1018,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   cdef list CLTs, LTs, w, best_w
 
   #Initial random ordering
-  w = [ randint(1, 10) for i in xrange(n) ]
+  w = current_ordering #[ randint(1, 10) for i in xrange(n) ]
   best_w = w
   print w
 
@@ -1045,13 +1045,15 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     CLTs = CLTs[:1]
     it += 1
     #TODO I should probably update lp here to go back to current best order...
+    lp.set_objective(best_w * k)
+    lp.solve()
 
   #Compare with current_ordering
-  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
-  LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
-  CLTs.sort(cmp=hs_heuristic)
-  best_w = CLTs[0][2]
+  #newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
+  #LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
+  #CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
+  #CLTs.sort(cmp=hs_heuristic)
+  #best_w = CLTs[0][2]
 
   return best_w
 
@@ -1954,14 +1956,8 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
             if unrestricted or random or perturbation or simplex:
               # rebuild P - this is necessary because we changed leading terms
               P = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
-              for i in xrange(len(G)-1):
-                for j in xrange(i):
-                  if strategy == 'sugar':
-                    P.append((G[i],G[j],sug_of_critical_pair((G[i],G[j]))))
-                  elif strategy == 'normal':
-                    P.append((G[i],G[j],lcm_of_critical_pair((G[i],G[j]))))
-                  elif strategy == 'mindeg':
-                    P.append((G[i],G[j],deg_of_critical_pair((G[i],G[j]))))
+              for i in xrange(1, len(G)-1):
+                gm_update(PR, P, G[:i], LTs[:i], strategy)
             else:
               raise ValueError, "leading terms changed" # this should never happen
 
