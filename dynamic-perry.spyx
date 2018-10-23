@@ -1,4 +1,4 @@
-# cython: profile = True
+# cython: profile = False
 # cython: boundscheck = False
 # cython: wraparound = False
 # clang c++
@@ -837,6 +837,28 @@ cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p):
   return
 
 @cython.profile(True)
+cpdef list weight_vector(GLPKBackend lp, int n):
+  r"""
+  Returns the weight vector currently used as objective function in the linear
+  programming model lp.
+
+  INPUTS:
+
+  - `lp` -- a GLPK linear programming model
+
+  OUTPUTS:
+
+  - a list representing a weight vector
+  """
+  cdef list w
+  cdef int i
+  w = []
+  for i in xrange(n):
+    w.append(lp.objective_coefficient(i))
+  return w
+
+#TODO separate this into more functions, optimize it, use static typing
+@cython.profile(True)
 cpdef list sensitivity(GLPKBackend lp, int n, int k):
   r"""
   Changes the current lp objective function to point to a neighbor.
@@ -918,11 +940,12 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
       max_t = val
     if val < min_t:
       min_t = val
-  if min_t == 0:
+  epsilon = 0.001
+  if abs(min_t) < epsilon:
     min_t = float("-inf")
   else:
     min_t = 1.0/min_t
-  if max_t == 0:
+  if abs(max_t) < epsilon:
     max_t = float("inf")
   else:
     max_t = 1.0/max_t
@@ -930,23 +953,19 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   #Change the objective function according to range found
   print min_t, max_t
   if min_t == float("-inf") and max_t == float("inf"):
-    return
+    return weight_vector(lp, n)
   if max_t == float("inf"):
-    new_value = ceil(min_t - 1)
+    new_value = ceil(min_t) - 1
     if lp.objective_coefficient(change) + new_value <= 0:
-      return
+      return weight_vector(lp, n)
   elif min_t == float("-inf"):
-    new_value = floor(max_t + 1)
+    new_value = floor(max_t) + 1
   else:
-    new_value = floor(max_t + 1)
+    new_value = floor(max_t) + 1
   for i in xrange(k):
     old_value = lp.objective_coefficient(change + i * n)
     lp.objective_coefficient(change + i * n, old_value + new_value)
-  #Compute new weight vector
-  w = []
-  for i in xrange(n):
-    w.append(lp.objective_coefficient(i))
-  return w
+  return weight_vector(lp, n)
 
 @cython.profile(True)
 cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
@@ -1001,6 +1020,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #Initial random ordering
   w = [ randint(1, 10) for i in xrange(n) ]
   best_w = w
+  print w
 
   #Transform last element of G to linear program, set objective function given by w and solve
   append_linear_program(lp, G[len(G)-1].value())
@@ -1015,9 +1035,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
     w = sensitivity(lp, n, k)
-    if w is None:
-      it += 1
-      continue
+    print w
     lp.solve()
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials(lp, newR, k)
@@ -1026,6 +1044,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     best_w = CLTs[0][2] #Take first improvement
     CLTs = CLTs[:1]
     it += 1
+    #TODO I should probably update lp here to go back to current best order...
 
   #Compare with current_ordering
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
@@ -1932,7 +1951,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
           #print "new LTs", LTs
   
           if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
-            if unrestricted or random or perturbation or simplex: 
+            if unrestricted or random or perturbation or simplex:
               # rebuild P - this is necessary because we changed leading terms
               P = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
               for i in xrange(len(G)-1):
