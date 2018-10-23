@@ -1,4 +1,4 @@
-# cython: profile = False
+# cython: profile = True
 # cython: boundscheck = False
 # cython: wraparound = False
 # clang c++
@@ -848,12 +848,11 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   - `k` - the number of polynomials currently in the basis
   """
 
-  n = lp.ncols()
   m = lp.nrows()
   #Classify variables in basic/nonbasic
   basic = []
   nonbasic = []
-  for i in xrange(n):
+  for i in xrange(lp.ncols()):
     if lp.is_variable_basic(i):
       basic.append(m + i)
     else:
@@ -927,7 +926,6 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
     max_t = float("inf")
   else:
     max_t = 1.0/max_t
-  #Fix potential problems involving signed zeroes
   assert(min_t <= 0 and max_t >= 0)
   #Change the objective function according to range found
   print min_t, max_t
@@ -973,7 +971,7 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
     #build i-th leading monomial
     monomial = R(1)
     for j in xrange(n):
-      e = int(lp.get_variable_value(j + i * n))
+      e = round(lp.get_variable_value(j + i * n))
       monomial *= R.gens()[j]**e
     LTs.append(monomial)
   return LTs
@@ -1001,7 +999,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   cdef list CLTs, LTs, w, best_w
 
   #Initial random ordering
-  w = [1] * n #[ randint(1, 10) for i in xrange(n) ]
+  w = [ randint(1, 10) for i in xrange(n) ]
   best_w = w
 
   #Transform last element of G to linear program, set objective function given by w and solve
@@ -1012,13 +1010,13 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #Get current LTs to compare with Hilbert heuristic
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
   LTs = find_monomials(lp, newR, k)
-  print LTs
   CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w ) ]
 
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
     w = sensitivity(lp, n, k)
     if w is None:
+      it += 1
       continue
     lp.solve()
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
@@ -1934,7 +1932,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
           #print "new LTs", LTs
   
           if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
-            if unrestricted or random or perturbation: 
+            if unrestricted or random or perturbation or simplex: 
               # rebuild P - this is necessary because we changed leading terms
               P = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
               for i in xrange(len(G)-1):
