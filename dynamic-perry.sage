@@ -1893,7 +1893,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
       P.append((f,clothed_zero,deg_of_critical_pair((f,clothed_zero))))
   m = len(G)
 
-  # initial sort 
+  # initial sort
   if strategy == 'sugar': P.sort(key=last_element_then_lcm)
   elif strategy == 'normal': P.sort(key=lcm_of_critical_pair)
   elif strategy == 'mindeg': P.sort(key=deg_of_critical_pair)
