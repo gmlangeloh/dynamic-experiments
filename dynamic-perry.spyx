@@ -46,6 +46,8 @@ from sage.rings.integer_ring import IntegerRing
 
 from sage.modules.free_module_element import vector
 from sage.modules.vector_integer_dense cimport Vector_integer_dense
+from sage.matrix.matrix_real_double_dense cimport Matrix_real_double_dense
+from sage.modules.vector_real_double_dense cimport Vector_real_double_dense
 from sage.geometry.polyhedron.constructor import Polyhedron
 
 from sage.numerical.backends.glpk_backend cimport GLPKBackend
@@ -870,10 +872,11 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   - `k` - the number of polynomials currently in the basis
   """
 
+  cdef list basic = [], nonbasic = []
+  cdef int m, idx, i, j
+
   m = lp.nrows()
   #Classify variables in basic/nonbasic
-  basic = []
-  nonbasic = []
   for i in xrange(lp.ncols()):
     if lp.is_variable_basic(i):
       basic.append(m + i)
@@ -884,7 +887,11 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
       basic.append(i)
     else:
       nonbasic.append(i)
+
   #Compute tableau, cN, cB, zN
+  cdef list Bm1N, row, row_indices, row_coefs
+  cdef Matrix_real_double_dense Bm1NT
+
   Bm1N = []
   for i in basic:
     row = []
@@ -898,37 +905,41 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
         row.append(0)
     Bm1N.append(row)
   Bm1NT = matrix(Bm1N).transpose()
-  cB = []
+  cdef list cB_l = []
   for i in basic:
     if i >= m:
-      cB.append(lp.objective_coefficient(i - m))
+      cB_l.append(float(lp.objective_coefficient(i - m)))
     else: #is slack variable
-      cB.append(0)
-  cB = vector(cB)
-  cN = []
+      cB_l.append(0.0)
+  cdef Vector_real_double_dense cB = vector(cB_l)
+  cdef list cN_l = []
   for i in nonbasic:
     if i >= m:
-      cN.append(lp.objective_coefficient(i - m))
+      cN_l.append(float(lp.objective_coefficient(i - m)))
     else:
-      cN.append(0)
-  cN = vector(cN)
-  zN = Bm1NT * cB - cN
+      cN_l.append(0.0)
+  cdef Vector_real_double_dense cN = vector(cN_l)
+  cdef Vector_real_double_dense zN = Bm1NT * cB - cN
+
   #Compute delta zN
-  change = randint(0, n-1)
-  DcB = [ 0 ] * len(cB)
-  DcN = [ 0 ] * len(cN)
+  cdef int change = randint(0, n-1)
+  cdef Vector_integer_dense DcB = vector([ 0 ] * len(cB))
+  cdef Vector_integer_dense DcN = vector([ 0 ] * len(cN))
+
   for idx, i in enumerate(basic):
     if i >= m and (i - m) % n == change:
       DcB[idx] = 1
   for idx, i in enumerate(nonbasic):
     if i >= m and (i - m) % n == change:
       DcN[idx] = 1
-  DcB = vector(DcB)
-  DcN = vector(DcN)
-  DzN = Bm1NT * DcB - DcN
+
+  cdef Vector_real_double_dense DzN = Bm1NT * DcB - DcN
+
   #Compute min/max interval
-  min_t = float("inf")
-  max_t = float("-inf")
+  cdef float min_t = float("inf")
+  cdef float max_t = float("-inf")
+  cdef float val
+
   for i in xrange(len(zN)):
     if DzN[i] == 0 and zN[i] == 0:
       val = 0.0
@@ -940,7 +951,8 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
       max_t = val
     if val < min_t:
       min_t = val
-  epsilon = 0.001
+
+  cdef float epsilon = 0.001
   if abs(min_t) < epsilon:
     min_t = float("-inf")
   else:
@@ -949,9 +961,13 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
     max_t = float("inf")
   else:
     max_t = 1.0/max_t
-  assert(min_t <= 0 and max_t >= 0)
+  assert min_t <= 0 and max_t >= 0, "Sensibility range is inconsistent"
+
   #Change the objective function according to range found
-  print min_t, max_t
+  #print min_t, max_t
+
+  cdef float old_value, new_value
+
   if min_t == float("-inf") and max_t == float("inf"):
     return weight_vector(lp, n)
   if max_t == float("inf"):
@@ -996,7 +1012,7 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
   return LTs
 
 @cython.profile(True)
-cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 10):
+cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 5):
   r"""
 
   INPUTS:
@@ -1020,7 +1036,6 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #Initial random ordering
   w = [ randint(1, 1000) for i in xrange(n) ]
   best_w = w
-  print w
 
   #Transform last element of G to linear program, set objective function given by w and solve
   append_linear_program(lp, G[len(G)-1].value())
@@ -1035,7 +1050,6 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
     w = sensitivity(lp, n, k)
-    print w
     lp.solve()
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials(lp, newR, k)
@@ -1044,16 +1058,17 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     best_w = CLTs[0][2] #Take first improvement
     CLTs = CLTs[:1]
     it += 1
-    #TODO I should probably update lp here to go back to current best order...
     lp.set_objective(best_w * k)
     lp.solve()
 
   #Compare with current_ordering
-  #newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
-  #LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  #CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
-  #CLTs.sort(cmp=hs_heuristic)
-  #best_w = CLTs[0][2]
+  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
+  LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
+  CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
+  CLTs.sort(cmp=hs_heuristic)
+  best_w = CLTs[0][2]
+  lp.set_objective(best_w * k)
+  lp.solve()
 
   return best_w
 
