@@ -965,8 +965,6 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   assert min_t <= 0 and max_t >= 0, "Sensibility range is inconsistent"
 
   #Change the objective function according to range found
-  #print min_t, max_t
-
   cdef float old_value, new_value
 
   if min_t == float("-inf") and max_t == float("inf"):
@@ -1006,7 +1004,7 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
   """
   cdef int n = R.ngens()
   cdef list LTs = []
-  cdef int i, j
+  cdef int i, j, e
   cdef MPolynomial_libsingular monomial
   for i in xrange(k):
     #build i-th leading monomial
@@ -1017,6 +1015,7 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
     LTs.append(monomial)
   return LTs
 
+#TODO why does the number of iterations affect performance so much?
 @cython.profile(True)
 cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 5):
   r"""
@@ -1037,7 +1036,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   cdef int k = len(G)
   cdef int n = R.ngens()
   cdef int i, j, it = 0
-  cdef list CLTs, LTs, w, best_w
+  cdef list CLTs, LTs, oldLTs, w, best_w
 
   #Initial random ordering
   w = [ randint(1, 10000) for i in xrange(n) ]
@@ -1051,6 +1050,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #Get current LTs to compare with Hilbert heuristic
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
   LTs = find_monomials(lp, newR, k)
+  oldLTs = LTs
   CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w ) ]
 
   #Do sensitivity analysis to get neighbor, compare
@@ -1059,9 +1059,13 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     lp.solve()
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials(lp, newR, k)
+    print w, best_w
+    print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
     CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
     CLTs.sort(cmp=hs_heuristic)
     best_w = CLTs[0][2] #Take first improvement
+    if best_w == w:
+      oldLTs = LTs
     CLTs = CLTs[:1]
     it += 1
     lp.set_objective(best_w * k)
@@ -1143,7 +1147,7 @@ cpdef list choose_local_ordering(list G, list current_ordering, int iterations =
   cdef MPolynomialRing_libsingular newR
 
   #Choose random initial vector
-  curr_w = [ randint(1, 10) for i in xrange(n) ]
+  curr_w = [ randint(1, 1000) for i in xrange(n) ]
   print "initial order: ", curr_w
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(curr_w))
   LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
@@ -1414,7 +1418,7 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators):
     # no; get leading monomials of both f and g, then lcm
     tf = f.lm(); tg = g.lm()
     tfg = tf.lcm(tg)
-    print "building", (tf, tg, tfg)
+    #print "building", (tf, tg, tfg)
     R = tfg.parent()
     s = R.monomial_quotient(tfg,tf)*f - R.monomial_quotient(tfg,tg)*g
 
@@ -1909,7 +1913,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
 
     # some diagnostic information
     print "-----------------------"
-    print "current ordering", current_ordering
+    #print "current ordering", current_ordering
     print len(P), "critical pairs remaining"
     print len(G), "polynomials in basis"
     maximum_size_of_intermediate_basis = max(maximum_size_of_intermediate_basis, len(G))
@@ -1925,7 +1929,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
     if d < dmax: # don't go further than requested
 
       # compute s-polynomials
-      if sugar_strategy: print "current sugar", Pd[len(Pd)-1]
+      #if sugar_strategy: print "current sugar", Pd[len(Pd)-1]
       s = spoly(Pd, generators)
       number_of_spolynomials += 1
 
@@ -1934,8 +1938,8 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
       else: r = reduce_poly(s, reducers)
 
       # diagnostic
-      print "new polynomial generated",
-      print "leading monomial with current ordering would be", r.value().lm()
+      #print "new polynomial generated",
+      #print "leading monomial with current ordering would be", r.value().lm()
       if r.value()==0: zero_reductions += 1
 
       if r.value() != 0: # add to basis, choose new ordering, update pairs
@@ -1951,7 +1955,6 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
           random = False
 
         if not static:# and calls < max_calls: # choose a new ordering, coerce to new
-          # only do so for a set number of iterations, passed as parameter
 
           calls += 1
 
@@ -1968,7 +1971,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
               lp, rejects, boundary_vectors, use_boundary_vectors, use_disjoint_cones)
 
           # set up a ring with the current ordering
-          print "current ordering", current_ordering
+          #print "current ordering", current_ordering
           PR = PolynomialRing(PR.base_ring(), PR.gens(), order=create_order(current_ordering))
           #print "have ring"
           oldLTs = copy(LTs)
@@ -1978,11 +1981,11 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
             G[k].set_value(PR(G[k].value()))
             LTs.append(G[k].value().lm())
 
-          #print "old LTs", oldLTs
-          #print "new LTs", LTs
-
           if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
             if unrestricted or random or perturbation or simplex:
+              changes = [oldLTs[i] == LTs[i] for i in xrange(len(LTs)-1)].count(False)
+              print "Changed order:", changes, "changes out of", len(oldLTs), "possible"
+              #TODO can I only gm_update stuff that had its LT changed?
               # rebuild P - this is necessary because we changed leading terms
               P = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
               for i in xrange(1, len(G)-1):
@@ -1992,8 +1995,6 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
 
           for k in xrange(len(generators)):
             generators[k].set_value(PR(generators[k].value()))
-
-          #print LTs
 
         # setup reduction for next round
         reducers = [G[k].value() for k in xrange(len(G))]
