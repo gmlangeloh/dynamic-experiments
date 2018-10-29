@@ -48,6 +48,7 @@ from sage.modules.free_module_element import vector
 from sage.modules.vector_integer_dense cimport Vector_integer_dense
 from sage.matrix.matrix_real_double_dense cimport Matrix_real_double_dense
 from sage.modules.vector_real_double_dense cimport Vector_real_double_dense
+from sage.rings.real_double import RDF
 from sage.geometry.polyhedron.constructor import Polyhedron
 
 from sage.numerical.backends.glpk_backend cimport GLPKBackend
@@ -859,7 +860,32 @@ cpdef list weight_vector(GLPKBackend lp, int n):
     w.append(lp.objective_coefficient(i))
   return w
 
-#TODO separate this into more functions, optimize it, use static typing
+cpdef Vector_real_double_dense tableau_row(GLPKBackend lp, int i, list nonbasic):
+  r"""
+  Returns the i-th row of the simplex tableau of `lp` as a dense vector.
+
+  INPUTS:
+
+  - `lp` -- a previously solved GLPK linear programming model
+  - `i` -- index of the desired row
+  - `nonbasic` -- list of nonbasic variable indices of `lp`
+
+  OUTPUT:
+
+  - a vector representation of the i-th row of `lp`
+  """
+
+  cdef list row = [], row_indices, row_coeffs
+  row_indices, row_coeffs = lp.eval_tab_row(i)
+  cdef int idx = 0, j
+  for j in nonbasic:
+    if j in row_indices:
+      row.append(row_coeffs[idx])
+      idx += 1
+    else:
+      row.append(0.0)
+  return vector(RDF, row)
+
 @cython.profile(True)
 cpdef list sensitivity(GLPKBackend lp, int n, int k):
   r"""
@@ -888,62 +914,38 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
     else:
       nonbasic.append(i)
 
-  #Compute tableau, cN, cB, zN
-  cdef list Bm1N, row, row_indices, row_coefs
-  cdef Matrix_real_double_dense Bm1NT
-
-  Bm1N = []
-  for i in basic:
-    row = []
-    row_indices, row_coefs = lp.eval_tab_row(i)
-    idx = 0
-    for j in nonbasic:
-      if j in row_indices:
-        row.append(row_coefs[idx])
-        idx += 1
-      else:
-        row.append(0)
-    Bm1N.append(row)
-  Bm1NT = matrix(Bm1N).transpose()
-  cdef list cB_l = []
-  for i in basic:
-    if i >= m:
-      cB_l.append(float(lp.objective_coefficient(i - m)))
-    else: #is slack variable
-      cB_l.append(0.0)
-  cdef Vector_real_double_dense cB = vector(cB_l)
-  cdef list cN_l = []
+  #Compute zN and DzN
+  cdef list zN = []
   for i in nonbasic:
     if i >= m:
-      cN_l.append(float(lp.objective_coefficient(i - m)))
+      zN.append(-lp.get_col_dual(i - m))
     else:
-      cN_l.append(0.0)
-  cdef Vector_real_double_dense cN = vector(cN_l)
-  cdef Vector_real_double_dense zN = Bm1NT * cB - cN
+      zN.append(-lp.get_row_dual(i))
 
-  #Compute delta zN
-  cdef int change = randint(0, n-1)
-  cdef Vector_integer_dense DcB = vector([ 0 ] * len(cB))
-  cdef Vector_integer_dense DcN = vector([ 0 ] * len(cN))
+  cdef int change = randint(0, n-1) #Choose which coefficient should be changed
 
-  for idx, i in enumerate(basic):
+  cdef list DcB_l = []
+  for i in basic:
     if i >= m and (i - m) % n == change:
-      DcB[idx] = 1
+      DcB_l.append(i)
+
+  cdef Vector_real_double_dense DcN = vector(RDF, [ 0.0 ] * len(nonbasic))
   for idx, i in enumerate(nonbasic):
     if i >= m and (i - m) % n == change:
-      DcN[idx] = 1
+      DcN[idx] = 1.0
 
-  cdef Vector_real_double_dense DzN = Bm1NT * DcB - DcN
+  cdef Vector_real_double_dense DzN = sum([ tableau_row(lp, i, nonbasic) for i in DcB_l ]) - DcN
 
   #Compute min/max interval
   cdef float min_t = float("inf")
   cdef float max_t = float("-inf")
   cdef float val
 
+  cdef float epsilon = 0.001
   for i in xrange(len(zN)):
-    if DzN[i] == 0 and zN[i] == 0:
+    if abs(DzN[i]) < epsilon and abs(zN[i]) < epsilon:
       val = 0.0
-    elif zN[i] == 0:
+    elif abs(zN[i]) < epsilon:
       val = float("-inf") if DzN[i] > 0 else float("inf")
     else:
       val = -float(DzN[i]) / float(zN[i])
@@ -952,7 +954,6 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
     if val < min_t:
       min_t = val
 
-  cdef float epsilon = 0.001
   if abs(min_t) < epsilon:
     min_t = float("-inf")
   else:
@@ -977,7 +978,12 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   elif min_t == float("-inf"):
     new_value = floor(max_t) + 1
   else:
-    new_value = floor(max_t) + 1
+    #Lower coefficient, when possible, 50% of the time
+    new_value = ceil(min_t) - 1
+    if lp.objective_coefficient(change) + new_value <= 0:
+      new_value = floor(max_t) + 1
+    elif randint(0, 1):
+      new_value = floor(max_t) + 1
   for i in xrange(k):
     old_value = lp.objective_coefficient(change + i * n)
     lp.objective_coefficient(change + i * n, old_value + new_value)
@@ -1034,7 +1040,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   cdef list CLTs, LTs, w, best_w
 
   #Initial random ordering
-  w = [ randint(1, 1000) for i in xrange(n) ]
+  w = [ randint(1, 10000) for i in xrange(n) ]
   best_w = w
 
   #Transform last element of G to linear program, set objective function given by w and solve
@@ -1893,7 +1899,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
       P.append((f,clothed_zero,deg_of_critical_pair((f,clothed_zero))))
   m = len(G)
 
-  # initial sort 
+  # initial sort
   if strategy == 'sugar': P.sort(key=last_element_then_lcm)
   elif strategy == 'normal': P.sort(key=lcm_of_critical_pair)
   elif strategy == 'mindeg': P.sort(key=deg_of_critical_pair)
