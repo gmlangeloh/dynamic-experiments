@@ -937,56 +937,48 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   cdef Vector_real_double_dense DzN = sum([ tableau_row(lp, i, nonbasic) for i in DcB_l ]) - DcN
 
   #Compute min/max interval
-  cdef float min_t = float("inf")
-  cdef float max_t = float("-inf")
   cdef float t
+  cdef float upper = float("inf")
+  cdef float lower = float("-inf")
 
-  cdef float epsilon = 0.000001
+  cdef float epsilon = 0.00001
   for i in xrange(len(nonbasic)):
     if abs(DzN[i]) < epsilon and abs(zN[i]) < epsilon:
       t = 0.0
     elif abs(zN[i]) < epsilon:
       t = float("-inf") if DzN[i] > 0 else float("inf")
     else:
-      t = -DzN[i] / zN[i]
-    if t > max_t:
-      max_t = t
-    if t < min_t:
-      min_t = t
+      t = -zN[i] / DzN[i]
+    if t >= 0 and t < upper:
+      upper = t
+    if t <= 0 and t > lower:
+      lower = t
 
-  if abs(min_t) < epsilon:
-    min_t = float("-inf")
-  else:
-    min_t = 1.0/min_t
-  if abs(max_t) < epsilon:
-    max_t = float("inf")
-  else:
-    max_t = 1.0/max_t
-
-  print min_t, max_t
-  assert max_t >= 0 and min_t <= 0, "Sensibility range is inconsistent"
+  print lower, upper
+  assert upper >= 0 and lower <= 0, "Sensibility range is inconsistent"
 
   #Change the objective function according to range found
-  cdef float old_value, new_value
+  cdef float increment
 
-  if min_t == float("-inf") and max_t == float("inf"):
+  if lower == float("-inf") and upper == float("inf"):
     return weight_vector(lp, n)
-  if max_t == float("inf"):
-    new_value = ceil(min_t) - 1
-    if lp.objective_coefficient(change) + new_value <= 0:
+  if upper == float("inf"):
+    increment = ceil(lower) - 1
+    if lp.objective_coefficient(change) + increment <= 0:
       return weight_vector(lp, n)
-  elif min_t == float("-inf"):
-    new_value = floor(max_t) + 1
+  elif lower == float("-inf"):
+    increment = floor(upper) + 1
   else:
     #Lower coefficient, when possible, 50% of the time
-    new_value = ceil(min_t) - 1
-    if lp.objective_coefficient(change) + new_value <= 0:
-      new_value = floor(max_t) + 1
+    increment = ceil(lower) - 1
+    if lp.objective_coefficient(change) + increment <= 0:
+      increment = floor(upper) + 1
     elif randint(0, 1):
-      new_value = floor(max_t) + 1
+      increment = floor(upper) + 1
+
+  cdef float old_value = lp.objective_coefficient(change)
   for i in xrange(k):
-    old_value = lp.objective_coefficient(change + i * n)
-    lp.objective_coefficient(change + i * n, old_value + new_value)
+    lp.objective_coefficient(change + i * n, old_value + increment)
   return weight_vector(lp, n)
 
 @cython.profile(True)
