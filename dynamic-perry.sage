@@ -853,9 +853,8 @@ cpdef list weight_vector(GLPKBackend lp, int n):
 
   - a list representing a weight vector
   """
-  cdef list w
+  cdef list w = []
   cdef int i
-  w = []
   for i in xrange(n):
     w.append(lp.objective_coefficient(i))
   return w
@@ -877,10 +876,13 @@ cpdef Vector_real_double_dense tableau_row(GLPKBackend lp, int i, list nonbasic)
 
   cdef list row = [], row_indices, row_coeffs
   row_indices, row_coeffs = lp.eval_tab_row(i)
-  cdef int idx = 0, j
+  cdef int idx = 0, m = lp.nrows(), j
   for j in nonbasic:
-    if j in row_indices:
-      row.append(row_coeffs[idx])
+    if idx < len(row_indices) and j == row_indices[idx]:
+      if j >= m:
+        row.append(-row_coeffs[idx])
+      else:
+        row.append(row_coeffs[idx])
       idx += 1
     else:
       row.append(0.0)
@@ -899,60 +901,58 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   """
 
   cdef list basic = [], nonbasic = []
-  cdef int m, idx, i, j
+  cdef int m = lp.nrows(), idx, i, j
 
-  m = lp.nrows()
   #Classify variables in basic/nonbasic
-  for i in xrange(lp.ncols()):
-    if lp.is_variable_basic(i):
-      basic.append(m + i)
-    else:
-      nonbasic.append(m + i)
   for i in xrange(m):
     if lp.is_slack_variable_basic(i):
       basic.append(i)
     else:
       nonbasic.append(i)
+  for i in xrange(lp.ncols()):
+    if lp.is_variable_basic(i):
+      basic.append(m + i)
+    else:
+      nonbasic.append(m + i)
 
   #Compute zN and DzN
+  cdef int change = randint(0, n-1) #Choose which coefficient should be changed
   cdef list zN = []
-  for i in nonbasic:
+  cdef Vector_real_double_dense DcN = vector(RDF, [ 0.0 ] * len(nonbasic))
+  for idx, i in enumerate(nonbasic):
     if i >= m:
       zN.append(-lp.get_col_dual(i - m))
+      if (i - m) % n == change:
+        DcN[idx] = 1.0
     else:
-      zN.append(-lp.get_row_dual(i))
+      zN.append(lp.get_row_dual(i))
 
-  cdef int change = randint(0, n-1) #Choose which coefficient should be changed
+  assert all([ z >= 0 for z in zN ]), "Current solution is not optimal?"
 
   cdef list DcB_l = []
   for i in basic:
     if i >= m and (i - m) % n == change:
       DcB_l.append(i)
 
-  cdef Vector_real_double_dense DcN = vector(RDF, [ 0.0 ] * len(nonbasic))
-  for idx, i in enumerate(nonbasic):
-    if i >= m and (i - m) % n == change:
-      DcN[idx] = 1.0
-
   cdef Vector_real_double_dense DzN = sum([ tableau_row(lp, i, nonbasic) for i in DcB_l ]) - DcN
 
   #Compute min/max interval
   cdef float min_t = float("inf")
   cdef float max_t = float("-inf")
-  cdef float val
+  cdef float t
 
-  cdef float epsilon = 0.001
-  for i in xrange(len(zN)):
+  cdef float epsilon = 0.000001
+  for i in xrange(len(nonbasic)):
     if abs(DzN[i]) < epsilon and abs(zN[i]) < epsilon:
-      val = 0.0
+      t = 0.0
     elif abs(zN[i]) < epsilon:
-      val = float("-inf") if DzN[i] > 0 else float("inf")
+      t = float("-inf") if DzN[i] > 0 else float("inf")
     else:
-      val = -float(DzN[i]) / float(zN[i])
-    if val > max_t:
-      max_t = val
-    if val < min_t:
-      min_t = val
+      t = -DzN[i] / zN[i]
+    if t > max_t:
+      max_t = t
+    if t < min_t:
+      min_t = t
 
   if abs(min_t) < epsilon:
     min_t = float("-inf")
@@ -962,7 +962,9 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
     max_t = float("inf")
   else:
     max_t = 1.0/max_t
-  assert min_t <= 0 and max_t >= 0, "Sensibility range is inconsistent"
+
+  print min_t, max_t
+  assert max_t >= 0 and min_t <= 0, "Sensibility range is inconsistent"
 
   #Change the objective function according to range found
   cdef float old_value, new_value
@@ -1055,11 +1057,27 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
 
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
+    #print "before"
+    #L = []
+    #for i in xrange(k):
+    #  L2 = []
+    #  for j in xrange(n):
+    #    L2.append(lp.get_variable_value(j + i * n))
+    #  L.append(L2)
+    #print L
     w = sensitivity(lp, n, k)
     lp.solve()
+    #print "after"
+    #L = []
+    #for i in xrange(k):
+    #  L2 = []
+    #  for j in xrange(n):
+    #    L2.append(lp.get_variable_value(j + i * n))
+    #  L.append(L2)
+    #print L
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials(lp, newR, k)
-    print w, best_w
+    #print w, best_w
     print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
     CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
     CLTs.sort(cmp=hs_heuristic)
@@ -1071,10 +1089,10 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     lp.set_objective(best_w * k)
     lp.solve()
 
-  #Compare with current_ordering
+  #Compare with current_ordering - keep the current one if they tie!
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
   LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
+  CLTs.insert(0, (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
   CLTs.sort(cmp=hs_heuristic)
   best_w = CLTs[0][2]
   lp.set_objective(best_w * k)
