@@ -55,6 +55,8 @@ from sage.numerical.backends.glpk_backend cimport GLPKBackend
 
 from sage.functions.other import floor, ceil
 
+from libcpp cimport bool
+
 # globals, until/unless I make a class out of this
 
 ZZ = IntegerRing()
@@ -979,6 +981,7 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   cdef float old_value = lp.objective_coefficient(change)
   for i in xrange(k):
     lp.objective_coefficient(change + i * n, old_value + increment)
+
   return weight_vector(lp, n)
 
 @cython.profile(True)
@@ -1009,6 +1012,19 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
     LTs.append(monomial)
   return LTs
 
+cpdef bool is_degenerate(GLPKBackend lp):
+  cdef int i
+  cdef float epsilon = 0.00001
+  for i in xrange(lp.ncols()):
+    if lp.is_variable_basic(i):
+      if abs(lp.get_variable_value(i)) < epsilon:
+        return True
+  for i in xrange(lp.nrows()):
+    if lp.is_slack_variable_basic(i):
+      if abs(lp.get_row_prim(i)) < epsilon:
+        return True
+  return False
+
 #TODO why does the number of iterations affect performance so much?
 @cython.profile(True)
 cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 5):
@@ -1033,7 +1049,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   cdef list CLTs, LTs, oldLTs, w, best_w
 
   #Initial random ordering
-  w = [ randint(1, 10000) for i in xrange(n) ]
+  w = current_ordering #[ randint(1, 10000) for i in xrange(n) ]
   best_w = w
 
   #Transform last element of G to linear program, set objective function given by w and solve
@@ -1049,28 +1065,13 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
 
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
-    #print "before"
-    #L = []
-    #for i in xrange(k):
-    #  L2 = []
-    #  for j in xrange(n):
-    #    L2.append(lp.get_variable_value(j + i * n))
-    #  L.append(L2)
-    #print L
     w = sensitivity(lp, n, k)
     lp.solve()
-    #print "after"
-    #L = []
-    #for i in xrange(k):
-    #  L2 = []
-    #  for j in xrange(n):
-    #    L2.append(lp.get_variable_value(j + i * n))
-    #  L.append(L2)
-    #print L
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials(lp, newR, k)
-    #print w, best_w
     print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
+    if [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False) == 0:
+      continue
     CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
     CLTs.sort(cmp=hs_heuristic)
     best_w = CLTs[0][2] #Take first improvement
@@ -1082,13 +1083,13 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     lp.solve()
 
   #Compare with current_ordering - keep the current one if they tie!
-  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
-  LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  CLTs.insert(0, (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
-  CLTs.sort(cmp=hs_heuristic)
-  best_w = CLTs[0][2]
-  lp.set_objective(best_w * k)
-  lp.solve()
+  #newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
+  #LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
+  #CLTs.insert(0, (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
+  #CLTs.sort(cmp=hs_heuristic)
+  #best_w = CLTs[0][2]
+  #lp.set_objective(best_w * k)
+  #lp.solve()
 
   return best_w
 
@@ -1993,13 +1994,24 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
 
           if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
             if unrestricted or random or perturbation or simplex:
-              changes = [oldLTs[i] == LTs[i] for i in xrange(len(LTs)-1)].count(False)
-              print "Changed order:", changes, "changes out of", len(oldLTs), "possible"
+              #P = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
+              unchanged_G = []
+              unchanged_LTs = []
+              changed = []
+              for i in xrange(len(LTs)-1):
+                if oldLTs[i] == LTs[i]:
+                  unchanged_G.append(G[i])
+                  unchanged_LTs.append(LTs[i])
+                else:
+                  changed.append(i)
+              print "Changed order:", len(changed), "changes out of", len(oldLTs), "possible"
               #TODO can I only gm_update stuff that had its LT changed?
               # rebuild P - this is necessary because we changed leading terms
-              P = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
-              for i in xrange(1, len(G)-1):
-                P = gm_update(PR, P, G[:i], LTs[:i], strategy)
+              for i in changed:
+                #P = gm_update(PR, P, G[:i], LTs[:i], strategy)
+                unchanged_G.append(G[i])
+                unchanged_LTs.append(LTs[i])
+                P = gm_update(PR, P, unchanged_G, unchanged_LTs, strategy)
             else:
               raise ValueError, "leading terms changed" # this should never happen
 
@@ -2044,5 +2056,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
 
   #Check that the results are correct
   assert PR.ideal(reducers) == PR.ideal(F), "Output basis generates wrong ideal"
+  if not PR.ideal(reducers).gens().is_groebner():
+    print reducers
   assert PR.ideal(reducers).gens().is_groebner(), "Output basis is not a GB"
   return reducers, LTs, rejects, G
