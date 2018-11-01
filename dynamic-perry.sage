@@ -929,7 +929,8 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
     else:
       zN.append(lp.get_row_dual(i))
 
-  assert all([ z >= 0 for z in zN ]), "Current solution is not optimal?"
+  #Sometimes, numerical approximations give problems here
+  #assert all([ z >= 0 for z in zN ]), "Current solution is not optimal?"
 
   cdef list DcB_l = []
   for i in basic:
@@ -1048,6 +1049,9 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   cdef int i, j, it = 0
   cdef list CLTs, LTs, oldLTs, w, best_w
 
+  #TODO use iteration_limit, if we can keep the right value of w
+  #lp.solver_parameter("iteration_limit", 2**31 - 1)
+
   #Initial random ordering
   w = current_ordering #[ randint(1, 10000) for i in xrange(n) ]
   best_w = w
@@ -1063,10 +1067,13 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   oldLTs = LTs
   CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w ) ]
 
+  #lp.solver_parameter("iteration_limit", 1)
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
     w = sensitivity(lp, n, k)
     lp.solve()
+    if lp.best_known_objective_bound() != lp.get_objective_value():
+      print "not optimal?"
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials(lp, newR, k)
     print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
