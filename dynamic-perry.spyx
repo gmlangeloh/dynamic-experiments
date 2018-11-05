@@ -1026,6 +1026,44 @@ cpdef bool is_degenerate(GLPKBackend lp):
         return True
   return False
 
+cpdef list find_objective(GLPKBackend lp, int k):
+  r"""
+  Finds and sets some objective function for which the current basis of lp is optimal.
+  """
+  cdef int i
+
+  #Build A, b, x in Ax <= b
+  cdef Vector_real_double_dense b = vector(RDF, lp.nrows())
+  for i in xrange(lp.nrows()):
+    lb, ub = lp.row_bounds(i)
+    if ub is not None:
+      b[i] = ub
+    elif lb is not None:
+      b[i] = lb
+
+  cdef list A_l = []
+  cdef list indices, coefs
+  for i in xrange(lp.nrows()):
+    A_l.append([0] * lp.ncols())
+    indices, coefs = lp.row(i)
+    for j, c in zip(indices, coefs):
+      A_l[i][j] = c
+  cdef Matrix_real_double_dense A = matrix(A_l)
+
+  cdef Vector_real_double_dense x = vector(RDF, lp.ncols())
+  for i in xrange(lp.ncols()):
+    x[i] = lp.get_variable_value(i)
+
+  #Solve system
+  V = matrix(b - A*x).transpose().kernel()
+  cdef Vector_real_double_dense y = sum([ v for v in V.basis() if all([vi >= 0 for vi in v])])
+
+  cdef list w = list(A.transpose() * y)
+  print "new obj function", w
+  lp.set_objective(w * k)
+
+  return w
+
 #TODO why does the number of iterations affect performance so much?
 @cython.profile(True)
 cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 5):
@@ -1049,6 +1087,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   cdef int i, j, it = 0
   cdef list CLTs, LTs, oldLTs, w, best_w
 
+  #TODO use iteration_limit, if we can keep the right value of w
   lp.solver_parameter("iteration_limit", 2**31 - 1)
 
   #Initial random ordering
@@ -1078,6 +1117,8 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
     if [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False) == 0:
       continue
+    else:
+      w = find_objective(lp, k)
     CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
     CLTs.sort(cmp=hs_heuristic)
     best_w = CLTs[0][2] #Take first improvement

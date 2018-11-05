@@ -799,7 +799,7 @@ cpdef list min_weights_by_Hilbert_heuristic(MPolynomialRing_libsingular R, list 
   #TODO this could be optimized, we are sorting just to find the minimum...
   return CLTs[0][2]
 
-cpdef GLPKBackend make_solver():
+cpdef GLPKBackend make_solver(int n):
   r"""
   Creates an empty model in a GLPK backend solver.
 
@@ -811,6 +811,7 @@ cpdef GLPKBackend make_solver():
   import sage.numerical.backends.glpk_backend as backend
   lp = get_solver(solver="GLPK")
   lp.solver_parameter(backend.glp_simplex_or_intopt, backend.glp_simplex_only)
+  #lp.add_variables(n)
 
   return lp
 
@@ -832,6 +833,9 @@ cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p):
   NP = p.newton_polytope() + Polyhedron(rays=(-identity_matrix(n)).rows())
   lp = NP.to_linear_program(solver="GLPK")
   n = glpk.ncols()
+
+  #Remove previous auxiliary constraints
+
   glpk.add_variables(lp.number_of_variables())
 
   for lb, a, ub in lp.constraints():
@@ -1026,6 +1030,46 @@ cpdef bool is_degenerate(GLPKBackend lp):
         return True
   return False
 
+cpdef list find_objective(GLPKBackend lp):
+  r"""
+  Finds and sets some objective function for which the current basis of lp is optimal.
+
+  BUGGED/USELESS for now
+  """
+  cdef int i
+
+  #Build A, b, x in Ax <= b
+  cdef Vector_real_double_dense b = vector(RDF, lp.nrows())
+  for i in xrange(lp.nrows()):
+    lb, ub = lp.row_bounds(i)
+    if ub is not None:
+      b[i] = ub
+    elif lb is not None:
+      b[i] = lb
+
+  cdef list A_l = []
+  cdef list indices, coefs
+  for i in xrange(lp.nrows()):
+    A_l.append([0] * lp.ncols())
+    indices, coefs = lp.row(i)
+    for j, c in zip(indices, coefs):
+      A_l[i][j] = c
+  cdef Matrix_real_double_dense A = matrix(A_l)
+
+  cdef Vector_real_double_dense x = vector(RDF, lp.ncols())
+  for i in xrange(lp.ncols()):
+    x[i] = lp.get_variable_value(i)
+
+  #Solve system
+  V = matrix(b - A*x).transpose().kernel()
+  cdef Vector_real_double_dense y = sum([ v for v in V.basis() if all([vi >= 0 for vi in v])])
+
+  cdef list w = list(A.transpose() * y)
+  print "new obj function", w
+  lp.set_objective(w)
+
+  return w
+
 #TODO why does the number of iterations affect performance so much?
 @cython.profile(True)
 cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 5):
@@ -1072,13 +1116,13 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   while it < iterations:
     w = sensitivity(lp, n, k)
     lp.solve()
-    if lp.best_known_objective_bound() != lp.get_objective_value():
-      print "not optimal?"
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials(lp, newR, k)
     print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
     if [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False) == 0:
       continue
+    #else:
+    #  w = find_objective(lp)
     CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
     CLTs.sort(cmp=hs_heuristic)
     best_w = CLTs[0][2] #Take first improvement
@@ -1886,7 +1930,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
   # (avoids a GLPK bug IIRC)
   lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, glpk_backend.glp_simplex_then_intopt)
 
-  slp = make_solver()
+  slp = make_solver(n)
 
   # need positive weights
   for k in xrange(n):
