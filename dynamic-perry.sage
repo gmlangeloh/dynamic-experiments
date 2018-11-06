@@ -811,11 +811,12 @@ cpdef GLPKBackend make_solver(int n):
   import sage.numerical.backends.glpk_backend as backend
   lp = get_solver(solver="GLPK")
   lp.solver_parameter(backend.glp_simplex_or_intopt, backend.glp_simplex_only)
-  #lp.add_variables(n)
+  if n > 0:
+    lp.add_variables(n)
 
   return lp
 
-cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p):
+cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p, int k):
   r"""
   Appends constraints and variables of the Newton polyhedron of `p` to the current
   linear program in `glpk`.
@@ -824,24 +825,34 @@ cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p):
 
   - `glpk` -- current representation of the linear programming model in GLPK
   - `p` -- polynomial whose affine Newton Polyhedron will be added to the linear programming model
+  - `k` -- number of polynomials in current basis (including p)
   """
 
   cdef int n = p.parent().ngens()
   cdef tuple a
   cdef list variables, coefs
 
+  #Remove previous auxiliary constraints
+  if glpk.nrows() > 0:
+    for i in xrange(glpk.nrows() - 1, glpk.nrows() - n - 1, -1):
+      glpk.remove_constraint(glpk.nrows() - 1)
+
   NP = p.newton_polytope() + Polyhedron(rays=(-identity_matrix(n)).rows())
   lp = NP.to_linear_program(solver="GLPK")
-  n = glpk.ncols()
+  cdef int cols = glpk.ncols()
 
-  #Remove previous auxiliary constraints
-
-  glpk.add_variables(lp.number_of_variables())
+  glpk.add_variables(n)
 
   for lb, a, ub in lp.constraints():
     variables, coefs = a
-    variables = [ i + n for i in variables ]
+    variables = [ i + cols - n for i in variables ]
     glpk.add_linear_constraint(list(zip(variables, coefs)), lb, ub)
+
+  #Add auxiliary constraints
+  for i in xrange(n):
+    L = [ (i + j * n, -1) for j in xrange(k) ]
+    L.append((i + cols, 1))
+    glpk.add_linear_constraint(L, 0.0, 0.0)
 
   return
 
@@ -854,6 +865,7 @@ cpdef list weight_vector(GLPKBackend lp, int n):
   INPUTS:
 
   - `lp` -- a GLPK linear programming model
+  - `n` -- number of variables in the polynomial system
 
   OUTPUTS:
 
@@ -861,7 +873,7 @@ cpdef list weight_vector(GLPKBackend lp, int n):
   """
   cdef list w = []
   cdef int i
-  for i in xrange(n):
+  for i in xrange(lp.ncols() - n, lp.ncols()):
     w.append(lp.objective_coefficient(i))
   return w
 
@@ -893,6 +905,31 @@ cpdef Vector_real_double_dense tableau_row(GLPKBackend lp, int i, list nonbasic)
     else:
       row.append(0.0)
   return vector(RDF, row)
+
+@cython.profile(True)
+cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int change_idx, int n):
+
+  cdef float increment
+  if lower == float("-inf") and upper == float("inf"):
+    return weight_vector(lp, n)
+  if upper == float("inf"):
+    increment = ceil(lower) - 1
+    if lp.objective_coefficient(change_idx) + increment <= 0:
+      return weight_vector(lp, n)
+  elif lower == float("-inf"):
+    increment = floor(upper) + 1
+  else:
+    #Lower coefficient, when possible, 50% of the time
+    increment = ceil(lower) - 1
+    if lp.objective_coefficient(change_idx) + increment <= 0:
+      increment = floor(upper) + 1
+    elif randint(0, 1):
+      increment = floor(upper) + 1
+
+  cdef float old_value = lp.objective_coefficient(change_idx)
+  lp.objective_coefficient(change_idx, old_value + increment)
+
+  return weight_vector(lp, n)
 
 @cython.profile(True)
 cpdef list sensitivity(GLPKBackend lp, int n, int k):
@@ -933,15 +970,11 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
     else:
       zN.append(lp.get_row_dual(i))
 
-  #Sometimes, numerical approximations give problems here
-  #assert all([ z >= 0 for z in zN ]), "Current solution is not optimal?"
-
-  cdef list DcB_l = []
-  for i in basic:
-    if i >= m and (i - m) % n == change:
-      DcB_l.append(i)
-
-  cdef Vector_real_double_dense DzN = sum([ tableau_row(lp, i, nonbasic) for i in DcB_l ]) - DcN
+  cdef Vector_real_double_dense DzN
+  if lp.is_variable_basic(change + k * n):
+    DzN = tableau_row(lp, m + change + k * n, nonbasic) - DcN
+  else:
+    DzN = -DcN
 
   #Compute min/max interval
   cdef float t
@@ -961,33 +994,115 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
     if t <= 0 and t > lower:
       lower = t
 
-  print lower, upper
-  assert upper >= 0 and lower <= 0, "Sensibility range is inconsistent"
+  print "sensitivity:", lower, upper
+  assert upper >= 0 and lower <= 0, "Inconsistent sensitivity range"
 
-  #Change the objective function according to range found
-  cdef float increment
+  return apply_sensitivity_range(lower, upper, lp, n * k + change, n)
 
-  if lower == float("-inf") and upper == float("inf"):
-    return weight_vector(lp, n)
-  if upper == float("inf"):
-    increment = ceil(lower) - 1
-    if lp.objective_coefficient(change) + increment <= 0:
-      return weight_vector(lp, n)
-  elif lower == float("-inf"):
-    increment = floor(upper) + 1
-  else:
-    #Lower coefficient, when possible, 50% of the time
-    increment = ceil(lower) - 1
-    if lp.objective_coefficient(change) + increment <= 0:
-      increment = floor(upper) + 1
-    elif randint(0, 1):
-      increment = floor(upper) + 1
+@cython.profile(True)
+cpdef tuple matrix_form(GLPKBackend lp):
+  r"""
+  Returns A, b, x, c such that x is an optimal solution of
+  max c^T*x
+  s.t A*x <= b
 
-  cdef float old_value = lp.objective_coefficient(change)
-  for i in xrange(k):
-    lp.objective_coefficient(change + i * n, old_value + increment)
+  (lp.solve() has to be called beforehand)
+  """
 
-  return weight_vector(lp, n)
+  cdef Vector_real_double_dense b = vector(RDF, lp.nrows())
+  for i in xrange(lp.nrows()):
+    lb, ub = lp.row_bounds(i)
+    if ub is not None:
+      b[i] = ub
+    elif lb is not None:
+      b[i] = lb
+
+  cdef list A_l = []
+  cdef list indices, coefs
+  for i in xrange(lp.nrows()):
+    A_l.append([0] * lp.ncols())
+    indices, coefs = lp.row(i)
+    for j, coef in zip(indices, coefs):
+      A_l[i][j] = coef
+  cdef Matrix_real_double_dense A = matrix(A_l)
+
+  cdef Vector_real_double_dense x = vector(RDF, lp.ncols())
+  for i in xrange(lp.ncols()):
+    x[i] = lp.get_variable_value(i)
+
+  cdef Vector_real_double_dense c = vector(RDF, lp.ncols())
+  for i in xrange(lp.ncols()):
+    c[i] = lp.objective_coefficient(i)
+
+  return A, b, x, c
+
+@cython.profile(True)
+cpdef list wide_sensitivity(GLPKBackend lp, int n):
+  r"""
+  Implements the sensitivity analysis idea from Jensen et al, 1997.
+
+  BUGGED: this should always return a wider range than sensitivity
+  also, sometimes range is inconsistent (same bug?)
+  """
+  cdef tuple t = matrix_form(lp)
+  cdef Matrix_real_double_dense A = t[0]
+  cdef Vector_real_double_dense b = t[1]
+  cdef Vector_real_double_dense x = t[2]
+  cdef Vector_real_double_dense c = t[3]
+  cdef Matrix_real_double_dense A_t = A.transpose()
+
+  #Make model here
+  cdef int coef_change_idx = randint(lp.ncols() - n, lp.ncols() - 1)
+  cdef GLPKBackend glpk = make_solver(0)
+  cdef int num_vars = len(b)
+  glpk.add_variables(num_vars) #Variables of the dual problem
+  glpk.add_variable(lower_bound=None, upper_bound=None, binary=False, continuous=True,integer=False, obj=1.0) #The gamma variable
+  cdef int gamma = glpk.ncols() - 1
+
+  cdef int i
+  for i in xrange(A_t.nrows()):
+    if i != coef_change_idx:
+      glpk.add_linear_constraint(list(zip(xrange(num_vars), A_t[i])), c[i], None)
+    else:
+      glpk.add_linear_constraint(list(zip(xrange(num_vars), A_t[i])) + [(gamma, -1.0)], c[i], None)
+
+  cdef float zeta = lp.get_objective_value()
+  glpk.add_linear_constraint(list(zip(xrange(num_vars), b)) + [(gamma, -x[coef_change_idx])], zeta, zeta)
+
+  #Solve for maximization
+  cdef float upper
+  glpk.set_sense(+1)
+  try:
+    glpk.solve()
+    upper = glpk.get_variable_value(gamma)
+  except Exception as e:
+    s = str(e)
+    if "no feasible" in s:
+      upper = 0.0
+    elif "unbounded" in s:
+      upper = float("inf")
+    else:
+      raise e
+
+  #Solve for minimization
+  cdef float lower
+  glpk.set_sense(-1)
+  try:
+    glpk.solve()
+    lower = glpk.get_variable_value(gamma)
+  except Exception as e:
+    s = str(e)
+    if "no feasible" in s:
+      lower = 0.0
+    elif "unbounded" in s:
+      lower = float("-inf")
+    else:
+      raise e
+
+  print "wide sensitivity:", lower, upper
+  assert lower <= 0 and upper >= 0, "Inconsistent sensitivity range"
+
+  return apply_sensitivity_range(lower, upper, lp, coef_change_idx, n)
 
 @cython.profile(True)
 cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
@@ -1018,6 +1133,9 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
   return LTs
 
 cpdef bool is_degenerate(GLPKBackend lp):
+  r"""
+  Checks if `lp` is (primal) degenerate.
+  """
   cdef int i
   cdef float epsilon = 0.00001
   for i in xrange(lp.ncols()):
@@ -1030,45 +1148,46 @@ cpdef bool is_degenerate(GLPKBackend lp):
         return True
   return False
 
-cpdef list find_objective(GLPKBackend lp):
+cpdef list find_objective(GLPKBackend lp, int n):
   r"""
   Finds and sets some objective function for which the current basis of lp is optimal.
 
   BUGGED/USELESS for now
   """
   cdef int i
+  cdef tuple t = matrix_form(lp)
+  cdef Matrix_real_double_dense A = t[0]
+  cdef Vector_real_double_dense b = t[1]
+  cdef Vector_real_double_dense x = t[2]
+  cdef Matrix_real_double_dense A_t = A.transpose()
 
-  #Build A, b, x in Ax <= b
-  cdef Vector_real_double_dense b = vector(RDF, lp.nrows())
-  for i in xrange(lp.nrows()):
-    lb, ub = lp.row_bounds(i)
-    if ub is not None:
-      b[i] = ub
-    elif lb is not None:
-      b[i] = lb
+  #Build and solve system
+  cdef Vector_real_double_dense c = b - A*x
+  cdef GLPKBackend glpk = make_solver(0)
+  glpk.add_variables(len(c))
+  glpk.add_linear_constraint(list(zip(xrange(len(c)), c)), 0.0, 0.0)
 
-  cdef list A_l = []
-  cdef list indices, coefs
-  for i in xrange(lp.nrows()):
-    A_l.append([0] * lp.ncols())
-    indices, coefs = lp.row(i)
-    for j, c in zip(indices, coefs):
-      A_l[i][j] = c
-  cdef Matrix_real_double_dense A = matrix(A_l)
+  cdef int B = lp.ncols() - n
+  for i in xrange(B):
+    glpk.add_linear_constraint(list(zip(xrange(len(c)), A_t[i])), 0.0, 0.0)
 
-  cdef Vector_real_double_dense x = vector(RDF, lp.ncols())
-  for i in xrange(lp.ncols()):
-    x[i] = lp.get_variable_value(i)
+  for i in xrange(B, lp.ncols()):
+    glpk.add_linear_constraint(list(zip(xrange(len(c)), A_t[i])), 1.0, None)
 
-  #Solve system
-  V = matrix(b - A*x).transpose().kernel()
-  cdef Vector_real_double_dense y = sum([ v for v in V.basis() if all([vi >= 0 for vi in v])])
+  glpk.set_objective([1] * len(c))
+  glpk.set_sense(-1)
+  glpk.solve()
 
-  cdef list w = list(A.transpose() * y)
-  print "new obj function", w
+  cdef Vector_real_double_dense y = vector(RDF, len(c))
+  for i in xrange(len(y)):
+    y[i] = glpk.get_variable_value(i)
+
+  cdef list w = list(A_t * y)
+  print "new order", w
+
   lp.set_objective(w)
 
-  return w
+  return w[B:]
 
 #TODO why does the number of iterations affect performance so much?
 @cython.profile(True)
@@ -1097,12 +1216,13 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #lp.solver_parameter("iteration_limit", 2**31 - 1)
 
   #Initial random ordering
-  w = current_ordering #[ randint(1, 10000) for i in xrange(n) ]
+  #w = current_ordering
+  w = [ randint(1, 10000) for i in xrange(n) ]
   best_w = w
 
   #Transform last element of G to linear program, set objective function given by w and solve
-  append_linear_program(lp, G[len(G)-1].value())
-  lp.set_objective(w * k)
+  append_linear_program(lp, G[len(G)-1].value(), k)
+  lp.set_objective([0] * n * k + w)
   lp.solve()
 
   #Get current LTs to compare with Hilbert heuristic
@@ -1115,6 +1235,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
     w = sensitivity(lp, n, k)
+    w = wide_sensitivity(lp, n)
     lp.solve()
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials(lp, newR, k)
@@ -1122,25 +1243,25 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     if [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False) == 0:
       continue
     #else:
-    #  w = find_objective(lp)
+    #  w = find_objective(lp, n)
     CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
     CLTs.sort(cmp=hs_heuristic)
     best_w = CLTs[0][2] #Take first improvement
     if best_w == w:
       oldLTs = LTs
+      lp.set_objective([0] * n * k + best_w)
+      lp.solve()
     CLTs = CLTs[:1]
     it += 1
-    lp.set_objective(best_w * k)
-    lp.solve()
 
   #Compare with current_ordering - keep the current one if they tie!
-  #newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
-  #LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  #CLTs.insert(0, (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
-  #CLTs.sort(cmp=hs_heuristic)
-  #best_w = CLTs[0][2]
-  #lp.set_objective(best_w * k)
-  #lp.solve()
+  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
+  LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
+  CLTs.insert(0, (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
+  CLTs.sort(cmp=hs_heuristic)
+  best_w = CLTs[0][2]
+  lp.set_objective(best_w * k)
+  lp.solve()
 
   return best_w
 
