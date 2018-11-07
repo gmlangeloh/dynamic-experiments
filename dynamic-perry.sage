@@ -932,7 +932,7 @@ cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int
   return weight_vector(lp, n)
 
 @cython.profile(True)
-cpdef list sensitivity(GLPKBackend lp, int n, int k):
+cpdef tuple sensitivity(GLPKBackend lp, int n, int k):
   r"""
   Changes the current lp objective function to point to a neighbor.
 
@@ -997,7 +997,8 @@ cpdef list sensitivity(GLPKBackend lp, int n, int k):
   print "sensitivity:", lower, upper
   assert upper >= 0 and lower <= 0, "Inconsistent sensitivity range"
 
-  return apply_sensitivity_range(lower, upper, lp, n * k + change, n)
+  #return apply_sensitivity_range(lower, upper, lp, n * k + change, n), n * k + change
+  return [], n * k + change
 
 @cython.profile(True)
 cpdef tuple matrix_form(GLPKBackend lp):
@@ -1037,7 +1038,7 @@ cpdef tuple matrix_form(GLPKBackend lp):
   return A, b, x, c
 
 @cython.profile(True)
-cpdef list wide_sensitivity(GLPKBackend lp, int n):
+cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   r"""
   Implements the sensitivity analysis idea from Jensen et al, 1997.
 
@@ -1052,7 +1053,11 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n):
   cdef Matrix_real_double_dense A_t = A.transpose()
 
   #Make model here
-  cdef int coef_change_idx = randint(lp.ncols() - n, lp.ncols() - 1)
+  cdef int coef_change_idx
+  if coef == 0:
+    coef_change_idx = randint(lp.ncols() - n, lp.ncols() - 1)
+  else:
+    coef_change_idx = coef
   cdef GLPKBackend glpk = make_solver(0)
   cdef int num_vars = len(b)
   glpk.add_variables(num_vars) #Variables of the dual problem
@@ -1066,7 +1071,9 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n):
     else:
       glpk.add_linear_constraint(list(zip(xrange(num_vars), A_t[i])) + [(gamma, -1.0)], c[i], None)
 
+  cdef float epsilon = 0.0001
   cdef float zeta = lp.get_objective_value()
+  assert abs(zeta - c*x) < epsilon, "zeta is weird " + str(zeta) + " " + str(c*x)
   glpk.add_linear_constraint(list(zip(xrange(num_vars), b)) + [(gamma, -x[coef_change_idx])], zeta, zeta)
 
   #Solve for maximization
@@ -1100,7 +1107,7 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n):
       raise e
 
   print "wide sensitivity:", lower, upper
-  assert lower <= 0 and upper >= 0, "Inconsistent sensitivity range"
+  assert lower < epsilon and upper > -epsilon, "Inconsistent sensitivity range"
 
   return apply_sensitivity_range(lower, upper, lp, coef_change_idx, n)
 
@@ -1148,6 +1155,25 @@ cpdef bool is_degenerate(GLPKBackend lp):
         return True
   return False
 
+cpdef list find_objective_normal(GLPKBackend lp, int n):
+
+  cdef int i, j, idx
+  cdef list row_indices, row_coeffs, v
+  cdef float epsilon = 0.00001
+  cdef Vector_real_double_dense normal = vector(RDF, lp.ncols())
+  for i in xrange(lp.nrows() - n):
+    if abs(lp.get_row_prim(i)) < epsilon:
+      row_indices, row_coeffs = lp.row(i)
+      v = [0] * lp.ncols()
+      for idx, j in enumerate(row_indices):
+        v[j] = row_coeffs[idx]
+      print v
+      normal += vector(v)
+
+  print "new objective:", normal
+
+  return list(normal)
+
 cpdef list find_objective(GLPKBackend lp, int n):
   r"""
   Finds and sets some objective function for which the current basis of lp is optimal.
@@ -1165,6 +1191,7 @@ cpdef list find_objective(GLPKBackend lp, int n):
   cdef Vector_real_double_dense c = b - A*x
   cdef GLPKBackend glpk = make_solver(0)
   glpk.add_variables(len(c))
+  #glpk.add_variable(lower_bound=0.0, upper_bound=10000.0, binary=False, continuous=True, integer=False, obj=1.0)
   glpk.add_linear_constraint(list(zip(xrange(len(c)), c)), 0.0, 0.0)
 
   cdef int B = lp.ncols() - n
@@ -1174,8 +1201,6 @@ cpdef list find_objective(GLPKBackend lp, int n):
   for i in xrange(B, lp.ncols()):
     glpk.add_linear_constraint(list(zip(xrange(len(c)), A_t[i])), 1.0, None)
 
-  glpk.set_objective([1] * len(c))
-  glpk.set_sense(-1)
   glpk.solve()
 
   cdef Vector_real_double_dense y = vector(RDF, len(c))
@@ -1234,7 +1259,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #lp.solver_parameter("iteration_limit", 1)
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
-    w = sensitivity(lp, n, k)
+    #w, c = sensitivity(lp, n, k)
     w = wide_sensitivity(lp, n)
     lp.solve()
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
@@ -1243,14 +1268,14 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     if [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False) == 0:
       continue
     #else:
-    #  w = find_objective(lp, n)
+    #  find_objective_normal(lp, n)
     CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
     CLTs.sort(cmp=hs_heuristic)
     best_w = CLTs[0][2] #Take first improvement
     if best_w == w:
       oldLTs = LTs
-      lp.set_objective([0] * n * k + best_w)
-      lp.solve()
+    lp.set_objective([0] * n * k + best_w)
+    lp.solve()
     CLTs = CLTs[:1]
     it += 1
 
