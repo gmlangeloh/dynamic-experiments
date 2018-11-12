@@ -909,6 +909,12 @@ cpdef Vector_real_double_dense tableau_row(GLPKBackend lp, int i, list nonbasic)
 @cython.profile(True)
 cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int change_idx, int n):
 
+  cdef float epsilon = 0.001
+  if abs(lower - round(lower)) < epsilon:
+    lower = float(round(lower))
+  if abs(upper - round(upper)) < epsilon:
+    upper = float(round(upper))
+
   cdef float increment
   if lower == float("-inf") and upper == float("inf"):
     return weight_vector(lp, n)
@@ -925,6 +931,9 @@ cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int
       increment = floor(upper) + 1
     elif randint(0, 1):
       increment = floor(upper) + 1
+
+  assert abs(increment) > 0
+  print increment
 
   cdef float old_value = lp.objective_coefficient(change_idx)
   lp.objective_coefficient(change_idx, old_value + increment)
@@ -1037,6 +1046,53 @@ cpdef tuple matrix_form(GLPKBackend lp):
 
   return A, b, x, c
 
+cpdef void sensitivity_warm_start(GLPKBackend lp, GLPKBackend aux):
+
+  cdef int i
+  for i in xrange(aux.ncols() - 1):
+    if lp.get_row_stat(i) != 1:
+      aux.set_col_stat(i, 1)
+    else:
+      aux.set_col_stat(i, 2)
+  for i in xrange(aux.nrows() - 1):
+    if lp.get_col_stat(i) != 1:
+      aux.set_row_stat(i, 1)
+    else:
+      aux.set_row_stat(i, 2)
+  aux.set_row_stat(aux.nrows() - 1, 1)
+  aux.set_col_stat(aux.ncols() - 1, 2)
+  aux.warm_up()
+
+cpdef list lp_column(GLPKBackend lp, int col_idx):
+
+  cdef int i, j, idx
+  cdef list column = [], row_indices, row_coeffs
+  for i in xrange(lp.nrows()):
+    row_indices, row_coeffs = lp.row(i)
+    for idx, j in enumerate(row_indices):
+      if j == col_idx:
+        column.append(row_coeffs[idx])
+        break
+    else:
+      column.append(0)
+
+  return column
+
+cpdef list lp_bounds(GLPKBackend lp):
+
+  cdef int i
+  cdef list b = []
+  for i in xrange(lp.nrows()):
+    lb, ub = lp.row_bounds(i)
+    if ub is not None:
+      b.append(ub)
+    elif lb is not None:
+      b.append(lb)
+
+  assert len(b) == lp.nrows()
+
+  return b
+
 @cython.profile(True)
 cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   r"""
@@ -1045,12 +1101,6 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   BUGGED: this should always return a wider range than sensitivity
   also, sometimes range is inconsistent (same bug?)
   """
-  cdef tuple t = matrix_form(lp)
-  cdef Matrix_real_double_dense A = t[0]
-  cdef Vector_real_double_dense b = t[1]
-  cdef Vector_real_double_dense x = t[2]
-  cdef Vector_real_double_dense c = t[3]
-  cdef Matrix_real_double_dense A_t = A.transpose()
 
   #Make model here
   cdef int coef_change_idx
@@ -1059,26 +1109,27 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   else:
     coef_change_idx = coef
   cdef GLPKBackend glpk = make_solver(0)
-  cdef int num_vars = len(b)
+  cdef int num_vars = lp.nrows()
   glpk.add_variables(num_vars) #Variables of the dual problem
   glpk.add_variable(lower_bound=None, upper_bound=None, binary=False, continuous=True,integer=False, obj=1.0) #The gamma variable
   cdef int gamma = glpk.ncols() - 1
 
   cdef int i
-  for i in xrange(A_t.nrows()):
+  for i in xrange(lp.ncols()):
     if i != coef_change_idx:
-      glpk.add_linear_constraint(list(zip(xrange(num_vars), A_t[i])), c[i], None)
+      glpk.add_linear_constraint(list(zip(xrange(num_vars), lp_column(lp, i))), lp.objective_coefficient(i), None)
     else:
-      glpk.add_linear_constraint(list(zip(xrange(num_vars), A_t[i])) + [(gamma, -1.0)], c[i], None)
+      glpk.add_linear_constraint(list(zip(xrange(num_vars), lp_column(lp, i))) + [(gamma, -1.0)], lp.objective_coefficient(i), None)
 
   cdef float epsilon = 0.0001
   cdef float zeta = lp.get_objective_value()
-  assert abs(zeta - c*x) < epsilon, "zeta is weird " + str(zeta) + " " + str(c*x)
-  glpk.add_linear_constraint(list(zip(xrange(num_vars), b)) + [(gamma, -x[coef_change_idx])], zeta, zeta)
+  #assert abs(zeta - c*x) < epsilon, "zeta is weird " + str(zeta) + " " + str(c*x)
+  glpk.add_linear_constraint(list(zip(xrange(num_vars), lp_bounds(lp))) + [(gamma, -lp.get_variable_value(coef_change_idx))], zeta, zeta)
 
   #Solve for maximization
   cdef float upper
   glpk.set_sense(+1)
+  sensitivity_warm_start(lp, glpk)
   try:
     glpk.solve()
     upper = glpk.get_variable_value(gamma)
@@ -1094,6 +1145,7 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   #Solve for minimization
   cdef float lower
   glpk.set_sense(-1)
+  sensitivity_warm_start(lp, glpk)
   try:
     glpk.solve()
     lower = glpk.get_variable_value(gamma)
@@ -1156,6 +1208,9 @@ cpdef bool is_degenerate(GLPKBackend lp):
   return False
 
 cpdef list find_objective_normal(GLPKBackend lp, int n):
+  r"""
+  This doesn't seem to work.
+  """
 
   cdef int i, j, idx
   cdef list row_indices, row_coeffs, v
@@ -1173,6 +1228,56 @@ cpdef list find_objective_normal(GLPKBackend lp, int n):
   print "new objective:", normal
 
   return list(normal)
+
+cpdef list find_objective_dual(GLPKBackend lp, int n):
+
+  r"""
+  This doesn't work either.
+  """
+
+  cdef int i
+  cdef tuple t = matrix_form(lp)
+  cdef Matrix_real_double_dense A = t[0]
+  cdef Vector_real_double_dense b = t[1]
+  cdef Vector_real_double_dense x = t[2]
+  cdef Matrix_real_double_dense A_t = t[0].transpose()
+  cdef Vector_real_double_dense y = vector(RDF, lp.nrows())
+  for i in xrange(lp.nrows()):
+    y[i] = lp.get_row_dual(i)
+
+  cdef Vector_real_double_dense c = b - A*x
+  cdef GLPKBackend glpk = make_solver(0)
+  for i in xrange(len(y)):
+    glpk.add_variable(lower_bound=y[i], upper_bound=y[i], continuous=True, binary=False, integer=False)
+  glpk.add_linear_constraint(list(zip(xrange(len(c)), c)), 0.0, 0.0)
+
+  cdef int B = lp.ncols() - n
+  for i in xrange(B):
+    glpk.add_linear_constraint(list(zip(xrange(len(c)), A_t[i])), 0.0, 0.0)
+
+  for i in xrange(B, lp.ncols()):
+    glpk.add_linear_constraint(list(zip(xrange(len(c)), A_t[i])), 1.0, None)
+
+  try:
+    glpk.solve()
+  except:
+    #Problem is unfeasible
+    print "initially unfeasible"
+    for i in xrange(glpk.ncols()):
+      glpk.variable_lower_bound(i, 0.0)
+      glpk.variable_upper_bound(i, None)
+    glpk.solve()
+
+  cdef Vector_real_double_dense result = vector(RDF, glpk.ncols())
+  for i in xrange(glpk.ncols()):
+    result[i] = glpk.get_variable_value(i)
+
+  cdef list w = list(A_t * result)
+
+  for i in xrange(len(w)):
+    lp.objective_coefficient(i, w[i])
+
+  return w[B:]
 
 cpdef list find_objective(GLPKBackend lp, int n):
   r"""
@@ -1211,12 +1316,21 @@ cpdef list find_objective(GLPKBackend lp, int n):
   print "new order", w
 
   lp.set_objective(w)
+  lp.solve()
+
+  if lp.get_objective_value() == vector(w) * x:
+    print "works?"
+
+  for i in xrange(lp.ncols()):
+    assert lp.get_variable_value(i) == x[i]
 
   return w[B:]
 
+first = True
+
 #TODO why does the number of iterations affect performance so much?
 @cython.profile(True)
-cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 5):
+cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 1):
   r"""
 
   INPUTS:
@@ -1230,6 +1344,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
 
   - a list of weights representing a monomial order
   """
+  global first
   cdef MPolynomialRing_libsingular R = G[0].value().parent()
   cdef MPolynomialRing_libsingular newR
   cdef int k = len(G)
@@ -1241,8 +1356,11 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #lp.solver_parameter("iteration_limit", 2**31 - 1)
 
   #Initial random ordering
-  #w = current_ordering
-  w = [ randint(1, 10000) for i in xrange(n) ]
+  if first:
+    w = [ randint(1, 10000) for i in xrange(n) ]
+    first = False
+  else:
+    w = current_ordering
   best_w = w
 
   #Transform last element of G to linear program, set objective function given by w and solve
@@ -1267,8 +1385,10 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
     if [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False) == 0:
       continue
-    #else:
-    #  find_objective_normal(lp, n)
+    #elif lp.get_objective_value() == lp.best_known_objective_bound():
+    #  print "before", w
+    #  w = find_objective_dual(lp, n)
+    #  print "after", w
     CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
     CLTs.sort(cmp=hs_heuristic)
     best_w = CLTs[0][2] #Take first improvement
