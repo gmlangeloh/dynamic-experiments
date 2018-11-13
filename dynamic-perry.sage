@@ -796,6 +796,7 @@ cpdef list min_weights_by_Hilbert_heuristic(MPolynomialRing_libsingular R, list 
            leads[0])
           for leads in CLTs]
   CLTs.sort(cmp=hs_heuristic)
+
   #TODO this could be optimized, we are sorting just to find the minimum...
   return CLTs[0][2]
 
@@ -933,8 +934,6 @@ cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int
       increment = floor(upper) + 1
 
   assert abs(increment) > 0
-  print increment
-
   cdef float old_value = lp.objective_coefficient(change_idx)
   lp.objective_coefficient(change_idx, old_value + increment)
 
@@ -1071,11 +1070,8 @@ cpdef list lp_column(GLPKBackend lp, int col_idx):
     row_indices, row_coeffs = lp.row(i)
     for idx, j in enumerate(row_indices):
       if j == col_idx:
-        column.append(row_coeffs[idx])
+        column.append((i, row_coeffs[idx]))
         break
-    else:
-      column.append(0)
-
   return column
 
 cpdef list lp_bounds(GLPKBackend lp):
@@ -1097,10 +1093,8 @@ cpdef list lp_bounds(GLPKBackend lp):
 cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   r"""
   Implements the sensitivity analysis idea from Jensen et al, 1997.
-
-  BUGGED: this should always return a wider range than sensitivity
-  also, sometimes range is inconsistent (same bug?)
   """
+
 
   #Make model here
   cdef int coef_change_idx
@@ -1117,9 +1111,9 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   cdef int i
   for i in xrange(lp.ncols()):
     if i != coef_change_idx:
-      glpk.add_linear_constraint(list(zip(xrange(num_vars), lp_column(lp, i))), lp.objective_coefficient(i), None)
+      glpk.add_linear_constraint(lp_column(lp, i), lp.objective_coefficient(i), None)
     else:
-      glpk.add_linear_constraint(list(zip(xrange(num_vars), lp_column(lp, i))) + [(gamma, -1.0)], lp.objective_coefficient(i), None)
+      glpk.add_linear_constraint(lp_column(lp, i) + [(gamma, -1.0)], lp.objective_coefficient(i), None)
 
   cdef float epsilon = 0.0001
   cdef float zeta = lp.get_objective_value()
@@ -1296,7 +1290,6 @@ cpdef list find_objective(GLPKBackend lp, int n):
   cdef Vector_real_double_dense c = b - A*x
   cdef GLPKBackend glpk = make_solver(0)
   glpk.add_variables(len(c))
-  #glpk.add_variable(lower_bound=0.0, upper_bound=10000.0, binary=False, continuous=True, integer=False, obj=1.0)
   glpk.add_linear_constraint(list(zip(xrange(len(c)), c)), 0.0, 0.0)
 
   cdef int B = lp.ncols() - n
@@ -1327,10 +1320,9 @@ cpdef list find_objective(GLPKBackend lp, int n):
   return w[B:]
 
 first = True
-
 #TODO why does the number of iterations affect performance so much?
 @cython.profile(True)
-cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 1):
+cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 5):
   r"""
 
   INPUTS:
@@ -1391,6 +1383,8 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     #  print "after", w
     CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
     CLTs.sort(cmp=hs_heuristic)
+    print "candidate 1:", CLTs[0][2], CLTs[0][0].degree(), CLTs[0][0].lc()
+    print "candidate 2:", CLTs[1][2], CLTs[1][0].degree(), CLTs[1][0].lc()
     best_w = CLTs[0][2] #Take first improvement
     if best_w == w:
       oldLTs = LTs
@@ -1399,14 +1393,14 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     CLTs = CLTs[:1]
     it += 1
 
-  #Compare with current_ordering - keep the current one if they tie!
-  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
-  LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  CLTs.insert(0, (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
-  CLTs.sort(cmp=hs_heuristic)
-  best_w = CLTs[0][2]
-  lp.set_objective(best_w * k)
-  lp.solve()
+  ##Compare with current_ordering - keep the current one if they tie!
+  #newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
+  #LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
+  #CLTs.insert(0, (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
+  #CLTs.sort(cmp=hs_heuristic)
+  #best_w = CLTs[0][2]
+  #lp.set_objective(best_w * k)
+  #lp.solve()
 
   return best_w
 
@@ -1607,6 +1601,13 @@ cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
   w = lp.get_values([lp[k] for k in xrange(n)])
 
   return w, new_vertices
+
+@cython.profile(True)
+cpdef list choose_cone_ordering(list G, list current_ordering):
+  r"""
+  Choose an ordering in an unrestricted way but based on Perry's algorithm.
+  Idea: reinserting previously computed polynomials, in order to choose new LMs for them.
+  """
 
 @cython.profile(True)
 cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list current_ordering, MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, int use_dcs):
@@ -2138,7 +2139,8 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
       - `unrestricted` -- uses Gritzmann-Sturmfels' dynamic algorithm instead of Caboara's
       - `max_calls` -- the maximum number of calls to the dynamic engine
   """
-  global sugar_type
+  global sugar_type, first
+  first = True
   # counters
   cdef int i, j, k
   cdef int calls = 0
