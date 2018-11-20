@@ -1610,45 +1610,48 @@ cpdef tuple choose_cone_ordering(list G, list current_ordering, list constraints
   Idea: reinserting previously computed polynomials, in order to choose new LMs for them.
   """
 
-  #STEP 1: build the lists of useful and useless LTs
-  cdef MPolynomialRing_libsingular R = G[0].value().parent()
+  #STEP 1: apply Perry's algorithm on the new polynomial
   cdef int i, j, k = len(G)
-
-  #We need to implement a criterion to decide which previous LTs are useless
-  #TODO this is not very efficient. In practice, this could be computed once and updated on changes!
-  #also, this should probably be computed AFTER insertion
-  cdef list useful_LTs = []
-  cdef list useless_LTs = []
-  for i in xrange(k-1):
-    if any([ monomial_divides(G[j].value().lm(), G[i].value().lm()) for j in xrange(k) if j != i ]):
-      useless_LTs.append(i) #lm of G[i] is useless
-    else: #lm of G[i] is useful, add to list
-      useful_LTs.append(G[i].value().lm())
-
-  #STEP 2: we insert the new polynomial with new LT using Caboara and Perry's algorithm.
+  cdef MPolynomialRing_libsingular R = G[0].value().parent()
   cdef int new_beginning = lp.number_of_constraints()
-  cdef tuple result = choose_ordering_restricted(G, useful_LTs, k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs)
+  cdef tuple result = choose_ordering_restricted(G, [ G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs)
   current_ordering = result[0]
   lp = result[1]
   bvs = result[2]
   cdef int new_end = lp.number_of_constraints()
   constraints.append((new_beginning, new_end))
   cdef MPolynomialRing_libsingular PR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
-  cdef MPolynomial_libsingular newLT = PR(G[k-1].value()).lm()
+  for i in xrange(len(G)):
+    G[i].set_value(PR(G[i].value()))
+
+  #STEP 2: build the lists of useful and useless LTs
+
+  #We need to implement a criterion to decide which previous LTs are useless
+  #TODO this is not very efficient. In practice, this could be computed once and updated on changes!
+  cdef list useful_LTs = []
+  cdef list useless_LTs = []
+  for i in xrange(k):
+    if any([ monomial_divides(G[j].value().lm(), G[i].value().lm()) for j in xrange(k) if j != i ]):
+      useless_LTs.append(i) #lm of G[i] is useless
+    else: #lm of G[i] is useful, add to list
+      useful_LTs.append(G[i].value().lm())
+
+  #print useless_LTs
 
   #STEP 3: Choose an old polynomial and reinsert it using Caboara and Perry's restricted criterion
   cdef int reinsert
   if len(useless_LTs) == 0:
     return result + (constraints, False)
   else:
-    reinsert = useless_LTs[randint(0, len(useless_LTs)-1)] #TODO This suffices as criterion for now, we can find a better one latter
+    #reinsert = useless_LTs[randint(0, len(useless_LTs)-1)] #TODO This suffices as criterion for now, we can find a better one latter
+    reinsert = randint(0, len(G)-2)
 
   #We need to keep a list of which constraints in lp correspond to which polynomials.
   #Then we remove relevant constraints from lp when a polynomial is removed and reinserted.
 
   #constraints is a list of tuples, each tuple with the beginning and end indices of constraints
-  print "suspicion 1", constraints, reinsert
   beginning, end = constraints[reinsert]
+  print constraints
   if beginning != end:
     lp.remove_constraints(xrange(beginning, end))
 
@@ -1657,21 +1660,19 @@ cpdef tuple choose_cone_ordering(list G, list current_ordering, list constraints
       beg_i, end_i = constraints[i]
       constraints[i] = (beg_i - (end - beginning), end_i - (end - beginning))
   #Remove element from G and constraints list
-  print "suspicion 2"
   cdef clothed_polynomial g = G.pop(reinsert)
-  print "suspicion 3"
   constraints.pop(reinsert)
-  print "suspicion 4"
 
+  print "showing g", g.value().lm()
   G.append(g)
   new_beginning = lp.number_of_constraints()
-  result = choose_ordering_restricted(G, useful_LTs + [newLT], k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs)
+  result = choose_ordering_restricted(G, [G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs)
   new_end = lp.number_of_constraints()
   constraints.append((new_beginning, new_end))
 
   PR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(result[0]))
 
-  return result + (constraints, PR(G[k-1].value()).lm() == G[k-1].value().lm())
+  return result + (constraints, PR(G[k-1].value()).lm() != G[k-1].value().lm())
 
 @cython.profile(True)
 cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list current_ordering, MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, int use_dcs):
@@ -1734,7 +1735,7 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
     #print len(g.monomials()), "monomials to start with"
     CLTs = possible_lts(g, bvs, use_bvs)
     #print len(CLTs), "compatible leading monomials"
-    #print CLTs
+    print CLTs
 
     #print("before sort")
     # use Caboara's Hilbert heuristic
