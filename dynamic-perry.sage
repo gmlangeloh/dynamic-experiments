@@ -858,6 +858,49 @@ cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p, in
   return
 
 @cython.profile(True)
+cpdef void init_linear_program(GLPKBackend lp, int n):
+  lp.add_variables(n) #Add variables representing the negative orthant summand
+  return
+
+@cython.profile(True)
+cpdef void update_linear_program(GLPKBackend lp, MPolynomial_libsingular p, list vertices):
+
+  cdef int n = p.parent().ngens()
+  NP = p.newton_polytope() + Polyhedron(rays=(-identity_matrix(n)).rows())
+  Vs = NP.vertices()
+  vertices.append(Vs)
+  print Vs
+  cdef int l = len(Vs)
+  lp.add_variables(l)
+
+  #Remove previous constraints determining the point of the Minkowski sum
+  cdef list rows = []
+  first = False
+  if lp.nrows() >= n:
+    for i in xrange(lp.nrows() - n, lp.nrows()):
+      rows.append(lp.row(i))
+  if lp.nrows() > n:
+    lp.remove_constraints(xrange(lp.nrows() - n, lp.nrows()))
+  else:
+    first = True
+
+  #Insert auxiliary constraint
+  lp.add_linear_constraint(list(zip(xrange(lp.ncols() - l, lp.ncols()), [1]*l)), 1.0, 1.0)
+
+  #Insert constraint determining the point of the Minkowski sum
+  cdef list var_indices, var_coefs
+  for i in xrange(n):
+    if first:
+      var_indices = [i, i + n] + range(lp.ncols() - l, lp.ncols())
+      var_coefs = [-1.0, -1.0] + [ Vs[j][i] for j in xrange(l) ]
+    else:
+      var_indices = rows[i][0] + range(lp.ncols() - l, lp.ncols())
+      var_coefs = rows[i][1] + [ Vs[j][i] for j in xrange(l) ]
+    lp.add_linear_constraint(list(zip(var_indices, var_coefs)), 0.0, 0.0)
+
+  return
+
+@cython.profile(True)
 cpdef list weight_vector(GLPKBackend lp, int n):
   r"""
   Returns the weight vector currently used as objective function in the linear
@@ -1095,7 +1138,6 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   Implements the sensitivity analysis idea from Jensen et al, 1997.
   """
 
-
   #Make model here
   cdef int coef_change_idx
   if coef == 0:
@@ -1156,6 +1198,17 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   assert lower < epsilon and upper > -epsilon, "Inconsistent sensitivity range"
 
   return apply_sensitivity_range(lower, upper, lp, coef_change_idx, n)
+
+@cython.profile(True)
+cpdef list find_monomials2(GLPKBackend lp, MPolynomialRing_libsingular R, list vertices, int k):
+  cdef int n = R.ngens()
+  cdef int l
+  for i in xrange(k):
+    idx = vertices[i][0]
+    l = len(vertices[i][1])
+    for j in xrange(l):
+      pass #TODO continue here
+
 
 @cython.profile(True)
 cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
@@ -1350,6 +1403,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #Initial random ordering
   if first:
     w = [ randint(1, 10000) for i in xrange(n) ]
+    init_linear_program(lp, n)
     #w = [10000.0] * n
     first = False
   else:
@@ -1357,9 +1411,15 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   best_w = w
 
   #Transform last element of G to linear program, set objective function given by w and solve
-  append_linear_program(lp, G[len(G)-1].value(), k)
-  lp.set_objective([0] * n * k + w)
+  #append_linear_program(lp, G[len(G)-1].value(), k)
+  update_linear_program(lp, G[k-1].value())
+  #lp.set_objective([0] * n * k + w)
+  lp.set_objective(w)
+  lp.write_lp("wtf.lp")
   lp.solve()
+  for i in xrange(lp.ncols()):
+    print lp.get_variable_value(i),
+  print ""
 
   #Get current LTs to compare with Hilbert heuristic
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
@@ -1389,7 +1449,8 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     best_w = CLTs[0][2] #Take first improvement
     if best_w == w:
       oldLTs = LTs
-    lp.set_objective([0] * n * k + best_w)
+    #lp.set_objective([0] * n * k + best_w)
+    lp.set_objective(w)
     lp.solve()
     CLTs = CLTs[:1]
     it += 1
