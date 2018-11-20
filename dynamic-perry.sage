@@ -1201,13 +1201,22 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
 
 @cython.profile(True)
 cpdef list find_monomials2(GLPKBackend lp, MPolynomialRing_libsingular R, list vertices, int k):
+  #vertices is a list with tuples (idx, tuple) where tuple is a tuple with vertices, and idx is the index of the
+  #first variable in lp referring to these vertices
   cdef int n = R.ngens()
-  cdef int l
+  cdef int l, i, j
+  cdef float val, epsilon = 0.0001
   for i in xrange(k):
     idx = vertices[i][0]
     l = len(vertices[i][1])
     for j in xrange(l):
-      pass #TODO continue here
+      val = lp.get_variable_value(idx + j)
+      if abs(val - 1.0) < epsilon:
+        break
+    #Check if I still have the value of j here
+    vertex = vertices[i][1][j]
+    #transform this thing into a monomial.
+    #TODO continue here
 
 
 @cython.profile(True)
