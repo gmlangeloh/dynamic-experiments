@@ -868,8 +868,7 @@ cpdef void update_linear_program(GLPKBackend lp, MPolynomial_libsingular p, list
   cdef int n = p.parent().ngens()
   NP = p.newton_polytope() + Polyhedron(rays=(-identity_matrix(n)).rows())
   Vs = NP.vertices()
-  vertices.append(Vs)
-  print Vs
+  vertices.append((lp.ncols(), Vs))
   cdef int l = len(Vs)
   lp.add_variables(l)
 
@@ -917,7 +916,9 @@ cpdef list weight_vector(GLPKBackend lp, int n):
   """
   cdef list w = []
   cdef int i
-  for i in xrange(lp.ncols() - n, lp.ncols()):
+  #for i in xrange(lp.ncols() - n, lp.ncols()):
+  #  w.append(lp.objective_coefficient(i))
+  for i in xrange(0, n):
     w.append(lp.objective_coefficient(i))
   return w
 
@@ -975,6 +976,7 @@ cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int
       increment = floor(upper) + 1
     elif randint(0, 1):
       increment = floor(upper) + 1
+      #pass
 
   assert abs(increment) > 0
   cdef float old_value = lp.objective_coefficient(change_idx)
@@ -1139,18 +1141,25 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   """
 
   #Make model here
-  cdef int coef_change_idx
+  cdef int coef_change_idx, idx
+  cdef int i
   if coef == 0:
-    coef_change_idx = randint(lp.ncols() - n, lp.ncols() - 1)
+    #coef_change_idx = randint(lp.ncols() - n, lp.ncols() - 1)
+    #coef_change_idx = randint(0, n-1)
+    m = 100000.0
+    for i in xrange(n):
+      if lp.objective_coefficient(i) < m:
+        m = lp.objective_coefficient(i)
+        idx = i
+    coef_change_idx = idx
   else:
     coef_change_idx = coef
   cdef GLPKBackend glpk = make_solver(0)
   cdef int num_vars = lp.nrows()
-  glpk.add_variables(num_vars) #Variables of the dual problem
+  glpk.add_variables(num_vars, lower_bound=None) #Variables of the dual problem
   glpk.add_variable(lower_bound=None, upper_bound=None, binary=False, continuous=True,integer=False, obj=1.0) #The gamma variable
   cdef int gamma = glpk.ncols() - 1
 
-  cdef int i
   for i in xrange(lp.ncols()):
     if i != coef_change_idx:
       glpk.add_linear_constraint(lp_column(lp, i), lp.objective_coefficient(i), None)
@@ -1165,6 +1174,8 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   #Solve for maximization
   cdef float upper
   glpk.set_sense(+1)
+  #lp.write_lp("wtf.lp")
+  #glpk.write_lp("sensitivity.lp")
   sensitivity_warm_start(lp, glpk)
   try:
     glpk.solve()
@@ -1206,6 +1217,8 @@ cpdef list find_monomials2(GLPKBackend lp, MPolynomialRing_libsingular R, list v
   cdef int n = R.ngens()
   cdef int l, i, j
   cdef float val, epsilon = 0.0001
+  cdef list LTs = []
+  cdef MPolynomial_libsingular LM
   for i in xrange(k):
     idx = vertices[i][0]
     l = len(vertices[i][1])
@@ -1216,7 +1229,10 @@ cpdef list find_monomials2(GLPKBackend lp, MPolynomialRing_libsingular R, list v
     #Check if I still have the value of j here
     vertex = vertices[i][1][j]
     #transform this thing into a monomial.
-    #TODO continue here
+    LM = prod([ R.gens()[j]**vertex[j] for j in xrange(n)])
+    LTs.append(LM)
+
+  return LTs
 
 
 @cython.profile(True)
@@ -1384,7 +1400,7 @@ cpdef list find_objective(GLPKBackend lp, int n):
 first = True
 #TODO why does the number of iterations affect performance so much?
 @cython.profile(True)
-cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, int iterations = 5):
+cpdef tuple choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, list vertices, int iterations = 5):
   r"""
 
   INPUTS:
@@ -1392,6 +1408,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   - `G` -- the current system of generators
   - `current_ordering` -- the current weight ordering
   - `lp` -- previous GLPK linear programming model
+  - `vertices` -- TODO
   - `iterations` -- number of neighbors to visit
 
   OUTPUTS:
@@ -1411,28 +1428,26 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
 
   #Initial random ordering
   if first:
-    w = [ randint(1, 10000) for i in xrange(n) ]
+    #w = [ randint(1, 10000) for i in xrange(n) ]
     init_linear_program(lp, n)
     #w = [10000.0] * n
+    w = [4627, 8716, 1234, 876, 1038]
     first = False
   else:
     w = current_ordering
   best_w = w
+  print w
 
   #Transform last element of G to linear program, set objective function given by w and solve
   #append_linear_program(lp, G[len(G)-1].value(), k)
-  update_linear_program(lp, G[k-1].value())
+  update_linear_program(lp, G[k-1].value(), vertices)
   #lp.set_objective([0] * n * k + w)
   lp.set_objective(w)
-  lp.write_lp("wtf.lp")
   lp.solve()
-  for i in xrange(lp.ncols()):
-    print lp.get_variable_value(i),
-  print ""
 
   #Get current LTs to compare with Hilbert heuristic
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
-  LTs = find_monomials(lp, newR, k)
+  LTs = find_monomials2(lp, newR, vertices, k)
   oldLTs = LTs
   CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w ) ]
 
@@ -1443,7 +1458,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     w = wide_sensitivity(lp, n)
     lp.solve()
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
-    LTs = find_monomials(lp, newR, k)
+    LTs = find_monomials2(lp, newR, vertices, k)
     print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
     if [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False) == 0:
       continue
@@ -1459,7 +1474,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
     if best_w == w:
       oldLTs = LTs
     #lp.set_objective([0] * n * k + best_w)
-    lp.set_objective(w)
+    lp.set_objective(best_w)
     lp.solve()
     CLTs = CLTs[:1]
     it += 1
@@ -1473,7 +1488,7 @@ cpdef list choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp
   #lp.set_objective(best_w * k)
   #lp.solve()
 
-  return best_w
+  return best_w, vertices
 
 @cython.profile(True)
 cpdef list choose_random_ordering(list G, list current_ordering, int iterations = 10):
@@ -2339,8 +2354,10 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
   # (avoids a GLPK bug IIRC)
   lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, glpk_backend.glp_simplex_then_intopt)
 
+  #State for additional algorithms
   slp = make_solver(n)
   cdef list constraints = []
+  cdef list vertices = []
 
   # need positive weights
   for k in xrange(n):
@@ -2438,7 +2455,7 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
           elif perturbation:
             current_ordering = choose_local_ordering(G, current_ordering)
           elif simplex:
-            current_ordering = choose_simplex_ordering(G, current_ordering, slp)
+            current_ordering, vertices = choose_simplex_ordering(G, current_ordering, slp, vertices)
           elif reinsert:
             current_ordering, lp, boundary_vectors, constraints, changed = choose_cone_ordering(G, \
               current_ordering, \
