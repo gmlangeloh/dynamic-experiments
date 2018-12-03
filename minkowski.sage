@@ -11,6 +11,8 @@ We can print:
 import glob
 import os
 
+from multiprocessing.pool import Pool
+
 load("benchmarks.sage")
 load("dynamic_perry.spyx")
 
@@ -97,16 +99,20 @@ def evaluate_perry(I):
     HP = R.ideal(LMs).hilbert_polynomial()
     print HP.degree(), HP.lc(), len(R.ideal(G).groebner_basis()),
 
+def run_instance(instance):
+    name = instance.split("/")[2].split(".")[0]
+    b = Benchmark(instance)
+    if b.ideal.ring().ngens() <= 8: #Try only relatively small instances
+        print name,
+        evaluate_grevlex(b.ideal)
+        evaluate_perry(b.ideal)
+        evaluate_all(b.ideal)
+        print
+
 def run_all():
     instances = glob.glob('./instances/*.ideal')
+    pool = Pool(processes=8)
     for instance in instances:
-        name = instance.split("/")[2].split(".")[0]
-        b = Benchmark(instance)
-        if b.ideal.ring().ngens() <= 8: #Try only relatively small instances
-            print name,
-            evaluate_grevlex(b.ideal)
-            evaluate_perry(b.ideal)
-            evaluate_all(b.ideal)
-            print
+        pool.apply_async(run_instance, instance)
 
 run_all()
