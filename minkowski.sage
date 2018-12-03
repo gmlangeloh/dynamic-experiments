@@ -112,7 +112,6 @@ def run_instance(instance):
 def run_all():
     instances = glob.glob('./instances/*.ideal')
     pool = Pool(processes=8)
-    for instance in instances:
-        pool.apply_async(run_instance, instance)
+    pool.map(run_instance, instances)
 
 run_all()
