@@ -10,6 +10,7 @@ We can print:
 
 import glob
 import os
+import sys
 
 from multiprocessing.pool import Pool
 
@@ -101,6 +102,7 @@ def evaluate_perry(I):
 
 def run_instance(instance):
     name = instance.split("/")[2].split(".")[0]
+    sys.stderr.write("starting: " + name)
     b = Benchmark(instance)
     if b.ideal.ring().ngens() <= 8: #Try only relatively small instances
         print name,
@@ -108,6 +110,8 @@ def run_instance(instance):
         evaluate_perry(b.ideal)
         evaluate_all(b.ideal)
         print
+    sys.stderr.write("finished: " + name)
+    sys.stdout.flush()
 
 def run_all():
     instances = glob.glob('./instances/*.ideal')
