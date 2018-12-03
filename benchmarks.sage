@@ -2,12 +2,12 @@
     Sage script to read MathicGB format ideals.
 '''
 
-from string import ascii_lowercase
+from string import ascii_lowercase, ascii_uppercase
 from time import time
 
 def _makeRing(char, n, s, M):
     baseRing = QQ if char == 0 else GF(char)
-    varList = list(ascii_lowercase[0:n])
+    varList = list(ascii_lowercase[0:n]) + list(ascii_uppercase[0:max(n-26, 0)])
     if s == 1: #weighted grevlex order
         o = TermOrder('wdegrevlex', M)
     else:

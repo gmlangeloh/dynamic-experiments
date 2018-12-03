@@ -8,67 +8,59 @@ We can print:
 - compare size of final basis taking the chosen order statically
 '''
 
-from sage.rings.integer_ring import IntegerRing
-
-from sage.matrix.constructor import matrix
-from sage.matrix.special import identity_matrix
-
-from sage.geometry.polyhedron.constructor import Polyhedron
-from sage.geometry.cone import Cone
-
-from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.polynomial.term_order import TermOrder
-
-from sage.rings.polynomial.multi_polynomial_libsingular cimport MPolynomial_libsingular
-from sage.rings.polynomial.multi_polynomial_libsingular cimport MPolynomialRing_libsingular
-
 import glob
+import os
+
+load("benchmarks.sage")
+load("dynamic_perry.spyx")
 
 ZZ = IntegerRing()
 
-cpdef minkowski(I):
-    cdef int n = I.ring().ngens()
+def minkowski(I):
+    n = I.ring().ngens()
     result = Polyhedron(rays=(-identity_matrix(n)).rows())
     for g in I.gens():
         result += g.newton_polytope()
     return result
 
-cpdef normal(v, P):
-    cdef tuple inequalities = P.inequalities()
-    cdef list indices = [ ieq.index() for ieq in v.incident() ]
-    cdef list rays = [ -inequalities[i].A() for i in indices ]
+def normal(v, P):
+    inequalities = P.inequalities()
+    indices = [ ieq.index() for ieq in v.incident() ]
+    rays = [ -inequalities[i].A() for i in indices ]
     return list(sum(Cone(rays)))
 
-cpdef create_order(list w):
+def create_order(w):
     r"""
     Create term ordering acceptable to Singular, using integer weight vector ``w``.
     """
     # first we convert floats to integer
     # this is fine since we are using integer programming to find the ordering
-    cdef list wZZ = [ZZ(each) for each in w]
-    cdef list M = list()
+    wZZ = [ZZ(each) for each in w]
+    M = list()
     M.append(wZZ)
 
     # now fill in the lower rows of the matrix, to avoid potential ambiguity
-    cdef int i
     for i in xrange(len(w)-1):
         M.append([1 for k in xrange(i+1,len(w))] + [0 for k in xrange(i+1)])
 
     return TermOrder(matrix(M))
 
-cpdef tuple evaluate(v, P, I):
-    cdef list w = normal(v, P)
-    cdef MPolynomialRing_libsingular R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(w))
-    cdef list G = [ R(g) for g in I.gens() ]
-    cdef list LMs = [ g.lm() for g in G ]
+def evaluate(v, P, I):
+    w = normal(v, P)
+    R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(w))
+    G = [ R(g) for g in I.gens() ]
+    LMs = [ g.lm() for g in G ]
     HP = R.ideal(LMs).hilbert_polynomial()
     return G, w, HP.degree(), HP.lc()
 
-cpdef void evaluate_all(I):
+def evaluate_all(I):
+    '''
+    Prints information about all distinguishable orders for input ideal I
+    '''
     Mink = minkowski(I)
-    cdef float mindeg = float("inf")
-    cdef float maxdeg = float("-inf")
-    cdef list minw = []
+    mindeg = float("inf")
+    maxdeg = float("-inf")
+    minw = []
     for v in Mink.vertex_generator():
         G, w, deg, coef = evaluate(v, Mink, I)
         LMs = [ g.lm() for g in G]
@@ -78,21 +70,32 @@ cpdef void evaluate_all(I):
             minw = w
         if deg > maxdeg:
             maxdeg = deg
-    cdef MPolynomialRing_libsingular R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(minw))
+    R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(minw))
     G = [ R(g) for g in I.gens() ]
     print mindeg, maxdeg, len(R.ideal(G).groebner_basis()),
 
-cpdef void evaluate_grevlex(I):
-    cdef int n = I.ring().ngens()
-    cdef list w = [1] * n
-    cdef MPolynomialRing_libsingular R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(w))
-    cdef list G = [ R(g) for g in I.gens() ]
-    cdef list LMs = [ g.lm() for g in G ]
+def evaluate_grevlex(I):
+    '''
+    Prints information about the grevlex order for I
+    '''
+    n = I.ring().ngens()
+    w = [1] * n
+    R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(w))
+    G = [ R(g) for g in I.gens() ]
+    LMs = [ g.lm() for g in G ]
     HP = R.ideal(LMs).hilbert_polynomial()
     print HP.degree(), HP.lc(), len(R.ideal(G).groebner_basis()),
 
-cpdef void evaluate_perry(I):
-    pass
+def evaluate_perry(I):
+    '''
+    Runs initial iterations of Perry's algorithm to obtain its `initial` ordering
+    '''
+    w = dynamic_gb(I.gens(), strategy="sugar", itmax=len(I.gens()))[0]
+    R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(w))
+    G = [ R(g) for g in I.gens() ]
+    LMs = [ g.lm() for g in G ]
+    HP = R.ideal(LMs).hilbert_polynomial()
+    print HP.degree(), HP.lc(), len(R.ideal(G).groebner_basis()),
 
 def run_all():
     instances = glob.glob('./instances/*.ideal')
@@ -104,3 +107,4 @@ def run_all():
             evaluate_grevlex(b.ideal)
             evaluate_perry(b.ideal)
             evaluate_all(b.ideal)
+            print
