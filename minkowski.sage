@@ -108,3 +108,5 @@ def run_all():
             evaluate_perry(b.ideal)
             evaluate_all(b.ideal)
             print
+
+run_all()
