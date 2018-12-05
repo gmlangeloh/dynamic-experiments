@@ -15,7 +15,7 @@ def run_instance(instance):
         sys.stderr.write("Starting: " + name + "\n")
         with open(name + ".cand", "w") as f:
             sys.stdout = f
-            _ = dynamic_gb(b.ideal.gens(), strategy="sugar")
+            _ = dynamic_gb(b.ideal.gens(), strategy="sugar", print_candidates=True)
         sys.stderr.write("Finished: " + name + "\n")
 
 p = Pool()
