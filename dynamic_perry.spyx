@@ -1762,6 +1762,8 @@ cpdef tuple choose_cone_ordering(list G, list current_ordering, list constraints
 
   return result + (constraints, PR(G[k-1].value()).lm() != G[k-1].value().lm())
 
+
+restricted_iterations = 1
 @cython.profile(True)
 cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list current_ordering, MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, int use_dcs):
   r"""
@@ -1795,6 +1797,7 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
     #. determine which combinations are consistent with each other, then
     #. identify one which we think is a good choice.
   """
+  global restricted_iterations
   #print "in optimal ordering"
   cdef int i, j, k # counters
 
@@ -1822,6 +1825,8 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
     g = G[i].value()
     #print len(g.monomials()), "monomials to start with"
     CLTs = possible_lts(g, bvs, use_bvs)
+    print restricted_iterations, len(CLTs)
+    restricted_iterations += 1
     #print len(CLTs), "compatible leading monomials"
     #print CLTs
 
@@ -2294,7 +2299,8 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
       - `max_calls` -- the maximum number of calls to the dynamic engine
       - `itmax` -- run for `itmax` iterations only and return ordering
   """
-  global sugar_type, first
+  global sugar_type, first, restricted_iterations
+  restricted_iterations = 1
   first = True
   # counters
   cdef int i, j, k
@@ -2417,7 +2423,11 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
     # select critical pairs of minimal degree
     Pd = P.pop(0)
 
-    iteration_count += 1
+    #Stop here and return ordering if asked
+    if iteration_count >= itmax:
+      return (current_ordering, )
+    else:
+      iteration_count += 1
 
     if d < dmax: # don't go further than requested
 
@@ -2518,10 +2528,6 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
         #print "updated P"
         m = len(G)
 
-        #Stop here if completed the requested number of iterations
-        if iteration_count >= itmax:
-          return (current_ordering, )
-
 
   # done; prune redundant elements
   i = m - 1
@@ -2540,17 +2546,17 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
   monomials = sum([ len(p.monomials()) for p in reducers ])
 
   # done; diagnostic and return
-  print "final order", current_ordering
-  print number_of_spolynomials, "s-polynomials considered (direct count)", len(reducers), "polynomials in basis;", zero_reductions, "zero reductions"
-  print "there were at most", maximum_size_of_intermediate_basis, "polynomials in the basis at any one time"
-  print "there are", monomials, "monomials in the output basis"
-  print rejections, "comparisons were eliminated by rejection"
-  print monomials_eliminated, "monomials were eliminated by hypercube vectors"
-  print number_of_programs_created, "linear programs were created (including copies)"
-  print failed_systems, "failed systems and ", len(rejects), "rejections stored"
-  print lp.number_of_constraints(), "constraints are in the linear program"
-  print "Reinserted", change_count, "times with changes."
-  print "Reinserted", no_change_count, "times with no changes."
+  #print "final order", current_ordering
+  #print number_of_spolynomials, "s-polynomials considered (direct count)", len(reducers), "polynomials in basis;", zero_reductions, "zero reductions"
+  #print "there were at most", maximum_size_of_intermediate_basis, "polynomials in the basis at any one time"
+  #print "there are", monomials, "monomials in the output basis"
+  #print rejections, "comparisons were eliminated by rejection"
+  #print monomials_eliminated, "monomials were eliminated by hypercube vectors"
+  #print number_of_programs_created, "linear programs were created (including copies)"
+  #print failed_systems, "failed systems and ", len(rejects), "rejections stored"
+  #print lp.number_of_constraints(), "constraints are in the linear program"
+  #print "Reinserted", change_count, "times with changes."
+  #print "Reinserted", no_change_count, "times with no changes."
 
   #Check that the results are correct
   assert PR.ideal(reducers) == PR.ideal(F), "Output basis generates wrong ideal"

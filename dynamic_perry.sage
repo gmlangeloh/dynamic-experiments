@@ -294,7 +294,7 @@ cpdef set boundary_vectors(MixedIntegerLinearProgram lp, int n):
   np.set_objective(np.sum([np[k] for k in xrange(n)]))
   np.solve()
 
-  print "boundaries", boundaries
+  #print "boundaries", boundaries
   #print "leaving boundary vectors"
   return boundaries
 
@@ -350,7 +350,7 @@ cpdef int solve_integer(MixedIntegerLinearProgram lp, int n):
   while not passed:
 
     # first find ordering
-    print "obtaining ordering below", upper_bound
+    #print "obtaining ordering below", upper_bound
 
     try:
 
@@ -360,12 +360,12 @@ cpdef int solve_integer(MixedIntegerLinearProgram lp, int n):
     except:
 
       # upper bound too low, so raise it
-      print "failed"
+      #print "failed"
       upper_bound += upper_bound_delta
 
       if upper_bound > 128000: # even I give up after a certain point -- need a better solver?
 
-        print "returning no solution", upper_bound
+        #print "returning no solution", upper_bound
         for k in xrange(n): lp.set_real(lp[k])
         upper_bound = old_upper_bound
         failed_systems += 1
@@ -598,7 +598,7 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
 
   # set up new solution
   result = (t,sol,np)
-  print np.number_of_constraints(), "constraints"
+  #print np.number_of_constraints(), "constraints"
   #print "returning solution"
   return result
 
@@ -693,7 +693,7 @@ cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, int use
 
     if passes: V.append((u,ux))
 
-  print V
+  #print V
   #print len(M), "possible leading monomials"
   return V
 
@@ -1762,6 +1762,8 @@ cpdef tuple choose_cone_ordering(list G, list current_ordering, list constraints
 
   return result + (constraints, PR(G[k-1].value()).lm() != G[k-1].value().lm())
 
+
+restricted_iterations = 1
 @cython.profile(True)
 cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list current_ordering, MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, int use_dcs):
   r"""
@@ -1795,6 +1797,7 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
     #. determine which combinations are consistent with each other, then
     #. identify one which we think is a good choice.
   """
+  global restricted_iterations
   #print "in optimal ordering"
   cdef int i, j, k # counters
 
@@ -1822,8 +1825,10 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
     g = G[i].value()
     #print len(g.monomials()), "monomials to start with"
     CLTs = possible_lts(g, bvs, use_bvs)
+    print restricted_iterations, len(CLTs)
+    restricted_iterations += 1
     #print len(CLTs), "compatible leading monomials"
-    print CLTs
+    #print CLTs
 
     #print("before sort")
     # use Caboara's Hilbert heuristic
@@ -1841,7 +1846,7 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
 
     while not found and CLTs[j][1] != g.lm():
 
-      print "testing", CLTs[j], "against", g.lm()
+      #print "testing", CLTs[j], "against", g.lm()
       #print j, LTups, CLTs
       can_work = feasible(j, LTups, lp, rejects, G, current_Ts, use_dcs)
       #print can_work
@@ -1849,12 +1854,12 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
       if len(can_work) > 0: # this means we found a solution
 
         w = can_work[1]
-        print CLTs[j][1], "worked! with", can_work
+        #print CLTs[j][1], "worked! with", can_work
         found = True
 
       else: # monomial turned out to be incompatible after all
 
-        print CLTs[j][1], "did not work!"
+        #print CLTs[j][1], "did not work!"
         j += 1
     # now that we've found one, use it
     #print "success with monomial", j, CLTs[j], LTups[j]
@@ -1917,7 +1922,7 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators):
     # s-polynomial IS f
     s = f; new_sugar = cf.get_sugar()
     k = 0
-    print "building", f.lm()
+    #print "building", f.lm()
 
     while k < len(generators):
       if generators[k] == cf: generators.pop(k)
@@ -2294,7 +2299,8 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
       - `max_calls` -- the maximum number of calls to the dynamic engine
       - `itmax` -- run for `itmax` iterations only and return ordering
   """
-  global sugar_type, first
+  global sugar_type, first, restricted_iterations
+  restricted_iterations = 1
   first = True
   # counters
   cdef int i, j, k
@@ -2403,10 +2409,10 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
   while len(P) != 0:
 
     # some diagnostic information
-    print "-----------------------"
+    #print "-----------------------"
     #print "current ordering", current_ordering
-    print len(P), "critical pairs remaining"
-    print len(G), "polynomials in basis"
+    #print len(P), "critical pairs remaining"
+    #print len(G), "polynomials in basis"
     maximum_size_of_intermediate_basis = max(maximum_size_of_intermediate_basis, len(G))
     #hp = PR.ideal(LTs).hilbert_polynomial()
     #hs = PR.ideal(LTs).hilbert_series()
@@ -2540,17 +2546,17 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
   monomials = sum([ len(p.monomials()) for p in reducers ])
 
   # done; diagnostic and return
-  print "final order", current_ordering
-  print number_of_spolynomials, "s-polynomials considered (direct count)", len(reducers), "polynomials in basis;", zero_reductions, "zero reductions"
-  print "there were at most", maximum_size_of_intermediate_basis, "polynomials in the basis at any one time"
-  print "there are", monomials, "monomials in the output basis"
-  print rejections, "comparisons were eliminated by rejection"
-  print monomials_eliminated, "monomials were eliminated by hypercube vectors"
-  print number_of_programs_created, "linear programs were created (including copies)"
-  print failed_systems, "failed systems and ", len(rejects), "rejections stored"
-  print lp.number_of_constraints(), "constraints are in the linear program"
-  print "Reinserted", change_count, "times with changes."
-  print "Reinserted", no_change_count, "times with no changes."
+  #print "final order", current_ordering
+  #print number_of_spolynomials, "s-polynomials considered (direct count)", len(reducers), "polynomials in basis;", zero_reductions, "zero reductions"
+  #print "there were at most", maximum_size_of_intermediate_basis, "polynomials in the basis at any one time"
+  #print "there are", monomials, "monomials in the output basis"
+  #print rejections, "comparisons were eliminated by rejection"
+  #print monomials_eliminated, "monomials were eliminated by hypercube vectors"
+  #print number_of_programs_created, "linear programs were created (including copies)"
+  #print failed_systems, "failed systems and ", len(rejects), "rejections stored"
+  #print lp.number_of_constraints(), "constraints are in the linear program"
+  #print "Reinserted", change_count, "times with changes."
+  #print "Reinserted", no_change_count, "times with no changes."
 
   #Check that the results are correct
   assert PR.ideal(reducers) == PR.ideal(F), "Output basis generates wrong ideal"
