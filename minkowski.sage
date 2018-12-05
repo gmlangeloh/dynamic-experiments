@@ -86,9 +86,9 @@ def evaluate_all_min(I):
         LMs = [ g.lm() for g in G ]
         if deg < mindeg:
             mindeg = deg
-            minws = [w, coef]
+            minws = [(w, coef)]
         elif deg == mindeg:
-            minws.append(w)
+            minws.append((w, coef))
     for w, coef in minws:
         R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(w))
         G = [ R(g) for g in I.gens() ]
@@ -137,11 +137,11 @@ def run_instance_min(instance):
     name = instance.split("/")[2].split(".")[0]
     b = Benchmark(instance)
     if b.ideal.ring().ngens() <= 7: #Try only relatively small instances
-        sys.stderr.write("starting: " + name)
-        with open(name + ".min") as f:
+        sys.stderr.write("starting: " + name + "\n")
+        with open(name + ".min", "w") as f:
             sys.stdout = f
             evaluate_all_min(b.ideal)
-        sys.stderr.write("finished: " + name)
+        sys.stderr.write("finished: " + name + "\n")
 
 def run_all():
     instances = glob.glob('./instances/*.ideal')
@@ -150,7 +150,7 @@ def run_all():
 
 def run_all_min():
     instances = glob.glob('./instances/*.ideal')
-    pool = Pool()
+    pool = Pool(processes=4)
     pool.map(run_instance_min, instances)
 
 run_all_min()
