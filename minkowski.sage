@@ -77,6 +77,23 @@ def evaluate_all(I):
     G = [ R(g) for g in I.gens() ]
     print mindeg, maxdeg, len(R.ideal(G).groebner_basis()),
 
+def evaluate_all_min(I):
+    Mink = minkowski(I)
+    mindeg = float("inf")
+    minws = []
+    for v in Mink.vertex_generator():
+        G, w, deg, coef = evaluate(v, Mink, I)
+        LMs = [ g.lm() for g in G ]
+        if deg < mindeg:
+            mindeg = deg
+            minws = [w, coef]
+        elif deg == mindeg:
+            minws.append(w)
+    for w, coef in minws:
+        R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(w))
+        G = [ R(g) for g in I.gens() ]
+        print coef, len(R.ideal(G).groebner_basis())
+
 def evaluate_grevlex(I):
     '''
     Prints information about the grevlex order for I
@@ -113,9 +130,27 @@ def run_instance(instance):
     sys.stderr.write("finished: " + name)
     sys.stdout.flush()
 
+def run_instance_min(instance):
+    '''
+    Run all orders with min Hilbert degree for instance
+    '''
+    name = instance.split("/")[2].split(".")[0]
+    b = Benchmark(instance)
+    if b.ideal.ring().ngens() <= 7: #Try only relatively small instances
+        sys.stderr.write("starting: " + name)
+        with open(name + ".min") as f:
+            sys.stdout = f
+            evaluate_all_min(b.ideal)
+        sys.stderr.write("finished: " + name)
+
 def run_all():
     instances = glob.glob('./instances/*.ideal')
     pool = Pool(processes=8)
     pool.map(run_instance, instances)
 
-run_all()
+def run_all_min():
+    instances = glob.glob('./instances/*.ideal')
+    pool = Pool()
+    pool.map(run_instance_min, instances)
+
+run_all_min()
