@@ -152,5 +152,3 @@ def run_all_min():
     instances = glob.glob('./instances/*.ideal')
     pool = Pool()
     pool.map(run_instance_min, instances)
-
-run_all_min()
