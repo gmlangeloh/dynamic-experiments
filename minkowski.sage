@@ -1,18 +1,4 @@
-'''
-Useful module to test the effects of making an initial analysis
-
-We can print:
-- best/worst Hilbert Functions, average
-- compare with the ordering Perry's algorithm would choose in the same number of steps
-- compare with grevlex as well
-- compare size of final basis taking the chosen order statically
-'''
-
-import glob
-import os
 import sys
-
-from multiprocessing.pool import Pool
 
 load("benchmarks.sage")
 load("dynamic_perry.spyx")
@@ -117,7 +103,7 @@ def evaluate_perry(I):
     HP = R.ideal(LMs).hilbert_polynomial()
     print HP.degree(), HP.lc(), len(R.ideal(G).groebner_basis()),
 
-def run_instance(instance):
+def general_hilbert_data(instance):
     name = instance.split("/")[2].split(".")[0]
     sys.stderr.write("starting: " + name)
     b = Benchmark(instance)
@@ -130,7 +116,7 @@ def run_instance(instance):
     sys.stderr.write("finished: " + name)
     sys.stdout.flush()
 
-def run_instance_min(instance):
+def mindeg_hilbert_data(instance):
     '''
     Run all orders with min Hilbert degree for instance
     '''
@@ -142,13 +128,3 @@ def run_instance_min(instance):
             sys.stdout = f
             evaluate_all_min(b.ideal)
         sys.stderr.write("finished: " + name + "\n")
-
-def run_all():
-    instances = glob.glob('./instances/*.ideal')
-    pool = Pool(processes=8)
-    pool.map(run_instance, instances)
-
-def run_all_min():
-    instances = glob.glob('./instances/*.ideal')
-    pool = Pool()
-    pool.map(run_instance_min, instances)
