@@ -7,8 +7,8 @@ all orderings of minimal Hilbert degree instead.
 
 import sys
 
-load("minkowski.sage")
 load("experiment.sage")
+load("minkowski.sage")
 
 if len(sys.argv) == 2 and sys.argv[1] == "min_hilbert":
     run_all_parallel('./instances/*.ideal', mindeg_hilbert_data)
