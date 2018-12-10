@@ -30,7 +30,7 @@ def betti_heuristic_data(instance):
     I = Benchmark(instance).ideal
     if I.ring().ngens() > 8:
         return
-    sys.stderr.write("Starting: " + name)
+    sys.stderr.write("Starting: " + name + "\n")
     Mink = minkowski(I)
     with open(name + ".betti", "w") as f:
         sys.stdout = f
@@ -43,4 +43,4 @@ def betti_heuristic_data(instance):
                 print graph_edges(LMs), len(R.ideal(G).groebner_basis())
             except:
                 print graph_edges(LMs), 10000
-    sys.stderr.write("Finished: " + name)
+    sys.stderr.write("Finished: " + name + "\n")
