@@ -39,5 +39,8 @@ def betti_heuristic_data(instance):
             R = PolynomialRing(I.ring().base_ring(), I.ring().gens(), order=create_order(w))
             G = [ R(g) for g in I.gens() ]
             LMs = [ g.lm() for g in G ]
-            print graph_edges(LMs), len(R.ideal(G).groebner_basis())
+            try:
+                print graph_edges(LMs), len(R.ideal(G).groebner_basis())
+            except:
+                print graph_edges(LMs), 10000
     sys.stderr.write("Finished: " + name)
