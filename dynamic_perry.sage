@@ -1053,43 +1053,6 @@ cpdef tuple sensitivity(GLPKBackend lp, int n, int k):
   #return apply_sensitivity_range(lower, upper, lp, n * k + change, n), n * k + change
   return [], n * k + change
 
-@cython.profile(True)
-cpdef tuple matrix_form(GLPKBackend lp):
-  r"""
-  Returns A, b, x, c such that x is an optimal solution of
-  max c^T*x
-  s.t A*x <= b
-
-  (lp.solve() has to be called beforehand)
-  """
-
-  cdef Vector_real_double_dense b = vector(RDF, lp.nrows())
-  for i in xrange(lp.nrows()):
-    lb, ub = lp.row_bounds(i)
-    if ub is not None:
-      b[i] = ub
-    elif lb is not None:
-      b[i] = lb
-
-  cdef list A_l = []
-  cdef list indices, coefs
-  for i in xrange(lp.nrows()):
-    A_l.append([0] * lp.ncols())
-    indices, coefs = lp.row(i)
-    for j, coef in zip(indices, coefs):
-      A_l[i][j] = coef
-  cdef Matrix_real_double_dense A = matrix(A_l)
-
-  cdef Vector_real_double_dense x = vector(RDF, lp.ncols())
-  for i in xrange(lp.ncols()):
-    x[i] = lp.get_variable_value(i)
-
-  cdef Vector_real_double_dense c = vector(RDF, lp.ncols())
-  for i in xrange(lp.ncols()):
-    c[i] = lp.objective_coefficient(i)
-
-  return A, b, x, c
-
 cpdef void sensitivity_warm_start(GLPKBackend lp, GLPKBackend aux):
 
   cdef int i
@@ -1226,14 +1189,11 @@ cpdef list find_monomials2(GLPKBackend lp, MPolynomialRing_libsingular R, list v
       val = lp.get_variable_value(idx + j)
       if abs(val - 1.0) < epsilon:
         break
-    #Check if I still have the value of j here
     vertex = vertices[i][1][j]
-    #transform this thing into a monomial.
     LM = prod([ R.gens()[j]**vertex[j] for j in xrange(n)])
     LTs.append(LM)
 
   return LTs
-
 
 @cython.profile(True)
 cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
@@ -1262,140 +1222,6 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
       monomial *= R.gens()[j]**e
     LTs.append(monomial)
   return LTs
-
-cpdef bool is_degenerate(GLPKBackend lp):
-  r"""
-  Checks if `lp` is (primal) degenerate.
-  """
-  cdef int i
-  cdef float epsilon = 0.00001
-  for i in xrange(lp.ncols()):
-    if lp.is_variable_basic(i):
-      if abs(lp.get_variable_value(i)) < epsilon:
-        return True
-  for i in xrange(lp.nrows()):
-    if lp.is_slack_variable_basic(i):
-      if abs(lp.get_row_prim(i)) < epsilon:
-        return True
-  return False
-
-cpdef list find_objective_normal(GLPKBackend lp, int n):
-  r"""
-  This doesn't seem to work.
-  """
-
-  cdef int i, j, idx
-  cdef list row_indices, row_coeffs, v
-  cdef float epsilon = 0.00001
-  cdef Vector_real_double_dense normal = vector(RDF, lp.ncols())
-  for i in xrange(lp.nrows() - n):
-    if abs(lp.get_row_prim(i)) < epsilon:
-      row_indices, row_coeffs = lp.row(i)
-      v = [0] * lp.ncols()
-      for idx, j in enumerate(row_indices):
-        v[j] = row_coeffs[idx]
-      print v
-      normal += vector(v)
-
-  print "new objective:", normal
-
-  return list(normal)
-
-cpdef list find_objective_dual(GLPKBackend lp, int n):
-
-  r"""
-  This doesn't work either.
-  """
-
-  cdef int i
-  cdef tuple t = matrix_form(lp)
-  cdef Matrix_real_double_dense A = t[0]
-  cdef Vector_real_double_dense b = t[1]
-  cdef Vector_real_double_dense x = t[2]
-  cdef Matrix_real_double_dense A_t = t[0].transpose()
-  cdef Vector_real_double_dense y = vector(RDF, lp.nrows())
-  for i in xrange(lp.nrows()):
-    y[i] = lp.get_row_dual(i)
-
-  cdef Vector_real_double_dense c = b - A*x
-  cdef GLPKBackend glpk = make_solver(0)
-  for i in xrange(len(y)):
-    glpk.add_variable(lower_bound=y[i], upper_bound=y[i], continuous=True, binary=False, integer=False)
-  glpk.add_linear_constraint(list(zip(xrange(len(c)), c)), 0.0, 0.0)
-
-  cdef int B = lp.ncols() - n
-  for i in xrange(B):
-    glpk.add_linear_constraint(list(zip(xrange(len(c)), A_t[i])), 0.0, 0.0)
-
-  for i in xrange(B, lp.ncols()):
-    glpk.add_linear_constraint(list(zip(xrange(len(c)), A_t[i])), 1.0, None)
-
-  try:
-    glpk.solve()
-  except:
-    #Problem is unfeasible
-    print "initially unfeasible"
-    for i in xrange(glpk.ncols()):
-      glpk.variable_lower_bound(i, 0.0)
-      glpk.variable_upper_bound(i, None)
-    glpk.solve()
-
-  cdef Vector_real_double_dense result = vector(RDF, glpk.ncols())
-  for i in xrange(glpk.ncols()):
-    result[i] = glpk.get_variable_value(i)
-
-  cdef list w = list(A_t * result)
-
-  for i in xrange(len(w)):
-    lp.objective_coefficient(i, w[i])
-
-  return w[B:]
-
-cpdef list find_objective(GLPKBackend lp, int n):
-  r"""
-  Finds and sets some objective function for which the current basis of lp is optimal.
-
-  BUGGED/USELESS for now
-  """
-  cdef int i
-  cdef tuple t = matrix_form(lp)
-  cdef Matrix_real_double_dense A = t[0]
-  cdef Vector_real_double_dense b = t[1]
-  cdef Vector_real_double_dense x = t[2]
-  cdef Matrix_real_double_dense A_t = A.transpose()
-
-  #Build and solve system
-  cdef Vector_real_double_dense c = b - A*x
-  cdef GLPKBackend glpk = make_solver(0)
-  glpk.add_variables(len(c))
-  glpk.add_linear_constraint(list(zip(xrange(len(c)), c)), 0.0, 0.0)
-
-  cdef int B = lp.ncols() - n
-  for i in xrange(B):
-    glpk.add_linear_constraint(list(zip(xrange(len(c)), A_t[i])), 0.0, 0.0)
-
-  for i in xrange(B, lp.ncols()):
-    glpk.add_linear_constraint(list(zip(xrange(len(c)), A_t[i])), 1.0, None)
-
-  glpk.solve()
-
-  cdef Vector_real_double_dense y = vector(RDF, len(c))
-  for i in xrange(len(y)):
-    y[i] = glpk.get_variable_value(i)
-
-  cdef list w = list(A_t * y)
-  print "new order", w
-
-  lp.set_objective(w)
-  lp.solve()
-
-  if lp.get_objective_value() == vector(w) * x:
-    print "works?"
-
-  for i in xrange(lp.ncols()):
-    assert lp.get_variable_value(i) == x[i]
-
-  return w[B:]
 
 first = True
 #TODO why does the number of iterations affect performance so much?
@@ -1530,7 +1356,6 @@ cpdef list choose_random_ordering(list G, list current_ordering, int iterations 
 
   return best_order
 
-
 @cython.profile(True)
 cpdef list choose_local_ordering(list G, list current_ordering, int iterations = 50):
   r"""
@@ -1657,6 +1482,7 @@ cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
     CLTs.append(gens)
   LTs = min_CLT_by_Hilbert_heuristic(R, CLTs)
 
+  #TODO can probably do this more efficiently with the normal cone model?
   #STEP 3: obtain a weight vector for the chosen order using linear programming
 
   import sage.numerical.backends.glpk_backend as glpk_backend
