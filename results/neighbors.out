@@ -212,7 +212,7 @@ econ7 1 15 40
 econ7 2 11 40
 econ7 3 11 40
 econ7 4 15 40
-econ7 5binomial_6_3_6_6 1 11 12
+binomial_6_3_6_6 1 11 12
 binomial_6_3_6_6 2 11 12
 binomial_6_3_6_6 3 12 12
 binomial_6_3_6_6 4 11 12
@@ -449,7 +449,7 @@ cyclicn6 24 7 75
 cyclicn6 25 12 75
 cyclicn6 26 11 75
 cyclicn6 27 9 75
-cyclicn6 28 1econ5 1 13 17
+econ5 1 13 17
 econ5 2 10 17
 econ5 3 13 17
 econ5 4 9 17
@@ -677,7 +677,7 @@ extcyc5 15 8 65
 extcyc5 16 10 65
 extcyc5 17 7 65
 extcyc5 18 10 65
-extcyc5 fmtm_non_hom 1 4 4
+fmtm_non_hom 1 4 4
 fmtm_non_hom 2 4 4
 fmtm_non_hom 3 4 4
 fmtm_non_hom 4 4 4
@@ -923,7 +923,7 @@ binomial_5_3_5_3 3 9 10
 binomial_5_3_5_3 4 10 10
 binomial_5_3_5_3 5 10 10
 binomial_5_3_5_3 6 10 10
-bkatsuran5 1 7 25
+katsuran5 1 7 25
 katsuran5 2 6 25
 katsuran5 3 6 25
 katsuran5 4 7 25
@@ -1155,7 +1155,6 @@ fmtmdeh 19 6 6
 fmtmdeh 20 6 6
 fmtmdeh 21 6 6
 fmtmdeh 22 6 6
-fmtmdeh 0 75
 cyclicn6 29 9 75
 cyclicn6 30 8 75
 assur44 1 13 38
@@ -1401,7 +1400,7 @@ rose 30 6 6
 r8_2_2 1 11 139
 r8_2_2 2 10 139
 r8_2_2 3 12 139
-r8_2_katsuran2 1 3 3
+katsuran2 1 3 3
 katsuran2 2 3 3
 katsuran2 3 3 3
 katsuran2 4 3 3
@@ -1641,7 +1640,7 @@ r5_2_4 27 9 44
 r5_2_4 28 5 44
 r5_2_4 29 5 44
 r5_2_4 30 5 44
-binomial_6_2_6_7 1 inomial_5_3_5_3 7 10 10
+binomial_5_3_5_3 7 10 10
 binomial_5_3_5_3 8 10 10
 binomial_5_3_5_3 9 9 10
 binomial_5_3_5_3 10 10 10
@@ -1880,7 +1879,7 @@ wang16 2 10 23
 wang16 3 10 23
 wang16 4 10 23
 wang16 5 9 23
-wang16cyclicn3 1 5 6
+cyclicn3 1 5 6
 cyclicn3 2 4 6
 cyclicn3 3 5 6
 cyclicn3 4 4 6
@@ -2120,7 +2119,6 @@ lichtblau 27 4 5
 lichtblau 28 4 5
 lichtblau 29 4 5
 lichtblau 30 4 5
-hfe_19 8 65
 extcyc5 20 7 65
 extcyc5 21 12 65
 extcyc5 22 7 65
@@ -2370,7 +2368,7 @@ fateman 25 3 16
 fateman 26 3 16
 fateman 27 3 16
 fateman 28 3 16
-fateman 29 3wu90h 1 8 26
+wu90h 1 8 26
 wu90h 2 8 26
 wu90h 3 8 26
 wu90h 4 7 26
@@ -2612,7 +2610,6 @@ cyclicn8 29 9 294
 cyclicn8 30 11 294
 binomial_7_3_7_9 1 13 14
 binomial_7_3_7_9 2 13 14
-binomial_7_3_7 14 40
 econ7 6 11 40
 econ7 7 10 40
 econ7 8 18 40
@@ -2856,7 +2853,6 @@ katsuranh6 5 10 66
 katsuranh6 6 9 66
 katsuranh6 7 11 66
 katsuranh6 8 7 66
-katsuranh6 9  6 10 23
 wang16 7 7 23
 wang16 8 10 23
 wang16 9 8 23
@@ -3108,7 +3104,6 @@ sparsesym5 14 9 9
 sparsesym5 15 9 9
 sparsesym5 16 9 9
 sparsesym5 17 9 9
-spars12 12
 binomial_6_2_6_7 2 11 12
 binomial_6_2_6_7 3 12 12
 binomial_6_2_6_7 4 12 12
@@ -3258,7 +3253,6 @@ binomial_8_4_8_9 27 15 16
 binomial_8_4_8_9 28 15 16
 binomial_8_4_8_9 29 15 16
 binomial_8_4_8_9 30 15 16
-23 6 6
 fmtmdeh 24 6 6
 fmtmdeh 25 6 6
 fmtmdeh 26 5 6
@@ -3476,7 +3470,7 @@ berth 27 2 2
 berth 28 2 2
 berth 29 2 2
 berth 30 2 2
-_9 3 13 14
+binomial_7_3_7_9 3 13 14
 binomial_7_3_7_9 4 14 14
 binomial_7_3_7_9 5 14 14
 binomial_7_3_7_9 6 13 14
@@ -3564,7 +3558,7 @@ gerdt93 27 8 10
 gerdt93 28 10 10
 gerdt93 29 9 10
 gerdt93 30 8 10
-esym5 18 9 9
+sparsesym5 18 9 9
 sparsesym5 19 9 9
 sparsesym5 20 9 9
 sparsesym5 21 9 9
@@ -3607,7 +3601,7 @@ syz1 27 2 2
 syz1 28 2 2
 syz1 29 2 2
 syz1 30 2 2
-segers 1 24 95
+hfe_segers 1 24 95
 hfe_segers 2 22 95
 hfe_segers 3 21 95
 hfe_segers 4 19 95
@@ -3727,7 +3721,6 @@ ducos7_5 27 14 180
 ducos7_5 28 17 180
 ducos7_5 29 17 180
 ducos7_5 30 17 180
- 16
 fateman 30 3 16
 katsuran3 1 4 7
 katsuran3 2 4 7
@@ -3909,7 +3902,7 @@ reimer7h 27 7 174
 reimer7h 28 11 174
 reimer7h 29 7 174
 reimer7h 30 7 174
-2 4 8 139
+r8_2_2 4 8 139
 r8_2_2 5 8 139
 r8_2_2 6 8 139
 r8_2_2 7 11 139
@@ -4086,7 +4079,6 @@ reimer6 27 6 72
 reimer6 28 6 72
 reimer6 29 8 72
 reimer6 30 7 72
-10 66
 katsuranh6 10 9 66
 katsuranh6 11 11 66
 katsuranh6 12 10 66
