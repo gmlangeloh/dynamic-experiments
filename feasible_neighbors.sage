@@ -3,7 +3,7 @@ Check if neighbors in Minkowski sum are feasible with decent probability or not.
 '''
 
 from random import randint, seed
-import fnctl
+import fcntl
 import sys
 
 load("benchmarks.sage")
@@ -122,8 +122,8 @@ def neighbor_data(instance):
     seed(0)
     for i in xrange(1, 31): #Number of repetitions
         neighbors, total = count_neighbors(G)
-        fnctl.lockf(sys.stdout, fnctl.LOCK_EX) #only one process writes at a time
+        fcntl.lockf(sys.stdout, fcntl.LOCK_EX) #only one process writes at a time
         print name, G[0].parent().ngens(), neighbors, total
-        fnctl.lockf(sys.stdout, fnctl.LOCK_UN)
+        fcntl.lockf(sys.stdout, fcntl.LOCK_UN)
 
     sys.stderr.write("Finished: " + name + "\n")
