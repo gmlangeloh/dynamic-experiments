@@ -3,6 +3,7 @@ Check if neighbors in Minkowski sum are feasible with decent probability or not.
 '''
 
 from random import randint, seed
+import sys
 
 load("benchmarks.sage")
 
@@ -115,7 +116,11 @@ def neighbor_data(instance):
     if G[0].parent().ngens() > 8:
         return
 
+    sys.stderr.write("Starting: " + name + "\n")
+
     seed(0)
     for i in xrange(1, 31): #Number of repetitions
         neighbors, total = count_neighbors(G)
         print name, i, neighbors, total
+
+    sys.stderr.write("Finished: " + name + "\n")
