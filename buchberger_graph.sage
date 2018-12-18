@@ -77,10 +77,15 @@ def bayer(LMs):
     eliminated = []
     minimal_gens = []
     for p in pairs:
-        G = pair_graph(p, eliminated)
-        if G.distance(p[0], p[1]) != Infinity:
-            eliminated.append(p)
-        else:
+        G = pair_graph(p, LMs, eliminated)
+        try:
+            if G.distance(p[0], p[1]) != Infinity:
+                eliminated.append(p)
+            else:
+                minimal_gens.append(p)
+        except ValueError:
+            #p[0] or p[1] not in graph -> no edges incident to one of them
+            #-> no path between p[0] and p[1]
             minimal_gens.append(p)
     return minimal_gens
 
@@ -104,3 +109,4 @@ def bayer_data(instance):
                 print I.ring().ngens(), betti, len(R.ideal(G).groebner_basis())
             except:
                 print I.ring().ngens(), betti, 10000
+    sys.stderr.write("Finished: " + name + "\n")
