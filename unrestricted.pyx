@@ -17,7 +17,7 @@ r"""
         see the function dynamic_gb
 """
 
-# imports
+from types cimport *
 
 from copy import copy
 from random import randint, choice
@@ -28,8 +28,6 @@ from cython.parallel cimport prange
 from sage.matrix.constructor import matrix
 from sage.matrix.special import identity_matrix
 
-from sage.libs.singular.decl cimport p_DivisibleBy
-
 from sage.misc.misc_c import prod
 
 #from sage.numerical.mip import Sum
@@ -39,23 +37,14 @@ from sage.rings.infinity import Infinity
 
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.term_order import TermOrder
-from sage.rings.polynomial.multi_polynomial_libsingular cimport MPolynomial_libsingular
-from sage.rings.polynomial.multi_polynomial_libsingular cimport MPolynomialRing_libsingular
 
 from sage.rings.integer_ring import IntegerRing
 
 from sage.modules.free_module_element import vector
-from sage.modules.vector_integer_dense cimport Vector_integer_dense
-from sage.matrix.matrix_real_double_dense cimport Matrix_real_double_dense
-from sage.modules.vector_real_double_dense cimport Vector_real_double_dense
 from sage.rings.real_double import RDF
 from sage.geometry.polyhedron.constructor import Polyhedron
 
-from sage.numerical.backends.glpk_backend cimport GLPKBackend
-
 from sage.functions.other import floor, ceil
-
-from libcpp cimport bool
 
 # globals, until/unless I make a class out of this
 
@@ -68,15 +57,6 @@ cdef int sugar_type
 cdef double tolerance_cone = 0.01
 cdef double upper_bound = 100
 cdef double upper_bound_delta = 100
-
-# memory management courtesy C
-
-cdef extern from "stdlib.h":
-  ctypedef unsigned int size_t
-  void *malloc(size_t size)
-  void free(void *ptr)
-
-# types
 
 cpdef GLPKBackend make_solver(int n):
   r"""

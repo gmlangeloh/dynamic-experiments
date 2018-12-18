@@ -1,3 +1,5 @@
+from sage.libs.singular.decl cimport p_DivisibleBy
+
 cdef class clothed_polynomial:
 
   def __init__(self, MPolynomial_libsingular f):

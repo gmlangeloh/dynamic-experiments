@@ -1,3 +1,5 @@
+from types cimport *
+
 @cython.profile(True)
 cpdef clothed_polynomial spoly(tuple Pd, list generators):
   r"""
