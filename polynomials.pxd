@@ -1,7 +1,6 @@
 from libcpp cimport bool
 from sage.rings.polynomial.multi_polynomial_libsingular cimport MPolynomial_libsingular
 
-
 #Defining fast monomial operations with fewer checks
 cpdef int monomial_divides(MPolynomial_libsingular t, MPolynomial_libsingular u)
 
