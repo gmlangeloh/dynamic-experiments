@@ -1,7 +1,9 @@
 from heuristics cimport sort_CLTs_by_Hilbert_heuristic
+from types cimport *
 
 @cython.profile(True)
-cpdef MixedIntegerLinearProgram new_linear_program(MixedIntegerLinearProgram lp = None):
+cpdef MixedIntegerLinearProgram new_linear_program \
+    (MixedIntegerLinearProgram lp = None):
   r"""
     This tracks the number of linear programs created, and initializes them
     with a common template.
@@ -9,7 +11,8 @@ cpdef MixedIntegerLinearProgram new_linear_program(MixedIntegerLinearProgram lp 
   global number_of_programs_created
   number_of_programs_created += 1
   if lp == None:
-    return MixedIntegerLinearProgram(check_redundant=True, solver="GLPK", maximization=False)
+    return MixedIntegerLinearProgram(check_redundant=True, solver="GLPK", \
+                                     maximization=False)
   else: return copy(lp)
 
 @cython.profile(True)
@@ -36,7 +39,8 @@ cpdef tuple monitor_lts(list G, list LTs, list new_ordering):
   cdef MPolynomial_libsingular g
   cdef list U, result, current
     # U is the set of monomials of the polynomial g currently under examination
-    # current is the list of monomials of g that weigh more than the old polynomial
+    # current is the list of monomials of g that weigh more than the old
+    #polynomial
     # result is collection of all current's
 
   # setup
@@ -103,7 +107,7 @@ cpdef set boundary_vectors(MixedIntegerLinearProgram lp, int n):
          in this cross-section
   """
   cdef int i, j, k # counters
-  cdef int start_constraints, end_constraints # used for deleting bad constraints
+  cdef int start_constraints, end_constraints# used for deleting bad constraints
   cdef float sol_degree # degree of solution
   cdef tuple result, solution_vector
   cdef set boundaries
@@ -176,8 +180,9 @@ cpdef int solve_integer(MixedIntegerLinearProgram lp, int n):
   A difficulty in using glpk is that it requires an upper bound in order to find
   an integer solution in a decent amount of time.
   As a result, we have set up our linear program with such an upper bound.
-  However, while the real solution can be found with even a fairly small upper bound,
-  the integer solution will at times exceed the previously set upper bound.
+  However, while the real solution can be found with even a fairly small upper
+  bound, the integer solution will at times exceed the previously set upper
+  bound.
   This poses a challenge.
 
   This function is not called if there is not a real solution,
@@ -214,7 +219,8 @@ cpdef int solve_integer(MixedIntegerLinearProgram lp, int n):
       #print "failed"
       upper_bound += upper_bound_delta
 
-      if upper_bound > 128000: # even I give up after a certain point -- need a better solver?
+      if upper_bound > 128000: # even I give up after a certain point
+          #need a better solver?
 
         #print "returning no solution", upper_bound
         for k in xrange(n): lp.set_real(lp[k])
@@ -227,7 +233,8 @@ cpdef int solve_integer(MixedIntegerLinearProgram lp, int n):
   return 1
 
 @cython.profile(True)
-cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects, list G, list LTs, int use_rejects):
+cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
+                     set rejects, list G, list LTs, int use_rejects):
   r"""
     Determines if the ``i``th monomial in ``CMs`` is a feasible leading monomial
     of the polynomial whose compatible monomials are listed in CMs,
@@ -242,7 +249,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
       with ``olp``
     - ``G`` -- the current basis of the ideal
     - ``LTs`` -- the leading terms of ``G``
-    - `use_rejects` -- whether to use rejected programs (disjoint cones) to avoid useless systems
+    - `use_rejects` -- whether to use rejected programs (disjoint cones) to
+      avoid useless systems
 
     OUTPUT:
 
@@ -275,7 +283,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
   # the following line is needed to control the solving process
   import sage.numerical.backends.glpk_backend as glpk_backend
 
-  global rejections, monomials_eliminated, tolerance_cone, upper_bound, failed_systems
+  global rejections, monomials_eliminated, tolerance_cone, upper_bound, \
+      failed_systems
 
   cdef int j, k, l # counters
   cdef int passed, lms_changed # signals
@@ -283,7 +292,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
   cdef float sol_degree, a
   cdef tuple t, u, v, old_lm, new_lm # exponent vectors
   cdef tuple constraint
-  cdef list changed_lms, changed_lm # used for when we change the ordering, rather than refine it
+  cdef list changed_lms, changed_lm # used for when we change the ordering,
+  #rather than refine it
 
   cdef set new_constraints = set()
   cdef set new_rejects = set()
@@ -298,7 +308,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
   # set up solver to solve LP relaxation first
   # (GLPK chokes on no integer solution)
   cdef MixedIntegerLinearProgram lp = new_linear_program()
-  lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, glpk_backend.glp_simplex_then_intopt)
+  lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, \
+                      glpk_backend.glp_simplex_then_intopt)
 
   # xi >= epsilon
   for k in xrange(n): lp.add_constraint(lp[k],min=tolerance_cone)
@@ -320,7 +331,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
       constraint = tuple([float(t[k]-u[k]) for k in xrange(n)])
       new_constraints.add(constraint)
 
-      # check whether adding constraint to this system is known to be incompatible
+      # check whether adding constraint to this system is known to be
+      #incompatible
       if use_rejects:
         #print "checking rejects",
         for c in (rejects):
@@ -333,7 +345,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
             return result
 
       #print "checked rejects"
-      lp.add_constraint(lp.sum([constraint[k]*lp[k] for k in xrange(n)]),min=tolerance_cone)
+      lp.add_constraint(lp.sum([constraint[k]*lp[k] for k in xrange(n)]), \
+                        min=tolerance_cone)
 
       try:
 
@@ -362,7 +375,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
     #print t, constraint
     number_of_constraints = np.number_of_constraints()
     new_rejects.add(constraint)
-    np.add_constraint(np.sum([constraint[k]*np[k] for k in xrange(n)]), min=tolerance_cone)
+    np.add_constraint(np.sum([constraint[k]*np[k] for k in xrange(n)]), \
+                      min=tolerance_cone)
     # check of size is necessary because we prevent the addition of redundant constraints
     if np.number_of_constraints() > number_of_constraints: end_constraints += 1
 
@@ -382,7 +396,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
 
     #print "not solved"
     rejects.add(frozenset(new_rejects)) # remember this failed system
-    #print "killing new constraints in program, which has", np.number_of_constraints(), "constraints"
+    #print "killing new constraints in program, which has", \
+        #np.number_of_constraints(), "constraints"
     np.remove_constraints(range(start_constraints,end_constraints))
     failed_systems += 1
     return result
@@ -420,8 +435,11 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
         constraint = tuple([float(v[k] - u[k]) for k in xrange(n)])
         new_constraints.add(constraint)
         number_of_constraints = np.number_of_constraints()
-        np.add_constraint(np.sum([constraint[k]*np[k] for k in xrange(n)]), min=tolerance_cone)
-        if np.number_of_constraints() > number_of_constraints: end_constraints += 1
+        np.add_constraint(np.sum([constraint[k]*np[k] for k in xrange(n)]), \
+                          min=tolerance_cone)
+        if np.number_of_constraints() > number_of_constraints:
+
+          end_constraints += 1
 
     # if a monomial changed, we have to solve anew
     #print "resolve?", resolve
@@ -454,7 +472,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, set rejects
   return result
 
 @cython.profile(True)
-cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, int use_boundary_vectors):
+cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, \
+                        int use_boundary_vectors):
   r"""
     Identifies terms of ``f`` that could serve as a leading term,
     and are compatible with the boundary approximated by ``boundary_vectors``.
@@ -462,20 +481,23 @@ cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, int use
     INPUT:
 
     - ``f`` -- a polynomial
-    - ``boundary_vectors`` -- a tuple of maximum and minimum values of the variables
-      on the current feasible region, allowing us to approximate the corners of
-      the solution cone
-    - `use_boundary_vectors` -- whether to use the boundary vectors; setting this to
-      `False` gives behavior similar to Caboara's original implementation
+    - ``boundary_vectors`` -- a tuple of maximum and minimum values of the
+      variables on the current feasible region, allowing us to approximate the
+      corners of the solution cone
+    - `use_boundary_vectors` -- whether to use the boundary vectors; setting
+      this to `False` gives behavior similar to Caboara's original
+      implementation
 
     OUTPUT:
 
-    A list of tuples, representing the exponent vectors of the potential leading monomials.
+    A list of tuples, representing the exponent vectors of the potential
+    leading monomials.
 
     ALGORITHM:
 
       #. Let ``t`` be current leading monomial of ``f``.
-      #. Let ``U`` be set of exponent vectors of monomials of ``f``, except ``t``.
+      #. Let ``U`` be set of exponent vectors of monomials of ``f``, except
+        ``t``.
       #. Let ``M`` be subset of ``U`` s.t. `u\in M` iff `c.u > c.t`
         for some `c\in boundary_vectors`. (here, c.u denote multiplication)
       #. Return ``M``.
@@ -489,7 +511,8 @@ cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, int use
   cdef tuple ordering, u, v # ordering and exponent vectors
   global monomials_eliminated
 
-  # identify current leading monomial, other monomials; obtain their exponent vectors
+  # identify current leading monomial, other monomials;
+  #obtain their exponent vectors
 
   cdef MPolynomialRing_libsingular R = f.parent()
   cdef int n = len(R.gens())
@@ -497,11 +520,13 @@ cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, int use
   cdef list U = f.monomials()
   U.remove(f.lm())
 
-  # determine which elements of U might outweigh t somewhere within the current solution cone
+  # determine which elements of U might outweigh t somewhere within the current
+  #solution cone
   # if there is no solution cone yet (first polynomial), pass them all
 
   # no point in checking anything if we have no boundaries yet...
-  # todo: initialize boundary_vectors to obvious boundaries (e_i for i=1,...,n) on first polynomial
+  # todo: initialize boundary_vectors to obvious boundaries (e_i for i=1,...,n)
+  #on first polynomial
   # so that we can remove this check
   if use_boundary_vectors and boundary_vectors != None:
 
@@ -515,7 +540,8 @@ cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, int use
       for ordering in boundary_vectors:
 
         # compare dot products
-        if sum([u[k]*ordering[k] for k in xrange(n)]) > sum([t[k]*ordering[k] for k in xrange(n)]):
+        if sum([u[k]*ordering[k] for k in xrange(n)]) \
+           > sum([t[k]*ordering[k] for k in xrange(n)]):
 
           M.append((u,ux))
           passes = True
@@ -528,8 +554,9 @@ cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, int use
   # don't forget to append t
   M.append((t,f.lm()))
 
-  # remove monomials u divisible by some other monomial v -- this will happen rarely
-  # when using boundary vectors, but could happen even then
+  # remove monomials u divisible by some other monomial v
+  #-- this will happen rarely when using boundary vectors,
+  #but could happen even then
   cdef list V = list()
 
   for (u,ux) in M:
@@ -550,7 +577,10 @@ cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, int use
 
 restricted_iterations = 1
 @cython.profile(True)
-cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list current_ordering, MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, int use_dcs, bool print_candidates):
+cpdef tuple choose_ordering_restricted \
+    (list G, list current_Ts, int mold, list current_ordering, \
+     MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, \
+     int use_dcs, bool print_candidates):
   r"""
     Chooses a weight vector for a term ordering for the basis ``G`` that refines
     the weight vector that solves ``lp``.
@@ -561,15 +591,17 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
     - ``current_Ts`` -- leading monomials of *some* elements of ``G``,
       according to the current ordering
     - ``mold`` -- the number of elements of ``current_Ts``
-    - ``lp`` -- a linear program whose solutions dictate the choice ``current_Ts``
+    - ``lp`` -- a linear program whose solutions dictate the choice
+      ``current_Ts``
     - ``rejects`` -- record of linear programs rejected previously
     - ``bvs`` -- approximation to feasible region, in the form of
       maximum and minimum values of a cross-section of the feasible region
-    - `use_bvs` -- whether to use boundary vectors; setting this and `use_dcs` to False
-      gives us behavior similar to Caboara's original implementation
-    - `use_dcs` -- whether to use disjoint cones; setting this and `use_bvs` to False
-      gives us behavior similar to Caboara's original implementation
-    - `print_candidates` -- whether to print number of LT candidates this iteration
+    - `use_bvs` -- whether to use boundary vectors; setting this and `use_dcs`
+      to False gives us behavior similar to Caboara's original implementation
+    - `use_dcs` -- whether to use disjoint cones; setting this and `use_bvs` to
+      False gives us behavior similar to Caboara's original implementation
+    - `print_candidates` -- whether to print number of LT candidates this
+      iteration
 
     OUTPUTS:
 
@@ -579,7 +611,8 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
 
     ALGORITHM:
 
-    #. Of the possible leading monomials of each new `g\in G` that are compatible with ``lp``,
+    #. Of the possible leading monomials of each new `g\in G` that are
+      compatible with ``lp``,
     #. determine which combinations are consistent with each other, then
     #. identify one which we think is a good choice.
   """
@@ -621,7 +654,8 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
     # use Caboara's Hilbert heuristic
     CLTs = sort_CLTs_by_Hilbert_heuristic(R, current_Ts, CLTs)
     #print CLTs
-    # discard unnecessary information -- need to see why I have this information in the first place
+    # discard unnecessary information
+    #-- need to see why I have this information in the first place
     CLTs = [tup[len(tup)-1] for tup in CLTs]
     # extract the leading tuples
     LTups = [tup[0] for tup in CLTs]
@@ -650,7 +684,8 @@ cpdef tuple choose_ordering_restricted(list G, list current_Ts, int mold, list c
         j += 1
     # now that we've found one, use it
     #print "success with monomial", j, CLTs[j], LTups[j]
-    # no point in finding boundary vectors if g has the same leading term as before
+    # no point in finding boundary vectors if g has the same leading term as
+    #before
     if CLTs[j][1] == g.lm(): return current_ordering, lp, bvs
     t = <MPolynomial_libsingular>CLTs[j][1]
     current_Ts.append(t) # hmm
