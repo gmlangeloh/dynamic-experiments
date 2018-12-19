@@ -43,17 +43,8 @@ from sage.geometry.polyhedron.constructor import Polyhedron
 
 from sage.functions.other import floor, ceil
 
-# globals, until/unless I make a class out of this
-
-ZZ = IntegerRing()
 # record keeping
 cdef int rejections, monomials_eliminated, number_of_programs_created
-# options
-cdef int sugar_type
-# tweaking the linear programs
-cdef double tolerance_cone = 0.01
-cdef double upper_bound = 100
-cdef double upper_bound_delta = 100
 
 cpdef GLPKBackend make_solver(int n):
   r"""

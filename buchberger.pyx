@@ -14,11 +14,12 @@ from copy import copy
 
 from sage.matrix.constructor import matrix
 from sage.rings.infinity import Infinity
+from sage.rings.integer_ring import IntegerRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.term_order import TermOrder
 
 @cython.profile(True)
-cpdef clothed_polynomial spoly(tuple Pd, list generators):
+cpdef clothed_polynomial spoly(tuple Pd, list generators, int sugar_type):
   r"""
     Computes an s-polynomial indexed by ``Pd``.
 
@@ -28,7 +29,6 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators):
       clothed
     - `generators` -- the generators of the ideal
   """
-  global sugar_type
   # counters
   cdef int k
   # measures
@@ -76,7 +76,7 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators):
 
 @cython.profile(True)
 cpdef clothed_polynomial reduce_polynomial_with_sugar \
-  (clothed_polynomial s, list G):
+  (clothed_polynomial s, list G, int sugar_type):
   r"""
     Value of ``cf`` changes to reduced polynomial, and new sugar is computed.
     based on algorithm in Cox, Little, and O'Shea, and paper on Sugar by Giovini et al.
@@ -85,7 +85,6 @@ cpdef clothed_polynomial reduce_polynomial_with_sugar \
     - `s` -- s-polynomial to reduce
     - `G` -- list of reducers
   """
-  global sugar_type
   # counters
   cdef int i, m
   # measures
@@ -156,11 +155,10 @@ cpdef clothed_polynomial reduce_poly(clothed_polynomial s, list G):
   return s
 
 @cython.profile(True)
-cpdef int sug_of_critical_pair(tuple pair):
+cpdef int sug_of_critical_pair(tuple pair, int sugar_type):
   r"""
     Compute the sugar of a critical pair.
   """
-  global sugar_type
   # measures
   cdef int sf, sg, sfg, su, sv
   # polynomials, clothed and otherwise
@@ -262,7 +260,7 @@ cpdef last_element_then_lcm(tuple p):
 
 @cython.profile(True)
 cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
-                strategy):
+                strategy, int sugar_type):
   r"""
   The Gebauer-Moeller algorithm.
 
@@ -332,7 +330,10 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
 
   for cg in G:
 
-    if strategy=='sugar': C.append((cf,cg,sug_of_critical_pair((cf,cg))))
+    if strategy=='sugar':
+
+      C.append((cf,cg,sug_of_critical_pair((cf,cg), sugar_type)))
+
     elif strategy=='normal': C.append((cf,cg,lcm_of_critical_pair((cf,cg))))
     elif strategy=='mindeg': C.append((cf,cg,deg_of_critical_pair((cf,cg))))
 
@@ -420,7 +421,7 @@ def create_order(list w):
   """
   # first we convert floats to integer
   # this is fine since we are using integer programming to find the ordering
-  cdef list wZZ = [ZZ(each) for each in w]
+  cdef list wZZ = [IntegerRing(each) for each in w]
   cdef list M = list()
   M.append(wZZ)
 
@@ -464,9 +465,10 @@ cpdef tuple dynamic_gb \
       - `max_calls` -- the maximum number of calls to the dynamic engine
       - `itmax` -- run for `itmax` iterations only and return ordering
   """
-  global sugar_type, first, restricted_iterations
+  global first, restricted_iterations
   restricted_iterations = 1
   first = True
+  cdef int sugar_type
   # counters
   cdef int i, j, k
   cdef int calls = 0
@@ -558,7 +560,8 @@ cpdef tuple dynamic_gb \
     f = clothed_polynomial(PR(p))
     generators.append(f)
     if strategy == 'sugar':
-      P.append((f,clothed_zero,sug_of_critical_pair((f,clothed_zero))))
+      P.append((f,clothed_zero,\
+                sug_of_critical_pair((f,clothed_zero), sugar_type)))
     elif strategy == 'normal':
       P.append((f,clothed_zero,lcm_of_critical_pair((f,clothed_zero))))
     elif strategy == 'mindeg':
@@ -598,11 +601,11 @@ cpdef tuple dynamic_gb \
 
       # compute s-polynomials
       #if sugar_strategy: print "current sugar", Pd[len(Pd)-1]
-      s = spoly(Pd, generators)
+      s = spoly(Pd, generators, sugar_type)
       number_of_spolynomials += 1
 
       # reduce s-polynomials modulo current basis wrt current order
-      if sugar_strategy: r = reduce_polynomial_with_sugar(s, G)
+      if sugar_strategy: r = reduce_polynomial_with_sugar(s, G, sugar_type)
       else: r = reduce_poly(s, reducers)
 
       # diagnostic
@@ -679,9 +682,11 @@ cpdef tuple dynamic_gb \
                 #P = gm_update(PR, P, G[:i], LTs[:i], strategy)
                 unchanged_G.append(G[i])
                 unchanged_LTs.append(LTs[i])
-                P = gm_update(PR, P, unchanged_G, unchanged_LTs, strategy)
+                P = gm_update(PR, P, unchanged_G, unchanged_LTs, strategy, \
+                              sugar_type)
             elif reinsert and changed:
-              P = gm_update(PR, P, G[:len(G)-1], LTs[:len(LTs)-1], strategy) #do update w.r.t new poly
+              P = gm_update(PR, P, G[:len(G)-1], LTs[:len(LTs)-1], strategy, \
+                            sugar_type) #do update w.r.t new poly
               change_count += 1
             elif reinsert and not changed:
               no_change_count += 1
@@ -695,7 +700,7 @@ cpdef tuple dynamic_gb \
         reducers = [G[k].value() for k in xrange(len(G))]
         #print "have new polys and new lts"
         #print PR.term_order()
-        P = gm_update(PR, P, G, LTs, strategy)
+        P = gm_update(PR, P, G, LTs, strategy, sugar_type)
         #print "updated P"
         m = len(G)
 

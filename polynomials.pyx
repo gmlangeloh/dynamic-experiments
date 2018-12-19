@@ -2,11 +2,10 @@ from sage.libs.singular.decl cimport p_DivisibleBy
 
 cdef class clothed_polynomial:
 
-  def __init__(self, MPolynomial_libsingular f):
+  def __init__(self, MPolynomial_libsingular f, int sugar_type):
     r"""
     Initializes ``self.f`` to ``f`` and ``self.sugar`` to the computed sugar of ``f``.
     """
-    global sugar_type
     cdef list exp = f.exponents(as_ETuples=False)
     cdef tuple tup
     cdef int d = 0

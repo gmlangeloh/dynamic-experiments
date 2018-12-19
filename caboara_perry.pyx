@@ -1,6 +1,11 @@
 from heuristics cimport sort_CLTs_by_Hilbert_heuristic
 from types cimport *
 
+#Globals for this module
+cdef double tolerance_cone = 0.01
+cdef double upper_bound = 100
+cdef double upper_bound_delta = 100
+
 @cython.profile(True)
 cpdef MixedIntegerLinearProgram new_linear_program \
     (MixedIntegerLinearProgram lp = None):
