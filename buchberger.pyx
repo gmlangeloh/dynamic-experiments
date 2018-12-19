@@ -1,4 +1,21 @@
+#Cython imports
+
 from types cimport *
+from polynomials cimport clothed_polynomial, monomial_divides
+from caboara_perry cimport choose_ordering_restricted
+from unrestricted cimport choose_simplex_ordering, choose_random_ordering, \
+  choose_local_ordering, choose_ordering_unrestricted, choose_cone_ordering
+
+#Python-level imports
+
+import cython
+
+from copy import copy
+
+from sage.matrix.constructor import matrix
+from sage.rings.infinity import Infinity
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.polynomial.term_order import TermOrder
 
 @cython.profile(True)
 cpdef clothed_polynomial spoly(tuple Pd, list generators):
@@ -7,7 +24,8 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators):
 
     INPUT:
 
-    - ``Pd`` -- tuple (f,g); we wish to compute spoly(`f,g`) where f and g are clothed
+    - ``Pd`` -- tuple (f,g); we wish to compute spoly(`f,g`) where f and g are
+      clothed
     - `generators` -- the generators of the ideal
   """
   global sugar_type
@@ -57,7 +75,8 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators):
   return cs
 
 @cython.profile(True)
-cpdef clothed_polynomial reduce_polynomial_with_sugar(clothed_polynomial s, list G):
+cpdef clothed_polynomial reduce_polynomial_with_sugar \
+  (clothed_polynomial s, list G):
   r"""
     Value of ``cf`` changes to reduced polynomial, and new sugar is computed.
     based on algorithm in Cox, Little, and O'Shea, and paper on Sugar by Giovini et al.
@@ -170,7 +189,8 @@ cpdef int sug_of_critical_pair(tuple pair):
     sf = cf.get_sugar(); sg = cg.get_sugar()
 
     if sugar_type == 0: # standard sugar: use exponents
-      su = sum(u.exponents(as_ETuples=False)[0]); sv = sum(v.exponents(as_ETuples=False)[0])
+      su = sum(u.exponents(as_ETuples=False)[0])
+      sv = sum(v.exponents(as_ETuples=False)[0])
 
     elif sugar_type == 1: # weighted sugar: use degree, determined by ordering
       su = u.degree(); sv = v.degree()
@@ -226,21 +246,28 @@ cpdef deg_of_critical_pair(tuple pair):
 # the next three functions are used for sorting the critical pairs
 
 @cython.profile(True)
-cpdef last_element(tuple p): return p[len(p)-1] # b/c cython doesn't allow lambda experessions, I think
+cpdef last_element(tuple p):
+
+  return p[len(p)-1] # b/c cython doesn't allow lambda experessions, I think
 
 @cython.profile(True)
-cpdef lcm_then_last_element(tuple p): return (lcm_of_critical_pair(p), p[len(p)-1])
+cpdef lcm_then_last_element(tuple p):
+
+  return (lcm_of_critical_pair(p), p[len(p)-1])
 
 @cython.profile(True)
-cpdef last_element_then_lcm(tuple p): return (p[len(p)-1], lcm_of_critical_pair(p))
+cpdef last_element_then_lcm(tuple p):
+
+  return (p[len(p)-1], lcm_of_critical_pair(p))
 
 @cython.profile(True)
-cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, strategy):
+cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
+                strategy):
   r"""
   The Gebauer-Moeller algorithm.
-  
+
   INPUTS:
-  
+
   - ``R`` -- the current ring (used for efficient division)
   - ``P`` -- list of critical pairs
   - ``G`` -- current basis (to discard redundant polynomials)
@@ -281,15 +308,22 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, strategy)
     if q != 0:
       tp = p.lm(); tq = q.lm(); tpq = tp.lcm(tq)
 
-      if (not monomial_divides(tf, tpq)) or tp.lcm(tf) == tpq or tq.lcm(tf) == tpq:
+      if (not monomial_divides(tf, tpq)) or tp.lcm(tf) == tpq \
+         or tq.lcm(tf) == tpq:
         #print "adding", (tp, tq)
-        if strategy=='normal': Pnew.append((cp, cq, lcm_of_critical_pair((cp, cq))))
+        if strategy=='normal':
+
+          Pnew.append((cp, cq, lcm_of_critical_pair((cp, cq))))
+
         else: Pnew.append(pair)
 
       #else: print (tp,tq,tpq,pair[-1]), "pruned because of", tf
 
     else:
-      if strategy == 'normal': Pnew.append((cp, cq, lcm_of_critical_pair((cp, cq))))
+      if strategy == 'normal':
+
+        Pnew.append((cp, cq, lcm_of_critical_pair((cp, cq))))
+
       else: Pnew.append(pair)
 
   # STEP 2: create list of new pairs
@@ -310,7 +344,9 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, strategy)
     #print "considering", pair,
     tfg = lcm_of_critical_pair(pair)
 
-    if tfg == pair[0].lm() * pair[1].lm(): D.append(pair) # relatively prime; postpone removal
+    if tfg == pair[0].lm() * pair[1].lm():
+
+      D.append(pair) # relatively prime; postpone removal
 
     else:
 
@@ -379,7 +415,8 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, strategy)
 @cython.profile(True)
 def create_order(list w):
   r"""
-    Create term ordering acceptable to Singular, using integer weight vector ``w``.
+    Create term ordering acceptable to Singular, using integer weight vector
+      ``w``.
   """
   # first we convert floats to integer
   # this is fine since we are using integer programming to find the ordering
@@ -395,19 +432,21 @@ def create_order(list w):
 
 #TODO fix bug that happens when the number of dynamic iterations is smaller than number of polys
 @cython.profile(True)
-cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimize_homogeneous=False, \
-                       weighted_sugar = 0, use_boundary_vectors=True, use_disjoint_cones=True, \
-                       unrestricted=False, random=False, perturbation=False, simplex=False, \
-                       reinsert=False, max_calls=Infinity, itmax=Infinity, print_results=False, \
-                       print_candidates = False):
+cpdef tuple dynamic_gb \
+  (F, dmax=Infinity, strategy='normal', static=False, \
+   minimize_homogeneous=False, weighted_sugar = 0, use_boundary_vectors=True, \
+   use_disjoint_cones=True, unrestricted=False, random=False, \
+   perturbation=False, simplex=False, reinsert=False, max_calls=Infinity, \
+   itmax=Infinity, print_results=False, print_candidates = False):
   r"""
-    Computes a dynamic Groebner basis of the polynomial ideal generated by ``F``,
-    up to degree ``dmax``.
+    Computes a dynamic Groebner basis of the polynomial ideal generated by
+      ``F``, up to degree ``dmax``.
 
     INPUTS:
 
       - `F` -- generators of ideal
-      - `dmax` -- maximum degree of Groebner basis (for computing `d`-Groebner basis)
+      - `dmax` -- maximum degree of Groebner basis (for computing `d`-Groebner
+        basis)
       - `strategy` -- one of
         - `mindeg` -- choose critical pairs of minimal degree
         - `normal` -- choose critical pairs of minimal lcm
@@ -415,12 +454,13 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
       - `static` -- whether to use the dynamic algorithm or the static one
       - `minimize_homogeneous` -- whether to keep the weight
         of the homogeneous variable below that of the other variables
-      - `weighted_sugar` -- whether the sugar is computed by exponents (0) or by degree (1)
-      - `use_boundary_vectors` -- whether to use boundary vectors; setting this and
-        `use_disjoint_cones` to `False` is similar to Caboara's old method
+      - `weighted_sugar` -- whether the sugar is computed by exponents (0) or by        degree (1)
+      - `use_boundary_vectors` -- whether to use boundary vectors; setting this
+        and `use_disjoint_cones` to `False` is similar to Caboara's old method
       - `use_disjoint_cones` -- whether to use disjoint cones; setting this and
         `use_boundary_vectors` to `False` is similar to Caboara's old method
-      - `unrestricted` -- uses Gritzmann-Sturmfels' dynamic algorithm instead of Caboara's
+      - `unrestricted` -- uses Gritzmann-Sturmfels' dynamic algorithm instead of
+        Caboara's
       - `max_calls` -- the maximum number of calls to the dynamic engine
       - `itmax` -- run for `itmax` iterations only and return ordering
   """
@@ -588,20 +628,26 @@ cpdef tuple dynamic_gb(F, dmax=Infinity, strategy='normal', static=False, minimi
           calls += 1
 
           if unrestricted:
-            current_ordering, old_vertices = choose_ordering_unrestricted(G, old_vertices)
+            current_ordering, old_vertices = \
+              choose_ordering_unrestricted(G, old_vertices)
           elif random:
             current_ordering = choose_random_ordering(G, current_ordering)
           elif perturbation:
             current_ordering = choose_local_ordering(G, current_ordering)
           elif simplex:
-            current_ordering, vertices = choose_simplex_ordering(G, current_ordering, slp, vertices)
+            current_ordering, vertices = \
+              choose_simplex_ordering(G, current_ordering, slp, vertices)
           elif reinsert:
-            current_ordering, lp, boundary_vectors, constraints, changed = choose_cone_ordering(G, \
-              current_ordering, \
-              constraints, lp, rejects, boundary_vectors, use_boundary_vectors, use_disjoint_cones)
+            current_ordering, lp, boundary_vectors, constraints, changed = \
+              choose_cone_ordering(G, current_ordering, constraints, lp, \
+                                   rejects, boundary_vectors, \
+                                   use_boundary_vectors, use_disjoint_cones)
           else:
-            current_ordering, lp, boundary_vectors = choose_ordering_restricted(G, LTs[:m], m, current_ordering, \
-                                                                                lp, rejects, boundary_vectors, use_boundary_vectors, use_disjoint_cones, print_candidates)
+            current_ordering, lp, boundary_vectors = \
+              choose_ordering_restricted(G, LTs[:m], m, current_ordering, \
+                                         lp, rejects, boundary_vectors,
+                                         use_boundary_vectors,
+                                         use_disjoint_cones, print_candidates)
 
           # set up a ring with the current ordering
           #print "current ordering", current_ordering

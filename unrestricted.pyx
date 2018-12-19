@@ -30,9 +30,6 @@ from sage.matrix.special import identity_matrix
 
 from sage.misc.misc_c import prod
 
-#from sage.numerical.mip import Sum
-from sage.numerical.mip cimport MixedIntegerLinearProgram
-
 from sage.rings.infinity import Infinity
 
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
