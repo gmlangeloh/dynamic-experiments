@@ -43,9 +43,6 @@ from sage.geometry.polyhedron.constructor import Polyhedron
 
 from sage.functions.other import floor, ceil
 
-# record keeping
-cdef int rejections, monomials_eliminated, number_of_programs_created
-
 cpdef GLPKBackend make_solver(int n):
   r"""
   Creates an empty model in a GLPK backend solver.

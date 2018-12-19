@@ -1,6 +1,7 @@
 #Cython imports
 
 from types cimport *
+from stats cimport statistics
 from polynomials cimport clothed_polynomial, monomial_divides
 from caboara_perry cimport choose_ordering_restricted
 from unrestricted cimport choose_simplex_ordering, choose_random_ordering, \
@@ -466,6 +467,7 @@ cpdef tuple dynamic_gb \
       - `itmax` -- run for `itmax` iterations only and return ordering
   """
   global first, restricted_iterations
+  statistics.set_print_results(print_results)
   restricted_iterations = 1
   first = True
   cdef int sugar_type
@@ -476,8 +478,7 @@ cpdef tuple dynamic_gb \
   cdef int change_count = 0
   cdef int no_change_count = 0
   # measures
-  cdef int m, n, d, maximum_size_of_intermediate_basis, zero_reductions, number_of_spolynomials
-  global rejections, monomials_eliminated, number_of_programs_created, failed_systems
+  cdef int m, n, d
   # signals
   cdef int LTs_changed, sugar_strategy
 
@@ -510,10 +511,6 @@ cpdef tuple dynamic_gb \
     sugar_strategy = True
     sugar_type = weighted_sugar
   else: sugar_strategy = False
-
-  # initialize measures
-  rejections = 0; monomials_eliminated = 0; number_of_programs_created = 0; failed_systems = 0
-  maximum_size_of_intermediate_basis = 0; zero_reductions = 0; number_of_spolynomials = 0
 
   # initialize polynomial ring
   PR = F[0].parent()
@@ -581,7 +578,8 @@ cpdef tuple dynamic_gb \
     #print "current ordering", current_ordering
     #print len(P), "critical pairs remaining"
     #print len(G), "polynomials in basis"
-    maximum_size_of_intermediate_basis = max(maximum_size_of_intermediate_basis, len(G))
+    #maximum_size_of_intermediate_basis = max(maximum_size_of_intermediate_basis, len(G))
+    statistics.update_maximum_intermediate_basis(self, len(G))
     #hp = PR.ideal(LTs).hilbert_polynomial()
     #hs = PR.ideal(LTs).hilbert_series()
     #print "predicted hilbert polynomial", hp
@@ -602,7 +600,8 @@ cpdef tuple dynamic_gb \
       # compute s-polynomials
       #if sugar_strategy: print "current sugar", Pd[len(Pd)-1]
       s = spoly(Pd, generators, sugar_type)
-      number_of_spolynomials += 1
+      #number_of_spolynomials += 1
+      statistics.inc_spolynomials()
 
       # reduce s-polynomials modulo current basis wrt current order
       if sugar_strategy: r = reduce_polynomial_with_sugar(s, G, sugar_type)
@@ -611,7 +610,8 @@ cpdef tuple dynamic_gb \
       # diagnostic
       #print "new polynomial generated",
       #print "leading monomial with current ordering would be", r.value().lm()
-      if r.value()==0: zero_reductions += 1
+      if r.value()==0: statistics.inc_zero_reductions()
+      #zero_reductions += 1
 
       if r.value() != 0: # add to basis, choose new ordering, update pairs
 
@@ -721,19 +721,7 @@ cpdef tuple dynamic_gb \
   reducers = list(PR.ideal(reducers).interreduced_basis())
   monomials = sum([ len(p.monomials()) for p in reducers ])
 
-  # done; diagnostic and return
-  if print_results:
-    print "final order", current_ordering
-    print number_of_spolynomials, "s-polynomials considered (direct count)", len(reducers), "polynomials in basis;", zero_reductions, "zero reductions"
-    print "there were at most", maximum_size_of_intermediate_basis, "polynomials in the basis at any one time"
-    print "there are", monomials, "monomials in the output basis"
-    print rejections, "comparisons were eliminated by rejection"
-    print monomials_eliminated, "monomials were eliminated by hypercube vectors"
-    print number_of_programs_created, "linear programs were created (including copies)"
-    print failed_systems, "failed systems and ", len(rejects), "rejections stored"
-    print lp.number_of_constraints(), "constraints are in the linear program"
-    print "Reinserted", change_count, "times with changes."
-    print "Reinserted", no_change_count, "times with no changes."
+  statistics.report()
 
   #Check that the results are correct
   assert PR.ideal(reducers) == PR.ideal(F), "Output basis generates wrong ideal"

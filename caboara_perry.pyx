@@ -1,5 +1,6 @@
 from heuristics cimport sort_CLTs_by_Hilbert_heuristic
 from types cimport *
+from stats cimport statistics
 
 #Globals for this module
 cdef double tolerance_cone = 0.01
@@ -13,8 +14,8 @@ cpdef MixedIntegerLinearProgram new_linear_program \
     This tracks the number of linear programs created, and initializes them
     with a common template.
   """
-  global number_of_programs_created
-  number_of_programs_created += 1
+  #number_of_programs_created += 1
+  statistics.inc_programs_created()
   if lp == None:
     return MixedIntegerLinearProgram(check_redundant=True, solver="GLPK", \
                                      maximization=False)
@@ -165,13 +166,12 @@ cpdef int solve_real(MixedIntegerLinearProgram lp, int n):
   as a real variable, not an integer variable. Then, solve the program.
   """
   cdef int k
-  global failed_systems
 
   for k in xrange(n): lp.set_real(lp[k])
 
   try: lp.solve()
   except:
-    failed_systems += 1
+    statistics.inc_failed_systems()
     return 0
 
   return 1
@@ -196,7 +196,7 @@ cpdef int solve_integer(MixedIntegerLinearProgram lp, int n):
   If no solution is found here, then, the problem must be that our upper bound
   is too low.
   """
-  global upper_bound, upper_bound_delta, failed_systems
+  global upper_bound, upper_bound_delta
   cdef int k, passed
   cdef double old_upper_bound
 
@@ -230,7 +230,8 @@ cpdef int solve_integer(MixedIntegerLinearProgram lp, int n):
         #print "returning no solution", upper_bound
         for k in xrange(n): lp.set_real(lp[k])
         upper_bound = old_upper_bound
-        failed_systems += 1
+        #failed_systems += 1
+        statistics.inc_failed_systems()
         return 0
 
       for k in xrange(n): lp.set_max(lp[k], upper_bound)
@@ -288,8 +289,7 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
   # the following line is needed to control the solving process
   import sage.numerical.backends.glpk_backend as glpk_backend
 
-  global rejections, monomials_eliminated, tolerance_cone, upper_bound, \
-      failed_systems
+  global tolerance_cone, upper_bound
 
   cdef int j, k, l # counters
   cdef int passed, lms_changed # signals
@@ -346,7 +346,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
 
             #print "rejected", new_constraints, c
             #print "rejected!!!"
-            rejections += 1
+            #rejections += 1
+            statistics.inc_rejections()
             return result
 
       #print "checked rejects"
@@ -360,7 +361,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
 
       except: # unable to solve; monomial cannot lead even this polynomial
 
-        failed_systems += 1
+        #failed_systems += 1
+        statistics.inc_failed_systems()
         rejects.add(frozenset(new_constraints)) # remember this failed system
         return result
 
@@ -404,7 +406,8 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
     #print "killing new constraints in program, which has", \
         #np.number_of_constraints(), "constraints"
     np.remove_constraints(range(start_constraints,end_constraints))
-    failed_systems += 1
+    #failed_systems += 1
+    statistics.inc_failed_systems()
     return result
 
   # now, try integer optimization
@@ -514,7 +517,6 @@ cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, \
   cdef int i, j # counters
   cdef int passes # signals
   cdef tuple ordering, u, v # ordering and exponent vectors
-  global monomials_eliminated
 
   # identify current leading monomial, other monomials;
   #obtain their exponent vectors
@@ -552,7 +554,8 @@ cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, \
           passes = True
           break
 
-      if not passes: monomials_eliminated += 1
+      if not passes: statistics.inc_monomials_eliminated()
+      #monomials_eliminated += 1
 
   else: M = [(ux.exponents(as_ETuples=False)[0], ux) for ux in U] # if no boundary_vectors, allow all monomials
 
