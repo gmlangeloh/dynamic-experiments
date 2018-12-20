@@ -1,47 +1,16 @@
-# cython: profile = False
-# cython: boundscheck = False
-# cython: wraparound = False
-# clang c++
-# cinclude $SAGE_ROOT/local/include/singular
-# clib m readline Singular givaro gmpxx gmp
+import cython
 
-r"""
-    This Sage/Cython code implements a dynamic algorithm to compute a Groebner basis,
-    based on the Dynamic Buchberger Algorithm of Caboara.
-    It uses a comparison with boundary vectors to minimize the number of polynomials
-    tested.
-    This is merely a study implementation.
-
-    USAGE:
-
-        see the function dynamic_gb
-"""
-
-from types cimport *
-
-from copy import copy
 from random import randint, choice
 
-import cython
-from cython.parallel cimport prange
-
-from sage.matrix.constructor import matrix
-from sage.matrix.special import identity_matrix
-
 from sage.misc.misc_c import prod
-
-from sage.rings.infinity import Infinity
-
-from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.polynomial.term_order import TermOrder
-
-from sage.rings.integer_ring import IntegerRing
-
-from sage.modules.free_module_element import vector
 from sage.rings.real_double import RDF
-from sage.geometry.polyhedron.constructor import Polyhedron
-
+from sage.rings.infinity import Infinity
+from sage.matrix.constructor import matrix
 from sage.functions.other import floor, ceil
+from sage.matrix.special import identity_matrix
+from sage.modules.free_module_element import vector
+from sage.geometry.polyhedron.constructor import Polyhedron
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 cpdef GLPKBackend make_solver(int n):
   r"""

@@ -1,3 +1,10 @@
+# cython: profile = False
+# cython: boundscheck = False
+# cython: wraparound = False
+# clang c++
+# cinclude $SAGE_ROOT/local/include/singular
+# clib m readline Singular givaro gmpxx gmp
+
 #Cython imports
 
 from types cimport *
