@@ -1,7 +1,3 @@
-from heuristics cimport sort_CLTs_by_Hilbert_heuristic
-from types cimport *
-from stats cimport statistics
-
 #Globals for this module
 cdef double tolerance_cone = 0.01
 cdef double upper_bound = 100

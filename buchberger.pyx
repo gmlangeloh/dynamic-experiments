@@ -456,7 +456,8 @@ cpdef tuple dynamic_gb \
       - `static` -- whether to use the dynamic algorithm or the static one
       - `minimize_homogeneous` -- whether to keep the weight
         of the homogeneous variable below that of the other variables
-      - `weighted_sugar` -- whether the sugar is computed by exponents (0) or by        degree (1)
+      - `weighted_sugar` -- whether the sugar is computed by exponents (0) or by
+        degree (1)
       - `use_boundary_vectors` -- whether to use boundary vectors; setting this
         and `use_disjoint_cones` to `False` is similar to Caboara's old method
       - `use_disjoint_cones` -- whether to use disjoint cones; setting this and

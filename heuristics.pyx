@@ -1,5 +1,3 @@
-from types cimport *
-
 cpdef int hs_heuristic(tuple f, tuple g):
   r"""
     Implements the Hilbert heuristic recommended by Caboara in his 1993 paper.
