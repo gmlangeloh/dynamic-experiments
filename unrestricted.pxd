@@ -5,15 +5,19 @@ from polynomials cimport clothed_polynomial, monomial_divides
 from heuristics cimport hs_heuristic, min_CLT_by_Hilbert_heuristic, \
     min_weights_by_Hilbert_heuristic
 
+cpdef GLPKBackend make_solver(int n)
+
 cpdef tuple choose_ordering_unrestricted(list G, list old_vertices)
 
 cpdef tuple choose_simplex_ordering(list G, list current_ordering, \
                                     GLPKBackend lp, list vertices, \
-                                    int iterations)
+                                    int iterations = *)
 
-cpdef list choose_random_ordering(list G, list current_ordering, int iterations)
+cpdef list choose_random_ordering(list G, list current_ordering, \
+                                  int iterations = *)
 
-cpdef list choose_local_ordering(list G, list current_ordering, int iterations)
+cpdef list choose_local_ordering(list G, list current_ordering, \
+                                 int iterations = *)
 
 cpdef tuple choose_cone_ordering \
     (list G, list current_ordering, list constraints, \

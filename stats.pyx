@@ -27,7 +27,7 @@ cdef class Stats:
 
   cpdef void inc_failed_systems(self): self.failed_systems += 1
 
-  cpdef void update_maximum_intermediate_basis(self, value):
+  cpdef void update_maximum_intermediate_basis(self, int value):
     self.maximum_size_of_intermediate_basis = \
         max(self.maximum_size_of_intermediate_basis, value)
 

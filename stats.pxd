@@ -19,10 +19,12 @@ cdef class Stats:
   cpdef void inc_monomials_eliminated(self)
   cpdef void inc_programs_created(self)
   cpdef void inc_failed_systems(self)
-  cpdef void inc_maximum_intermediate_basis(self)
+  cpdef void update_maximum_intermediate_basis(self, int value)
   cpdef void inc_zero_reductions(self)
   cpdef void inc_spolynomials(self)
 
   #Various methods
   cpdef void set_print_results(self, bool value)
   cpdef void report(self)
+
+cdef Stats statistics

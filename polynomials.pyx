@@ -1,5 +1,7 @@
 from sage.libs.singular.decl cimport p_DivisibleBy
 
+import cython
+
 cdef class clothed_polynomial:
 
   def __init__(self, MPolynomial_libsingular f, int sugar_type):

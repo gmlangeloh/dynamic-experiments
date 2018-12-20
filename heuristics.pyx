@@ -1,3 +1,5 @@
+import cython
+
 cpdef int hs_heuristic(tuple f, tuple g):
   r"""
     Implements the Hilbert heuristic recommended by Caboara in his 1993 paper.
@@ -41,10 +43,9 @@ cpdef list sort_CLTs_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
   # the first entry is the tentative Hilbert polynomial
   # the second is the tentative Hilbert series
   # the third is tup itself (the compatible leading term)
-  cdef list CLTs = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(),
-                     R.ideal(current_Ts + [tup[1]]).hilbert_series(),
-                     tup)
-                    for tup in CLTs]
+  CLTs = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(),
+           R.ideal(current_Ts + [tup[1]]).hilbert_series(),
+           tup) for tup in CLTs]
   CLTs.sort(cmp=hs_heuristic) # sort according to hilbert heuristic
   #print CLTs
 
@@ -68,10 +69,9 @@ cpdef list min_CLT_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
 
   cdef list leads #lists of leading monomials in CLTs
 
-  cdef list CLTs = [(R.ideal(leads).hilbert_polynomial(),
-                     R.ideal(leads).hilbert_series(),
-                     leads)
-                    for leads in CLTs]
+  CLTs = [(R.ideal(leads).hilbert_polynomial(),
+           R.ideal(leads).hilbert_series(),
+           leads) for leads in CLTs]
   CLTs.sort(cmp=hs_heuristic)
   #TODO this could be optimized, we are sorting just to find the minimum...
   return CLTs[0][2]
@@ -95,10 +95,9 @@ cpdef list min_weights_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
 
   cdef tuple leads #lists of leading monomials in CLTs
 
-  cdef list CLTs = [(R.ideal(leads[1]).hilbert_polynomial(),
-                     R.ideal(leads[1]).hilbert_series(),
-                     leads[0])
-                    for leads in CLTs]
+  CLTs = [(R.ideal(leads[1]).hilbert_polynomial(),
+           R.ideal(leads[1]).hilbert_series(),
+           leads[0]) for leads in CLTs]
   CLTs.sort(cmp=hs_heuristic)
 
   #TODO this could be optimized, we are sorting just to find the minimum...

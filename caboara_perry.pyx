@@ -1,6 +1,7 @@
 from copy import copy
 
 import cython
+import sage.numerical.backends.glpk_backend as glpk_backend
 
 #Globals for this module
 cdef double tolerance_cone = 0.01
@@ -9,7 +10,8 @@ cdef double upper_bound_delta = 100
 
 @cython.profile(True)
 cpdef MixedIntegerLinearProgram new_linear_program \
-    (MixedIntegerLinearProgram lp = None):
+    (MixedIntegerLinearProgram lp = None, int n = 0, \
+     bool minimize_homogeneous = False):
   r"""
     This tracks the number of linear programs created, and initializes them
     with a common template.
@@ -17,8 +19,29 @@ cpdef MixedIntegerLinearProgram new_linear_program \
   #number_of_programs_created += 1
   statistics.inc_programs_created()
   if lp == None:
-    return MixedIntegerLinearProgram(check_redundant=True, solver="GLPK", \
-                                     maximization=False)
+    mip = MixedIntegerLinearProgram(check_redundant=True, solver="GLPK", \
+                                    maximization=False)
+  # when solving integer programs, perform simplex first, then integer optimization
+  # (avoids a GLPK bug IIRC)
+    mip.solver_parameter(glpk_backend.glp_simplex_or_intopt, \
+                         glpk_backend.glp_simplex_then_intopt)
+
+    # need positive weights
+    for k in xrange(n):
+      mip.add_constraint(mip[k],min=tolerance_cone)
+      #mip.set_min(mip[k],tolerance_cone)
+      mip.set_integer(mip[k])
+      mip.set_max(mip[k],upper_bound)
+
+    # do we hate the homogenizing variable?
+    if minimize_homogeneous:
+      for k in xrange(n-1):
+        mip.add_constraint(mip[k] - mip[n-1],min=tolerance_cone)
+
+    mip.set_objective(mip.sum([mip[k] for k in xrange(n)]))
+
+    return mip
+
   else: return copy(lp)
 
 @cython.profile(True)

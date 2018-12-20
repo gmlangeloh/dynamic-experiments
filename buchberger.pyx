@@ -10,9 +10,10 @@
 from types cimport *
 from stats cimport statistics
 from polynomials cimport clothed_polynomial, monomial_divides
-from caboara_perry cimport choose_ordering_restricted
+from caboara_perry cimport choose_ordering_restricted, new_linear_program
 from unrestricted cimport choose_simplex_ordering, choose_random_ordering, \
-  choose_local_ordering, choose_ordering_unrestricted, choose_cone_ordering
+  choose_local_ordering, choose_ordering_unrestricted, choose_cone_ordering, \
+  make_solver
 
 #Python-level imports
 
@@ -530,28 +531,11 @@ cpdef tuple dynamic_gb \
   cdef set rejects = set()
   import sage.numerical.backends.glpk_backend as glpk_backend
   lp = new_linear_program()
-  # when solving integer programs, perform simplex first, then integer optimization
-  # (avoids a GLPK bug IIRC)
-  lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, glpk_backend.glp_simplex_then_intopt)
 
   #State for additional algorithms
   slp = make_solver(n)
   cdef list constraints = []
   cdef list vertices = []
-
-  # need positive weights
-  for k in xrange(n):
-    lp.add_constraint(lp[k],min=tolerance_cone)
-    #lp.set_min(lp[k],tolerance_cone)
-    lp.set_integer(lp[k])
-    lp.set_max(lp[k],upper_bound)
-
-  # do we hate the homogenizing variable?
-  if minimize_homogeneous:
-    for k in xrange(n-1):
-      lp.add_constraint(lp[k] - lp[n-1],min=tolerance_cone)
-
-  lp.set_objective(lp.sum([lp[k] for k in xrange(n)]))
 
   # set up the basis
   m = 0; P = list(); Done = set()
@@ -587,7 +571,7 @@ cpdef tuple dynamic_gb \
     #print len(P), "critical pairs remaining"
     #print len(G), "polynomials in basis"
     #maximum_size_of_intermediate_basis = max(maximum_size_of_intermediate_basis, len(G))
-    statistics.update_maximum_intermediate_basis(self, len(G))
+    statistics.update_maximum_intermediate_basis(len(G))
     #hp = PR.ideal(LTs).hilbert_polynomial()
     #hs = PR.ideal(LTs).hilbert_series()
     #print "predicted hilbert polynomial", hp
