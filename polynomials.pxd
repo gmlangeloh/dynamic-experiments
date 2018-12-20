@@ -4,6 +4,8 @@ Defines polynomials with additional information used everywhere in the
 '''
 from types cimport *
 
+cpdef create_order(list w)
+
 #Defining fast monomial operations with fewer checks
 cpdef int monomial_divides(MPolynomial_libsingular t, MPolynomial_libsingular u)
 

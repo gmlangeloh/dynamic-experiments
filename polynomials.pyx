@@ -1,6 +1,27 @@
 from sage.libs.singular.decl cimport p_DivisibleBy
+from sage.rings.integer_ring import IntegerRing
+from sage.rings.polynomial.term_order import TermOrder
+from sage.matrix.constructor import matrix
 
 import cython
+
+@cython.profile(True)
+cpdef create_order(list w):
+  r"""
+  Create term ordering acceptable to Singular, using integer weight vector
+    ``w``.
+  """
+  # first we convert floats to integer
+  # this is fine since we are using integer programming to find the ordering
+  cdef list wZZ = [IntegerRing(each) for each in w]
+  cdef list M = list()
+  M.append(wZZ)
+
+  # now fill in the lower rows of the matrix, to avoid potential ambiguity
+  for i in xrange(len(w)-1):
+    M.append([1 for k in xrange(i+1,len(w))] + [0 for k in xrange(i+1)])
+
+  return TermOrder(matrix(M))
 
 cdef class clothed_polynomial:
 

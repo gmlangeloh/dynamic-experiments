@@ -9,7 +9,7 @@
 
 from types cimport *
 from stats cimport statistics
-from polynomials cimport clothed_polynomial, monomial_divides
+from polynomials cimport clothed_polynomial, monomial_divides, create_order
 from caboara_perry cimport choose_ordering_restricted, new_linear_program
 from unrestricted cimport choose_simplex_ordering, choose_random_ordering, \
   choose_local_ordering, choose_ordering_unrestricted, choose_cone_ordering, \
@@ -21,11 +21,8 @@ import cython
 
 from copy import copy
 
-from sage.matrix.constructor import matrix
 from sage.rings.infinity import Infinity
-from sage.rings.integer_ring import IntegerRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.polynomial.term_order import TermOrder
 
 @cython.profile(True)
 cpdef clothed_polynomial spoly(tuple Pd, list generators, int sugar_type):
@@ -422,23 +419,6 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
   G.append(cf)
   return Pnew
 
-@cython.profile(True)
-def create_order(list w):
-  r"""
-    Create term ordering acceptable to Singular, using integer weight vector
-      ``w``.
-  """
-  # first we convert floats to integer
-  # this is fine since we are using integer programming to find the ordering
-  cdef list wZZ = [IntegerRing(each) for each in w]
-  cdef list M = list()
-  M.append(wZZ)
-
-  # now fill in the lower rows of the matrix, to avoid potential ambiguity
-  for i in xrange(len(w)-1):
-    M.append([1 for k in xrange(i+1,len(w))] + [0 for k in xrange(i+1)])
-
-  return TermOrder(matrix(M))
 
 #TODO fix bug that happens when the number of dynamic iterations is smaller than number of polys
 @cython.profile(True)
@@ -484,8 +464,6 @@ cpdef tuple dynamic_gb \
   cdef int i, j, k
   cdef int calls = 0
   cdef int iteration_count = 0
-  cdef int change_count = 0
-  cdef int no_change_count = 0
   # measures
   cdef int m, n, d
   # signals
@@ -679,9 +657,6 @@ cpdef tuple dynamic_gb \
             elif reinsert and changed:
               P = gm_update(PR, P, G[:len(G)-1], LTs[:len(LTs)-1], strategy, \
                             sugar_type) #do update w.r.t new poly
-              change_count += 1
-            elif reinsert and not changed:
-              no_change_count += 1
             else:
               raise ValueError, "leading terms changed" # this should never happen
 
@@ -711,8 +686,11 @@ cpdef tuple dynamic_gb \
 
   #The procedure above is not enough to obtain a reduced GB...
   reducers = list(PR.ideal(reducers).interreduced_basis())
-  monomials = sum([ len(p.monomials()) for p in reducers ])
 
+  #Update and print statistics on the execution
+  statistics.set_number_of_rejects(len(rejects))
+  statistics.set_number_of_constraints(lp.number_of_constraints())
+  statistics.update_basis_data(reducers)
   statistics.report()
 
   #Check that the results are correct

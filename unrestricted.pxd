@@ -1,7 +1,8 @@
 from types cimport *
 from stats cimport statistics
-from caboara_perry cimport choose_ordering_restricted
-from polynomials cimport clothed_polynomial, monomial_divides
+from polynomials cimport clothed_polynomial, monomial_divides, create_order
+from caboara_perry cimport choose_ordering_restricted, new_linear_program, \
+    tolerance_cone
 from heuristics cimport hs_heuristic, min_CLT_by_Hilbert_heuristic, \
     min_weights_by_Hilbert_heuristic
 

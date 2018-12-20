@@ -697,19 +697,7 @@ cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
   #TODO can probably do this more efficiently with the normal cone model?
   #STEP 3: obtain a weight vector for the chosen order using linear programming
 
-  import sage.numerical.backends.glpk_backend as glpk_backend
   lp = new_linear_program()
-  lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, glpk_backend.glp_simplex_then_intopt)
-
-  # need positive weights
-  for k in xrange(n):
-    lp.add_constraint(lp[k],min=tolerance_cone)
-    #lp.set_min(lp[k],tolerance_cone)
-    lp.set_integer(lp[k])
-    lp.set_max(lp[k],upper_bound)
-
-  # objective function: in reality, we only want a feasible solution
-  lp.set_objective(lp.sum([lp[k] for k in xrange(n)]))
 
   # add constraints relative to each choice of LT
   for i in xrange(len(G)):

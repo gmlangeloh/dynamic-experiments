@@ -10,3 +10,5 @@ cpdef tuple choose_ordering_restricted \
     (list G, list current_Ts, int mold, list current_ordering, \
      MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, \
      int use_dcs, bool print_candidates)
+
+cdef double tolerance_cone
