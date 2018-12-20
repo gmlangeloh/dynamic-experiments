@@ -1,3 +1,5 @@
+# distutils: language=c++
+
 import cython
 
 from random import randint, choice

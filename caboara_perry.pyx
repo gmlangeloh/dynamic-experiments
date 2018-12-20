@@ -1,3 +1,5 @@
+# distutils: language=c++
+
 from copy import copy
 
 import cython

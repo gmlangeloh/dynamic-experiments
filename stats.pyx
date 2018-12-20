@@ -1,3 +1,5 @@
+# distutils: language=c++
+
 cdef class Stats:
 
   def __init__(self):

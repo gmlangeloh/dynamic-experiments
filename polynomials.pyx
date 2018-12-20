@@ -1,3 +1,5 @@
+# distutils: language=c++
+
 from sage.libs.singular.decl cimport p_DivisibleBy
 from sage.rings.integer_ring import IntegerRing
 from sage.rings.polynomial.term_order import TermOrder

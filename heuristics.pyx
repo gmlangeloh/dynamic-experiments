@@ -1,3 +1,5 @@
+# distutils: language=c++
+
 import cython
 
 cpdef int hs_heuristic(tuple f, tuple g):

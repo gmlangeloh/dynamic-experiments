@@ -1,9 +1,9 @@
 # cython: profile = False
 # cython: boundscheck = False
 # cython: wraparound = False
-# clang c++
-# cinclude $SAGE_ROOT/local/include/singular
-# clib m readline Singular givaro gmpxx gmp
+# distutils: language=c++
+# distutils: include_dirs=$SAGE_ROOT/local/include/singular
+# distutils: libraries=m readline Singular givaro gmpxx gmp
 
 #Cython imports
 
@@ -465,7 +465,7 @@ cpdef tuple dynamic_gb \
   cdef int calls = 0
   cdef int iteration_count = 0
   # measures
-  cdef int m, n, d
+  cdef int m, n, d = 0
   # signals
   cdef int LTs_changed, sugar_strategy
 
