@@ -1,14 +1,3 @@
-# cython: profile = False
-# cython: boundscheck = False
-# cython: wraparound = False
-# distutils: language=c++
-# distutils: include_dirs=$SAGE_ROOT/local/include/singular
-# distutils: libraries=m readline Singular givaro gmpxx gmp
-
-import cython
-
-from types cimport *
-
 cpdef int hs_heuristic(tuple f, tuple g):
   r"""
     Implements the Hilbert heuristic recommended by Caboara in his 1993 paper.

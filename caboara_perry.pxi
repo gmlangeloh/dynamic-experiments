@@ -1,19 +1,7 @@
-# cython: profile = False
-# cython: boundscheck = False
-# cython: wraparound = False
-# distutils: language=c++
-# distutils: include_dirs=$SAGE_ROOT/local/include/singular
-# distutils: libraries=m readline Singular givaro gmpxx gmp
-
 from copy import copy
 
 import cython
 import sage.numerical.backends.glpk_backend as glpk_backend
-
-from types cimport *
-from stats cimport statistics
-from polynomials cimport monomial_divides
-from heuristics cimport sort_CLTs_by_Hilbert_heuristic
 
 #Globals for this module
 cdef double tolerance_cone = 0.01

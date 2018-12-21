@@ -1,10 +1,3 @@
-# cython: profile = False
-# cython: boundscheck = False
-# cython: wraparound = False
-# distutils: language=c++
-# distutils: include_dirs=$SAGE_ROOT/local/include/singular
-# distutils: libraries=m readline Singular givaro gmpxx gmp
-
 import cython
 
 from random import randint, choice

@@ -5,15 +5,12 @@
 # distutils: include_dirs=$SAGE_ROOT/local/include/singular
 # distutils: libraries=m readline Singular givaro gmpxx gmp
 
-#Cython imports
-
-from types cimport *
-from stats cimport statistics
-from polynomials cimport clothed_polynomial, monomial_divides, create_order
-from caboara_perry cimport choose_ordering_restricted, new_linear_program
-from unrestricted cimport choose_simplex_ordering, choose_random_ordering, \
-  choose_local_ordering, choose_ordering_unrestricted, choose_cone_ordering, \
-  make_solver
+include "types.pxi"
+include "polynomials.pxi"
+include "stats.pxi"
+include "heuristics.pxi"
+include "caboara_perry.pxi"
+include "unrestricted.pxi"
 
 #Python-level imports
 
@@ -77,7 +74,7 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators, int sugar_type):
       k += 1
 
   #print s
-  cs = clothed_polynomial(s); cs.set_sugar(new_sugar)
+  cs = clothed_polynomial(s, sugar_type); cs.set_sugar(new_sugar)
   return cs
 
 @cython.profile(True)
@@ -502,7 +499,7 @@ cpdef tuple dynamic_gb \
   # initialize polynomial ring
   PR = F[0].parent()
   n = len(PR.gens())
-  cdef clothed_zero = clothed_polynomial(PR(0))
+  cdef clothed_zero = clothed_polynomial(PR(0), sugar_type)
   current_ordering = [1 for k in xrange(n)]
 
   # set up the linear program and associated variables
@@ -524,7 +521,7 @@ cpdef tuple dynamic_gb \
 
   # clothe the generators
   for p in F:
-    f = clothed_polynomial(PR(p))
+    f = clothed_polynomial(PR(p), sugar_type)
     generators.append(f)
     if strategy == 'sugar':
       P.append((f,clothed_zero,\
