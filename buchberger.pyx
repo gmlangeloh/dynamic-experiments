@@ -454,6 +454,7 @@ cpdef tuple dynamic_gb \
   """
   global first, restricted_iterations
   statistics.set_print_results(print_results)
+  statistics.reset_all_stats()
   restricted_iterations = 1
   first = True
   cdef int sugar_type
