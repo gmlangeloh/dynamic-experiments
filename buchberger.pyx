@@ -33,7 +33,7 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators, int sugar_type):
     - `generators` -- the generators of the ideal
   """
   # counters
-  cdef int k
+  cdef int k    
   # measures
   cdef int new_sugar
   # polynomials, clothed and otherwise
@@ -504,8 +504,7 @@ cpdef tuple dynamic_gb \
 
   # set up the linear program and associated variables
   cdef set rejects = set()
-  import sage.numerical.backends.glpk_backend as glpk_backend
-  lp = new_linear_program()
+  lp = new_linear_program(n = n)
 
   #State for additional algorithms
   slp = make_solver(n)
@@ -578,7 +577,7 @@ cpdef tuple dynamic_gb \
       #print "new polynomial generated",
       #print "leading monomial with current ordering would be", r.value().lm()
       if r.value()==0: statistics.inc_zero_reductions()
-      #zero_reductions += 1
+      #zero_reductions += 1 
 
       if r.value() != 0: # add to basis, choose new ordering, update pairs
 
@@ -696,3 +695,4 @@ cpdef tuple dynamic_gb \
     print reducers
   assert PR.ideal(reducers).gens().is_groebner(), "Output basis is not a GB"
   return reducers, LTs, rejects, G
+

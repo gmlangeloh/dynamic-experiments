@@ -8,6 +8,8 @@ cdef double tolerance_cone = 0.01
 cdef double upper_bound = 100
 cdef double upper_bound_delta = 100
 
+cdef int restricted_iterations = 0
+
 @cython.profile(True)
 cpdef MixedIntegerLinearProgram new_linear_program \
     (MixedIntegerLinearProgram lp = None, int n = 0, \
@@ -16,9 +18,11 @@ cpdef MixedIntegerLinearProgram new_linear_program \
     This tracks the number of linear programs created, and initializes them
     with a common template.
   """
+  global tolerance_cone, upper_bound
+
   #number_of_programs_created += 1
   statistics.inc_programs_created()
-  if lp == None:
+  if lp is None:
     mip = MixedIntegerLinearProgram(check_redundant=True, solver="GLPK", \
                                     maximization=False)
   # when solving integer programs, perform simplex first, then integer optimization
@@ -335,15 +339,16 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
 
   # set up solver to solve LP relaxation first
   # (GLPK chokes on no integer solution)
-  cdef MixedIntegerLinearProgram lp = new_linear_program()
-  lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, \
-                      glpk_backend.glp_simplex_then_intopt)
+  cdef MixedIntegerLinearProgram lp = new_linear_program(n = n)
+  #cdef MixedIntegerLinearProgram lp = new_linear_program()
+  #lp.solver_parameter(glpk_backend.glp_simplex_or_intopt, \
+  #                    glpk_backend.glp_simplex_then_intopt)
 
-  # xi >= epsilon
-  for k in xrange(n): lp.add_constraint(lp[k],min=tolerance_cone)
-  # minimize x1 + ... + xn
-  lp.set_objective(lp.sum([lp[k] for k in xrange(n)]))
-  #print "initial constraints set"
+  ## xi >= epsilon
+  #for k in xrange(n): lp.add_constraint(lp[k],min=tolerance_cone)
+  ## minimize x1 + ... + xn
+  #lp.set_objective(lp.sum([lp[k] for k in xrange(n)]))
+  ##print "initial constraints set"
 
   # add constraints
   cdef int m = len(CMs)
