@@ -100,3 +100,33 @@ cpdef list min_weights_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
 
   #TODO this could be optimized, we are sorting just to find the minimum...
   return CLTs[0][2]
+
+##Implementation of Betti-based heuristics
+
+cpdef bool is_edge(int i, int j, list LMs):
+  r"""
+  Returns true iff (i, j) is an edge in the Buchberger graph of LMs
+  """
+  cdef MPolynomialRing_libsingular R = LMs[0].parent()
+  cdef int k, m
+  for k in xrange(len(LMs)):
+    if k == i or k == j:
+      continue
+    for v in R.gens():
+      #TODO careful here, this is not quite it!
+      m = max([LMs[i].degree(v), LMs[j].degree(v)])
+      if LMs[k].degree(v) >= m:
+        if m > 0 or LMs[k].degree(v) > m:
+          break #LMs[k] does not strictly divide in every variable lcm(LMs[i], LMs[j])
+    else: #LMs[k] strictly divides lcm(LMs[i], LMs[j]) in every variable
+      return False
+  return True
+
+cpdef int graph_edges(list LMs):
+  cdef int num_edges = 0
+  cdef int j, i
+  for j in xrange(len(LMs)):
+    for i in xrange(j):
+      if is_edge(i, j, LMs):
+        num_edges += 1
+  return num_edges

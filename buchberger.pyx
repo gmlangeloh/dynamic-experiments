@@ -33,7 +33,7 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators, int sugar_type):
     - `generators` -- the generators of the ideal
   """
   # counters
-  cdef int k    
+  cdef int k
   # measures
   cdef int new_sugar
   # polynomials, clothed and otherwise
