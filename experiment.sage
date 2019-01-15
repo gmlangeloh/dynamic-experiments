@@ -6,12 +6,12 @@ import glob
 import multiprocessing
 import sys
 from functools import partial
-from multiprocessing.pool import Pool
+from multiprocessing.pool import Pool, ThreadPool
 
 timeout = 30 * 60 #30 minutes timeout
 
-def function_with_timeout(f, args):
-  p = Pool(1)
+def function_with_timeout(f, *args):
+  p = ThreadPool(1)
   res = p.apply_async(f, args)
   try:
     out = res.get(timeout)
@@ -26,10 +26,7 @@ def run_all_parallel(glob_pattern, experiment_function):
   instances = glob.glob(glob_pattern)
   pool = Pool()
   timed_experiment = partial(function_with_timeout, experiment_function)
-  for instance in instances:
-    pool.apply_async(timed_experiment, instance)
-  pool.close()
-  pool.join()
+  pool.map(timed_experiment, instance)
 
 def valid_instance(benchmark):
   return benchmark.ideal.ring().ngens() <= 8
@@ -60,6 +57,7 @@ if len(sys.argv) > 2:
 
 if len(sys.argv) > 1:
   load("buchberger.pyx")
+  load("benchmarks.sage")
   if sys.argv[1] == 'static':
     run_all_parallel(instance_glob, run_static)
   elif sys.argv[1] == 'caboara-perry':
