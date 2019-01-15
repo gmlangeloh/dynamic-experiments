@@ -26,7 +26,10 @@ def run_all_parallel(glob_pattern, experiment_function):
   instances = glob.glob(glob_pattern)
   pool = Pool()
   timed_experiment = partial(function_with_timeout, experiment_function)
-  pool.map(timed_experiment, instances)
+  for instance in instances:
+    pool.apply_async(timed_experiment, instance)
+  pool.close()
+  pool.join()
 
 def valid_instance(benchmark):
   return benchmark.ideal.ring().ngens() <= 8
@@ -45,14 +48,14 @@ def run_caboara_perry(instance_path):
   B = Benchmark(instance_path)
   if valid_instance(B):
     print instance_name(instance_path),
-    dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True \
+    dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
                        heuristic=heuristic)
 
 instance_glob = './instances/*.ideal'
 global_heuristic = 'hilbert'
 
 if len(sys.argv) > 2:
-  if sys.argv[2] in ['hilbert', 'betti', 'mixed']
+  if sys.argv[2] in ['hilbert', 'betti', 'mixed']:
     global_heuristic = sys.argv[2]
 
 if len(sys.argv) > 1:
