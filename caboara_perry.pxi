@@ -616,7 +616,7 @@ restricted_iterations = 1
 cpdef tuple choose_ordering_restricted \
     (list G, list current_Ts, int mold, list current_ordering, \
      MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, \
-     int use_dcs, bool print_candidates):
+     int use_dcs, bool print_candidates, str heuristic):
   r"""
     Chooses a weight vector for a term ordering for the basis ``G`` that refines
     the weight vector that solves ``lp``.

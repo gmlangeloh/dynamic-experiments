@@ -438,7 +438,9 @@ cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
 first = True
 #TODO why does the number of iterations affect performance so much?
 @cython.profile(True)
-cpdef tuple choose_simplex_ordering(list G, list current_ordering, GLPKBackend lp, list vertices, int iterations = 5):
+cpdef tuple choose_simplex_ordering\
+    (list G, list current_ordering, GLPKBackend lp, list vertices, str heuristic,
+     int iterations = 5):
   r"""
 
   INPUTS:
@@ -461,9 +463,6 @@ cpdef tuple choose_simplex_ordering(list G, list current_ordering, GLPKBackend l
   cdef int i, j, it = 0
   cdef list CLTs, LTs, oldLTs, w, best_w
 
-  #TODO use iteration_limit, if we can keep the right value of w
-  #lp.solver_parameter("iteration_limit", 2**31 - 1)
-
   #Initial random ordering
   if first:
     #w = [ randint(1, 10000) for i in xrange(n) ]
@@ -479,7 +478,6 @@ cpdef tuple choose_simplex_ordering(list G, list current_ordering, GLPKBackend l
   #Transform last element of G to linear program, set objective function given by w and solve
   #append_linear_program(lp, G[len(G)-1].value(), k)
   update_linear_program(lp, G[k-1].value(), vertices)
-  #lp.set_objective([0] * n * k + w)
   lp.set_objective(w)
   lp.solve()
 
@@ -487,9 +485,9 @@ cpdef tuple choose_simplex_ordering(list G, list current_ordering, GLPKBackend l
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
   LTs = find_monomials2(lp, newR, vertices, k)
   oldLTs = LTs
-  CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w ) ]
+  #CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w ) ]
+  CLTs = [ (LTs, w) ]
 
-  #lp.solver_parameter("iteration_limit", 1)
   #Do sensitivity analysis to get neighbor, compare
   while it < iterations:
     #w, c = sensitivity(lp, n, k)
@@ -497,21 +495,14 @@ cpdef tuple choose_simplex_ordering(list G, list current_ordering, GLPKBackend l
     lp.solve()
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = find_monomials2(lp, newR, vertices, k)
-    print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
+    #print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
     if [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False) == 0:
       continue
-    #elif lp.get_objective_value() == lp.best_known_objective_bound():
-    #  print "before", w
-    #  w = find_objective_dual(lp, n)
-    #  print "after", w
-    CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
-    CLTs.sort(cmp=hs_heuristic)
-    print "candidate 1:", CLTs[0][2], CLTs[0][0].degree(), CLTs[0][0].lc()
-    print "candidate 2:", CLTs[1][2], CLTs[1][0].degree(), CLTs[1][0].lc()
-    best_w = CLTs[0][2] #Take first improvement
+    CLTs.append( (LTs, w) )
+    CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True)
+    best_w = CLTs[0][2][0] #Take first improvement
     if best_w == w:
       oldLTs = LTs
-    #lp.set_objective([0] * n * k + best_w)
     lp.set_objective(best_w)
     lp.solve()
     CLTs = CLTs[:1]
@@ -529,7 +520,8 @@ cpdef tuple choose_simplex_ordering(list G, list current_ordering, GLPKBackend l
   return best_w, vertices
 
 @cython.profile(True)
-cpdef list choose_random_ordering(list G, list current_ordering, int iterations = 10):
+cpdef list choose_random_ordering(list G, list current_ordering, str heuristic,\
+                                  int iterations = 10):
   r"""
   Chooses a weight vector for a term ordering for the basis ``G`` that is optimal
   with respect to the Hilbert tentative function on G among randomly generated orders.
@@ -561,15 +553,18 @@ cpdef list choose_random_ordering(list G, list current_ordering, int iterations 
   for w in rand_weights:
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = [ newR(G[i].value()).lm() for i in xrange(len(G)) ]
-    CLTs.append((w, LTs))
+    CLTs.append((LTs, w))
 
   #Evaluate CLTs with Hilbert function
-  best_order = min_weights_by_Hilbert_heuristic(R, CLTs)
+  CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True)
+  #best_order = min_weights_by_Hilbert_heuristic(R, CLTs)
+  best_order = CLTs[0][2][0]
 
   return best_order
 
 @cython.profile(True)
-cpdef list choose_local_ordering(list G, list current_ordering, int iterations = 50):
+cpdef list choose_local_ordering(list G, list current_ordering, heuristic, \
+                                 int iterations = 50):
   r"""
   Chooses a weight vector for polynomial system `G` randomly and then optimizes it
   locally for a few iterations using small perturbations.
@@ -584,6 +579,7 @@ cpdef list choose_local_ordering(list G, list current_ordering, int iterations =
 
   - a weighted ordering, as a list of weights
   """
+  #TODO Honestly, fix this thing. It could work, but not like this
 
   cdef int n = G[0].value().parent().ngens()
   cdef list curr_w, w, LTs, CLTs
@@ -596,7 +592,8 @@ cpdef list choose_local_ordering(list G, list current_ordering, int iterations =
   print "initial order: ", curr_w
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(curr_w))
   LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), curr_w) ]
+  CLTs = [ (LTs, curr_w) ]
+  #CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), curr_w) ]
 
   #Compute perturbations
   for i in xrange(iterations):
@@ -611,24 +608,28 @@ cpdef list choose_local_ordering(list G, list current_ordering, int iterations =
     #Find LTs w.r.t current order w
     newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
     LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-    CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
+    CLTs.append( (LTs, w) )
+    #CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
 
     #Choose best one among current and perturbed orders
-    CLTs.sort(cmp=hs_heuristic)
-    curr_w = CLTs[0][2] #Work in a first improvement basis
+    #CLTs.sort(cmp=hs_heuristic)
+    CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True)
+    curr_w = CLTs[0][2][0] #Work in a first improvement basis
     CLTs = CLTs[:1]
 
   #Choose best order between `current_ordering` and `curr_w`
   newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
   LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
-  CLTs.sort(cmp=hs_heuristic)
-  curr_w = CLTs[0][2]
+  #CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
+  CLTs.append( (LTs, current_ordering) )
+  #CLTs.sort(cmp=hs_heuristic)
+  CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True)
+  curr_w = CLTs[0][2][0]
   print "finally chose order: ", curr_w
   return curr_w
 
 @cython.profile(True)
-cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
+cpdef tuple choose_ordering_unrestricted(list G, list old_vertices, str heuristic):
   r"""
   Chooses a weight vector for a term ordering for the basis ``G`` that minimizes the Hilbert
   tentative function among the viable orderings from G. See [Gritzmann & Sturmfels 1993] for
@@ -646,6 +647,8 @@ cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
   - a list of tuples (``v``, summands) where ``v`` is a vertex of the
   Minkowski sum
   """
+
+  #TODO this is really bugged, doesnt even call the heuristic. wth
 
   cdef list CLTs, new_vertices, lold, summands, gens, w, LTs
   cdef Vector_integer_dense vec_v1, vec_v2
@@ -715,7 +718,10 @@ cpdef tuple choose_ordering_unrestricted(list G, list old_vertices):
   return w, new_vertices
 
 @cython.profile(True)
-cpdef tuple choose_cone_ordering(list G, list current_ordering, list constraints, MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, int use_dcs):
+cpdef tuple choose_cone_ordering\
+    (list G, list current_ordering, list constraints, \
+     MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, \
+     int use_dcs, str heuristic):
   r"""
   Choose an ordering in an unrestricted way but based on Perry's algorithm.
   Idea: reinserting previously computed polynomials, in order to choose new LMs for them.
@@ -728,7 +734,7 @@ cpdef tuple choose_cone_ordering(list G, list current_ordering, list constraints
   cdef int i, j, k = len(G)
   cdef MPolynomialRing_libsingular R = G[0].value().parent()
   cdef int new_beginning = lp.number_of_constraints()
-  cdef tuple result = choose_ordering_restricted(G, [ G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs, False)
+  cdef tuple result = choose_ordering_restricted(G, [ G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs, False, heuristic)
   current_ordering = result[0]
   lp = result[1]
   bvs = result[2]
@@ -780,7 +786,7 @@ cpdef tuple choose_cone_ordering(list G, list current_ordering, list constraints
   print "showing g", g.value().lm()
   G.append(g)
   new_beginning = lp.number_of_constraints()
-  result = choose_ordering_restricted(G, [G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs, False)
+  result = choose_ordering_restricted(G, [G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs, False, heuristic)
   new_end = lp.number_of_constraints()
   constraints.append((new_beginning, new_end))
 
