@@ -146,7 +146,7 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights):
 
   # if use_weights, CLTs is a list of tuples (candidate lts, weight vector)
   # otherwise, it is a list of candidate lts
-  cdef MPolynomialRing_libsingular R = CLTs[0][0].parent()
+  cdef MPolynomialRing_libsingular R = CLTs[0][0][0].parent()
   if heuristic == 'hilbert':
 
     if use_weights:

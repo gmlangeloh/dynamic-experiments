@@ -473,7 +473,6 @@ cpdef tuple choose_simplex_ordering\
   else:
     w = current_ordering
   best_w = w
-  print w
 
   #Transform last element of G to linear program, set objective function given by w and solve
   #append_linear_program(lp, G[len(G)-1].value(), k)
@@ -545,7 +544,7 @@ cpdef list choose_random_ordering(list G, list current_ordering, str heuristic,\
   cdef int i
   for i in xrange(iterations):
     #Choose random vector
-    w = [ randint(1, 10) for i in xrange(n) ]
+    w = [ randint(1, 10000) for i in xrange(n) ]
     rand_weights.append(w)
 
   #Compute CLTs
@@ -558,7 +557,7 @@ cpdef list choose_random_ordering(list G, list current_ordering, str heuristic,\
   #Evaluate CLTs with Hilbert function
   CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True)
   #best_order = min_weights_by_Hilbert_heuristic(R, CLTs)
-  best_order = CLTs[0][2][0]
+  best_order = CLTs[0][2][1]
 
   return best_order
 

@@ -417,6 +417,34 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
   G.append(cf)
   return Pnew
 
+cpdef rebuild_queue(list G, list LMs, list P, strategy, int sugar_type):
+
+  r'''
+  Rebuilds the S-polynomial queue (for use when the ordering changes)
+  '''
+
+  cdef list Pnew = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
+  cdef clothed_polynomial cf, cg
+  cdef int i, j
+
+  #Rebuild according to the Buchberger graph criterion
+  for i in xrange(len(G)):
+    for j in xrange(i):
+      if is_edge(i, j, LMs):
+        cf = G[i]
+        cg = G[j]
+        if strategy=='sugar':
+          Pnew.append((cf,cg,sug_of_critical_pair((cf,cg), sugar_type)))
+        elif strategy=='normal':
+          Pnew.append((cf,cg,lcm_of_critical_pair((cf,cg))))
+        elif strategy=='mindeg':
+          Pnew.append((cf,cg,deg_of_critical_pair((cf,cg))))
+
+  if strategy == 'sugar': Pnew.sort(key=last_element_then_lcm)
+  elif strategy == 'normal': Pnew.sort(key=lcm_of_critical_pair)
+  elif strategy == 'mindeg': Pnew.sort(key=deg_of_critical_pair)
+
+  return Pnew
 
 #TODO fix bug that happens when the number of dynamic iterations is smaller than number of polys
 @cython.profile(True)
@@ -644,27 +672,29 @@ cpdef tuple dynamic_gb \
             G[k].set_value(PR(G[k].value()))
             LTs.append(G[k].value().lm())
 
+          #TODO check if after rebuild P is still in sugar order....
           if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
             if unrestricted or random or perturbation or simplex:
-              #P = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
-              unchanged_G = []
-              unchanged_LTs = []
-              changed = []
-              for i in xrange(len(LTs)-1):
-                if oldLTs[i] == LTs[i]:
-                  unchanged_G.append(G[i])
-                  unchanged_LTs.append(LTs[i])
-                else:
-                  changed.append(i)
-              print "Changed order:", len(changed), "changes out of", len(oldLTs), "possible"
-              #TODO can I only gm_update stuff that had its LT changed?
-              # rebuild P - this is necessary because we changed leading terms
-              for i in changed:
-                #P = gm_update(PR, P, G[:i], LTs[:i], strategy)
-                unchanged_G.append(G[i])
-                unchanged_LTs.append(LTs[i])
-                P = gm_update(PR, P, unchanged_G, unchanged_LTs, strategy, \
-                              sugar_type)
+              P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, sugar_type)
+              ##P = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
+              #unchanged_G = []
+              #unchanged_LTs = []
+              #changed = []
+              #for i in xrange(len(LTs)-1):
+              #  if oldLTs[i] == LTs[i]:
+              #    unchanged_G.append(G[i])
+              #    unchanged_LTs.append(LTs[i])
+              #  else:
+              #    changed.append(i)
+              ##print "Changed order:", len(changed), "changes out of", len(oldLTs), "possible"
+              ##TODO can I only gm_update stuff that had its LT changed?
+              ## rebuild P - this is necessary because we changed leading terms
+              #for i in changed:
+              #  #P = gm_update(PR, P, G[:i], LTs[:i], strategy)
+              #  unchanged_G.append(G[i])
+              #  unchanged_LTs.append(LTs[i])
+              #  P = gm_update(PR, P, unchanged_G, unchanged_LTs, strategy, \
+              #                sugar_type)
             elif reinsert and changed:
               P = gm_update(PR, P, G[:len(G)-1], LTs[:len(LTs)-1], strategy, \
                             sugar_type) #do update w.r.t new poly
@@ -708,8 +738,5 @@ cpdef tuple dynamic_gb \
 
   #Check that the results are correct
   assert PR.ideal(reducers) == PR.ideal(F), "Output basis generates wrong ideal"
-  if not PR.ideal(reducers).gens().is_groebner():
-    print reducers
   assert PR.ideal(reducers).gens().is_groebner(), "Output basis is not a GB"
   return reducers, LTs, rejects, G
-
