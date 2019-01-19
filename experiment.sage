@@ -37,14 +37,20 @@ def instance_name(instance_path):
 def run_static(instance_path):
   B = Benchmark(instance_path)
   if valid_instance(B):
-    print instance_name(instance_path),
+    name = instance_name(instance_path)
+    f = open(name+".out", "w")
+    sys.stdout = f
+    print name,
     dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", static=True, \
                        print_results=True)
 
 def run_caboara_perry(instance_path):
   B = Benchmark(instance_path)
   if valid_instance(B):
-    print instance_name(instance_path),
+    name = instance_name(instance_path)
+    f = open(name+".out", "w")
+    sys.stdout = f
+    print name,
     dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
                        heuristic=global_heuristic)
 
@@ -52,7 +58,10 @@ def run_caboara_perry(instance_path):
 def run_random(instance_path):
   B = Benchmark(instance_path)
   if valid_instance(B):
-    print instance_name(instance_path)
+    name = instance_name(instance_path)
+    f = open(name+".out", "w")
+    sys.stdout = f
+    print name,
     dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
                        heuristic=global_heuristic, random=True)
 
