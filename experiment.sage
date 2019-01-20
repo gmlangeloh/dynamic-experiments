@@ -100,6 +100,10 @@ global_heuristic = 'hilbert'
 #  elif sys.argv[1] == 'caboara':
 #    run_all_parallel(instance_glob, run_caboara)
 
+load("benchmarks.sage")
+if not valid_instance(Benchmark(sys.argv[1])):
+  sys.exit(0)
+
 sys.stderr.write("Starting: " + sys.argv[1] + "\n")
 sys.stderr.flush()
 if len(sys.argv) > 3:
@@ -108,7 +112,6 @@ if len(sys.argv) > 3:
 
 if len(sys.argv) > 2:
   load("buchberger.pyx")
-  load("benchmarks.sage")
   if sys.argv[2] == 'static':
     run_static(sys.argv[1])
   elif sys.argv[2] == 'caboara-perry':
@@ -117,3 +120,6 @@ if len(sys.argv) > 2:
     run_random(sys.argv[1])
   elif sys.argv[2] == 'caboara':
     run_caboara(sys.argv[1])
+
+sys.stderr.write("Finished" + sys.argv[1] + "\n")
+sys.stderr.flush()
