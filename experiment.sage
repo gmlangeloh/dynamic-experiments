@@ -24,7 +24,7 @@ def function_with_timeout(f, *args):
 
 def run_all_parallel(glob_pattern, experiment_function):
   instances = glob.glob(glob_pattern)
-  pool = Pool(2)
+  pool = Pool()
   timed_experiment = partial(function_with_timeout, experiment_function)
   pool.map(timed_experiment, instances)
 
@@ -43,6 +43,7 @@ def run_static(instance_path):
     print name,
     dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", static=True, \
                        print_results=True)
+    sys.stdout.flush()
 
 def run_caboara_perry(instance_path):
   B = Benchmark(instance_path)
@@ -53,7 +54,19 @@ def run_caboara_perry(instance_path):
     print name,
     dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
                        heuristic=global_heuristic)
+    sys.stdout.flush()
 
+def run_caboara(instance_path):
+  B = Benchmark(instance_path)
+  if valid_instance(B):
+    name = instance_name(instance_path)
+    f = open(name+".out", "w")
+    sys.stdout = f
+    print name,
+    dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
+                       heuristic=global_heuristic, use_boundary_vectors=False,\
+                       use_disjoint_cones=False)
+    sys.stdout.flush()
 
 def run_random(instance_path):
   B = Benchmark(instance_path)
@@ -64,6 +77,7 @@ def run_random(instance_path):
     print name,
     dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
                        heuristic=global_heuristic, random=True)
+    sys.stdout.flush()
 
 instance_glob = './instances/*.ideal'
 global_heuristic = 'hilbert'
@@ -81,3 +95,5 @@ if len(sys.argv) > 1:
     run_all_parallel(instance_glob, run_caboara_perry)
   elif sys.argv[1] == 'random':
     run_all_parallel(instance_glob, run_random)
+  elif sys.argv[1] == 'caboara':
+    run_all_parallel(instance_glob, run_caboara)
