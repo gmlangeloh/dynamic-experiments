@@ -129,6 +129,8 @@ if len(sys.argv) > 2:
     run_random(sys.argv[1])
   elif sys.argv[2] == 'caboara':
     run_caboara(sys.argv[1])
+  elif sys.argv[2] == 'perturbation':
+    run_perturbation(sys.argv[1])
 
 sys.stderr.write("Finished" + sys.argv[1] + "\n")
 sys.stderr.flush()

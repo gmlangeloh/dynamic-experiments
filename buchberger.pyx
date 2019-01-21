@@ -594,9 +594,7 @@ cpdef tuple dynamic_gb \
 
     # select critical pairs of minimal degree
     Pd = P.pop(0)
-
-    print len(P)
-
+ 
     #Stop here and return ordering if asked
     if iteration_count >= itmax:
       return (current_ordering, )
@@ -743,7 +741,9 @@ cpdef tuple dynamic_gb \
   statistics.update_basis_data(reducers)
   statistics.brief_report()
 
-  #Check that the results are correct 
+  #print current_ordering
+
+  #Check that the results are correct
   assert PR.ideal(reducers) == PR.ideal(F), "Output basis generates wrong ideal"
   assert PR.ideal(reducers).gens().is_groebner(), "Output basis is not a GB"
   return reducers, LTs, rejects, G

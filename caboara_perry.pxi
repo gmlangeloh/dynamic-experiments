@@ -688,7 +688,8 @@ cpdef tuple choose_ordering_restricted \
 
     #print("before sort")
     # use Caboara's Hilbert heuristic
-    CLTs = sort_CLTs_by_Hilbert_heuristic(R, current_Ts, CLTs)
+    #CLTs = sort_CLTs_by_Hilbert_heuristic(R, current_Ts, CLTs)
+    CLTs = sort_CLTs_by_heuristic_restricted(R, current_Ts, CLTs, heuristic)
     #print CLTs
     # discard unnecessary information
     #-- need to see why I have this information in the first place
