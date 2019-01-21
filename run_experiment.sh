@@ -15,7 +15,7 @@ function experiment {
     timeout "${MAX_TIME}" sage experiment.sage $1 "${ALGORITHM}" "${HEURISTIC}" > "${filename}" 2>> "${ERRORS}"
     if [ $? -eq 124 ]
     then
-        echo 'inf inf inf inf inf inf' >> "${filename}"
+        echo "${filename} inf inf inf inf inf inf" >> "${filename}"
     fi
 }
 
