@@ -562,8 +562,8 @@ cpdef list choose_random_ordering(list G, list current_ordering, str heuristic,\
   return best_order
 
 @cython.profile(True)
-cpdef list choose_local_ordering(list G, list current_ordering, heuristic, \
-                                 int iterations = 50):
+cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
+                                        str heuristic, int prev_betti, int prev_hilb):
   r"""
   Chooses a weight vector for polynomial system `G` randomly and then optimizes it
   locally for a few iterations using small perturbations.
@@ -578,54 +578,41 @@ cpdef list choose_local_ordering(list G, list current_ordering, heuristic, \
 
   - a weighted ordering, as a list of weights
   """
-  #TODO Honestly, fix this thing. It could work, but not like this
 
   cdef int n = G[0].value().parent().ngens()
   cdef list curr_w, w, LTs, CLTs
-  cdef int i, j, k, incr
   cdef MPolynomialRing_libsingular R = G[0].value().parent()
   cdef MPolynomialRing_libsingular newR
 
   #Choose random initial vector
-  curr_w = [ randint(1, 1000) for i in xrange(n) ]
-  print "initial order: ", curr_w
-  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(curr_w))
-  LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
+  curr_w = current_ordering
+  LTs = [ G[k].value().lm() for k in xrange(len(G)) ]
   CLTs = [ (LTs, curr_w) ]
-  #CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), curr_w) ]
 
   #Compute perturbations
-  for i in xrange(iterations):
-    w = curr_w[:]
-    j = randint(0, n-1)
-    if w[j] < 2:
-      incr = 1
-    else:
-      incr = choice([1, -1])
-    w[j] += incr
+  cdef int i, perturbation
+  cdef int max_deg = max([ g.value().total_degree(True) for g in G])
+  for i in xrange(n):
 
-    #Find LTs w.r.t current order w
-    newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
-    LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-    CLTs.append( (LTs, w) )
-    #CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w))
+    w = curr_w[:]
+    perturbation_plus = randint(1, max_deg)
+    perturbation_minus = -min(randint(1, max_deg), w[i] - 1)
+    for perturbation in [perturbation_plus, perturbation_minus]:
+
+      #Find LTs w.r.t current order w
+      w[i] += perturbation
+      newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
+      LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
+      CLTs.append( (LTs, w) )
 
     #Choose best one among current and perturbed orders
-    #CLTs.sort(cmp=hs_heuristic)
-    CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True)
-    curr_w = CLTs[0][2][0] #Work in a first improvement basis
-    CLTs = CLTs[:1]
+    CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
+    curr_w = CLTs[0][2][1] #Work in a first improvement basis
+    if heuristic == 'hilbert' or heuristic == 'mixed':
+      prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
+    CLTs = [ CLTs[0][2] ]
 
-  #Choose best order between `current_ordering` and `curr_w`
-  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
-  LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  #CLTs.append((newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
-  CLTs.append( (LTs, current_ordering) )
-  #CLTs.sort(cmp=hs_heuristic)
-  CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True)
-  curr_w = CLTs[0][2][0]
-  print "finally chose order: ", curr_w
-  return curr_w
+  return curr_w, prev_hilb
 
 @cython.profile(True)
 cpdef tuple choose_ordering_unrestricted(list G, list old_vertices, str heuristic):

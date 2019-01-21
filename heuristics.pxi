@@ -142,10 +142,12 @@ cpdef int hilbert_betti_heuristic(tuple f, tuple g):
 
   return f[0].degree() - g[0].degree()
 
-cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights):
+cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
+                                  int prev_betti=-1, int prev_hilb=-1):
 
   # if use_weights, CLTs is a list of tuples (candidate lts, weight vector)
   # otherwise, it is a list of candidate lts
+  cdef list L, old_order
   cdef MPolynomialRing_libsingular R = CLTs[0][0][0].parent()
   if heuristic == 'hilbert':
 
@@ -162,15 +164,19 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights):
 
   elif heuristic == 'betti':
 
+    old_order = [ ((), (), CLTs[0]) ]
     if use_weights:
       L = [ (graph_edges(LTs[0]), (), LTs) for LTs in CLTs ]
     else:
       L = [ (graph_edges(LTs), (), LTs) for LTs in CLTs ]
     L.sort(cmp=betti_heuristic)
+    if prev_betti >= 0 and prev_betti < L[0][0]:
+      return old_order
     return L
 
   elif heuristic == 'mixed':
 
+    old_order = [ ((), (), CLTs[0]) ]
     if use_weights:
       L = [ (R.ideal(LTs[0]).hilbert_polynomial(),
              graph_edges(LTs[0]),
@@ -180,6 +186,8 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights):
              graph_edges(LTs),
              LTs) for LTs in CLTs ]
     L.sort(cmp=hilbert_betti_heuristic)
+    if prev_hilb >= L[0][0] and prev_betti >= 0 and prev_betti < L[0][1]:
+      return old_order
     return L
 
   raise ValueError("Invalid heuristic function: " + heuristic)

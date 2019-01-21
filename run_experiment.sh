@@ -9,7 +9,6 @@ ALGORITHM=$1
 HEURISTIC=$2
 
 function experiment {
-    echo "Hello $1"
     filename=$(basename -- $1)
     filename="${filename%.*}"
     filename="${filename}.test"
