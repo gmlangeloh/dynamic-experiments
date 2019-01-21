@@ -81,6 +81,15 @@ def run_random(instance_path):
                        heuristic=global_heuristic, random=True)
     sys.stdout.flush()
 
+def run_perturbation(instance_path):
+  B = Benchmark(instance_path)
+  if valid_instance(B):
+    name = instance_name(instance_path)
+    print name,
+    dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
+                       heuristic=global_heuristic, perturbation=True)
+    sys.stdout.flush()
+
 instance_glob = './instances/*.ideal'
 global_heuristic = 'hilbert'
 
