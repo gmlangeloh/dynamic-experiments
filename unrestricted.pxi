@@ -617,94 +617,43 @@ cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
 
   return curr_w, prev_hilb
 
-@cython.profile(True)
-cpdef tuple choose_ordering_unrestricted(list G, list old_vertices, str heuristic):
+cpdef normal(v, P):
   r"""
-  Chooses a weight vector for a term ordering for the basis ``G`` that minimizes the Hilbert
-  tentative function among the viable orderings from G. See [Gritzmann & Sturmfels 1993] for
-  a description of the algorithm.
-
-  INPUTS:
-
-  - ``G`` -- a basis of a polynomial ideal
-  - ``old_vertices`` -- list of tuples (``v``, summands) where ``v`` is a
-  vertex of the previous Minkowski sum
-
-  OUTPUTS:
-
-  - a weighted ordering optimizing the Hilbert heuristic
-  - a list of tuples (``v``, summands) where ``v`` is a vertex of the
-  Minkowski sum
+  Computes a vector in the normal cone N(v, P)
   """
 
-  #TODO this is really bugged, doesnt even call the heuristic. wth
+  cdef tuple inequalities = P.inequalities()
+  cdef list indices = [ ieq.index() for ieq in v.incident() ]
+  cdef list rays = [ -inequalities[i].A() for i in indices ]
+  return list(sum(rays))
 
-  cdef list CLTs, new_vertices, lold, summands, gens, w, LTs
-  cdef Vector_integer_dense vec_v1, vec_v2
-  cdef tuple tup, constraint
+cpdef tuple choose_ordering_unrestricted(list G, old_polyhedron, str heuristic,\
+                                         int prev_betti, int prev_hilb):
+
   cdef MPolynomialRing_libsingular R = G[0].value().parent() # current ring
+  cdef MPolynomialRing_libsingular newR
   cdef MPolynomial_libsingular p = G[len(G)-1].value()
   cdef int n = R.ngens()
 
-  #STEP 1: find candidate LTs computing a Minkowski sum
-
-  #Affine Newton polyhedron of the newest basis element
   new_polyhedron = p.newton_polytope() + Polyhedron(rays=(-identity_matrix(n)).rows())
+  if old_polyhedron is not None:
+      new_polyhedron += old_polyhedron
 
-  #List of tuples potentially in the new Minkowski sum
-  #(vertex, summands)
-  new_vertices = []
+  cdef list CLTs = []
+  cdef list LTs = []
+  for v in new_polyhedron.vertex_generator():
+    w = normal(v, new_polyhedron)
+    newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
+    LTs = [ newR(g.value()).lm() for g in G ]
+    CLTs.append( (LTs, w) )
+    CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
+    if heuristic == 'hilbert' or heuristic == 'mixed':
+      prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
+    CLTs = [ CLTs[0][2] ]
 
-  #Compute the Minkowski sum
-  for v1, lold in old_vertices:
-    for v2 in new_polyhedron.vertex_generator():
-      vec_v1 = vector(v1)
-      vec_v2 = v2()
-      new_vertices.append((list(vec_v1 + vec_v2), lold + [list(v2)]))
+  cdef list best_order = CLTs[0][1]
 
-  #If this is the first time we are calling this, old_vertices is empty.
-  if not old_vertices:
-    new_vertices = [ (list(v),[list(v)]) for v in new_polyhedron.vertices() ]
-
-  M = new_polyhedron.parent().element_class(new_polyhedron.parent(), \
-                                            [[tup[0] for tup in new_vertices], new_polyhedron.rays(), []], \
-                                            None)
-
-  #Keep only vertices that are extreme points in the Minkowski sum ``M``
-  new_vertices = [ tup for tup in new_vertices \
-                   if tup[0] in map(list, M.vertices()) ]
-
-  #STEP 2: evaluate candidates using the Hilbert heuristic
-
-  #Compute the list of candidate LTs from the list of vertices
-  CLTs = []
-  for tup in new_vertices:
-    summands = tup[1]
-    gens = []
-    for s in summands:
-      gens.append(prod([ R.gens()[i]**s[i] for i in xrange(n) ]))
-    CLTs.append(gens)
-  LTs = min_CLT_by_Hilbert_heuristic(R, CLTs)
-
-  #TODO can probably do this more efficiently with the normal cone model?
-  #STEP 3: obtain a weight vector for the chosen order using linear programming
-
-  lp = new_linear_program()
-
-  # add constraints relative to each choice of LT
-  for i in xrange(len(G)):
-    p = G[i].value()
-    for m in p.monomials():
-      if m != LTs[i]:
-        vec_v1 = vector(LTs[i].exponents()[0])
-        vec_v2 = vector(m.exponents()[0])
-        constraint = tuple(vec_v1 - vec_v2)
-        lp.add_constraint(lp.sum([constraint[k]*lp[k] for k in xrange(n)]),min=tolerance_cone)
-
-  lp.solve()
-  w = lp.get_values([lp[k] for k in xrange(n)])
-
-  return w, new_vertices
+  return best_order, new_polyhedron, prev_hilb
 
 @cython.profile(True)
 cpdef tuple choose_cone_ordering\

@@ -523,7 +523,7 @@ cpdef tuple dynamic_gb \
   cdef tuple Pd
 
   # variables related to unrestricted dynamic algorithm
-  cdef list old_vertices = list()
+  #cdef list old_vertices = list()
 
   # check the strategy first
   if strategy == 'sugar':
@@ -545,6 +545,7 @@ cpdef tuple dynamic_gb \
   lp = new_linear_program(n = n)
 
   #State for additional algorithms
+  old_polyhedron = Polyhedron(rays=(-identity_matrix(n)).rows())
   slp = make_solver(n)
   cdef list constraints = []
   cdef list vertices = []
@@ -638,8 +639,9 @@ cpdef tuple dynamic_gb \
           dynamic_time = time.time()
 
           if unrestricted:
-            current_ordering, old_vertices = \
-              choose_ordering_unrestricted(G, old_vertices, heuristic)
+            current_ordering, old_polyhedron, prev_hilbert_degree = \
+              choose_ordering_unrestricted(G, old_polyhedron, heuristic, \
+                                           len(P), prev_hilbert_degree)
           elif random:
             current_ordering, prev_hilbert_degree = choose_random_ordering \
                 (G, current_ordering, heuristic, len(P), prev_hilbert_degree)

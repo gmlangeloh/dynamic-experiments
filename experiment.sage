@@ -74,8 +74,6 @@ def run_random(instance_path):
   B = Benchmark(instance_path)
   if valid_instance(B):
     name = instance_name(instance_path)
-    #f = open(name+".out", "w")
-    #sys.stdout = f
     print name,
     dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
                        heuristic=global_heuristic, random=True)
@@ -87,27 +85,42 @@ def run_perturbation(instance_path):
     name = instance_name(instance_path)
     print name,
     dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
-                       heuristic=global_heuristic, perturbation=True)
+                       heuristic=global_heuristic, perturbation=True, \
+                       initial_ordering=init_order)
+    sys.stdout.flush()
+
+def run_gritzmann_sturmfels(instance_path):
+  B = Benchmark(instance_path)
+  if valid_instance(B):
+    name = instance_name(instance_path)
+    print name,
+    dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
+                       heuristic=global_heuristic, unrestricted=True)
+    sys.stdout.flush()
+
+def run_simplex(instance_path):
+  B = Benchmark(instance_path)
+  if valid_instance(B):
+    name = instance_name(instance_path)
+    print name,
+    dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
+                       heuristic=global_heuristic, simplex=True, \
+                       initial_ordering=init_order)
+    sys.stdout.flush()
+
+def run_regrets(instance_path):
+  B = Benchmark(instance_path)
+  if valid_instance(B):
+    name = instance_name(instance_path)
+    print name,
+    dummy = dynamic_gb(B.ideal.gens(), strategy="sugar", print_results=True, \
+                       heuristic=global_heuristic, reinsert=True, \
+                       use_disjoint_cones=False, use_boundary_vectors=False)
     sys.stdout.flush()
 
 instance_glob = './instances/*.ideal'
 global_heuristic = 'hilbert'
-
-#if len(sys.argv) > 2:
-#  if sys.argv[2] in ['hilbert', 'betti', 'mixed']:
-#    global_heuristic = sys.argv[2]
-#
-#if len(sys.argv) > 1:
-#  load("buchberger.pyx")
-#  load("benchmarks.sage")
-#  if sys.argv[1] == 'static':
-#    run_all_parallel(instance_glob, run_static)
-#  elif sys.argv[1] == 'caboara-perry':
-#    run_all_parallel(instance_glob, run_caboara_perry)
-#  elif sys.argv[1] == 'random':
-#    run_all_parallel(instance_glob, run_random)
-#  elif sys.argv[1] == 'caboara':
-#    run_all_parallel(instance_glob, run_caboara)
+init_order = 'grevlex'
 
 load("benchmarks.sage")
 if not valid_instance(Benchmark(sys.argv[1])):
@@ -115,9 +128,14 @@ if not valid_instance(Benchmark(sys.argv[1])):
 
 sys.stderr.write("Starting: " + sys.argv[1] + "\n")
 sys.stderr.flush()
+
 if len(sys.argv) > 3:
   if sys.argv[3] in ['hilbert', 'betti', 'mixed']:
     global_heuristic = sys.argv[3]
+
+if len(sys.argv) > 4:
+  if sys.argv[4] in ['grevlex', 'init_random']:
+    init_order = sys.argv[4]
 
 if len(sys.argv) > 2:
   load("buchberger.pyx")
@@ -131,6 +149,12 @@ if len(sys.argv) > 2:
     run_caboara(sys.argv[1])
   elif sys.argv[2] == 'perturbation':
     run_perturbation(sys.argv[1])
+  elif sys.argv[2] == 'gritzmann-sturmfels':
+    run_gritzmann_sturmfels(sys.argv[1])
+  elif sys.argv[2] == 'simplex':
+    run_simplex(sys.argv[1])
+  elif sys.argv[2] == 'regrets':
+    run_regrets(sys.argv[1])
 
 sys.stderr.write("Finished" + sys.argv[1] + "\n")
 sys.stderr.flush()
