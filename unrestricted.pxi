@@ -519,8 +519,8 @@ cpdef tuple choose_simplex_ordering\
   return best_w, vertices
 
 @cython.profile(True)
-cpdef list choose_random_ordering(list G, list current_ordering, str heuristic,\
-                                  int iterations = 10):
+cpdef tuple choose_random_ordering(list G, list current_ordering, str heuristic,\
+                                   int prev_betti, int prev_hilb, int iterations=10):
   r"""
   Chooses a weight vector for a term ordering for the basis ``G`` that is optimal
   with respect to the Hilbert tentative function on G among randomly generated orders.
@@ -529,6 +529,7 @@ cpdef list choose_random_ordering(list G, list current_ordering, str heuristic,\
 
   - `G` -- a basis of a polynomial ideal
   - `current_ordering` -- the current ordering of G, as a list of weights
+  - `heuristic` -- the heuristic function to use (hilbert, betti or mixed)
 
   OUTPUTS:
 
@@ -555,11 +556,13 @@ cpdef list choose_random_ordering(list G, list current_ordering, str heuristic,\
     CLTs.append((LTs, w))
 
   #Evaluate CLTs with Hilbert function
-  CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True)
+  CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
+  if heuristic == 'hilbert' or heuristic == 'mixed':
+    prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
   #best_order = min_weights_by_Hilbert_heuristic(R, CLTs)
   best_order = CLTs[0][2][1]
 
-  return best_order
+  return best_order, prev_hilb
 
 @cython.profile(True)
 cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
