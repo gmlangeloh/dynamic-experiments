@@ -641,8 +641,8 @@ cpdef tuple dynamic_gb \
             current_ordering, old_vertices = \
               choose_ordering_unrestricted(G, old_vertices, heuristic)
           elif random:
-            current_ordering = choose_random_ordering(G, current_ordering, \
-                                                      heuristic)
+            current_ordering, prev_hilbert_degree = choose_random_ordering \
+                (G, current_ordering, heuristic, len(P), prev_hilbert_degree)
           elif perturbation:
             current_ordering, prev_hilbert_degree = choose_perturbation_ordering \
                 (G, current_ordering, heuristic, len(P), prev_hilbert_degree)
