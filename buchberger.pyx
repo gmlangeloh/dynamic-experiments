@@ -645,7 +645,7 @@ cpdef tuple dynamic_gb \
           elif random:
             current_ordering, prev_hilbert_degree = choose_random_ordering \
                 (G, current_ordering, heuristic, len(P), prev_hilbert_degree)
-          elif perturbation: 
+          elif perturbation:
             current_ordering, prev_hilbert_degree = choose_perturbation_ordering \
                 (G, current_ordering, heuristic, len(P), prev_hilbert_degree)
           elif simplex:
