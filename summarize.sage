@@ -29,6 +29,8 @@ class NVarResults:
     self.max_degree = 0
     self.reductions = 0
 
+    self.time_timeouts = 0.0
+
     self.instances = []
     self.timeouts = 0
 
@@ -42,22 +44,27 @@ class NVarResults:
       self.monomials += int(results[4])
       self.max_degree += int(results[5])
       self.reductions += int(results[6])
+
+      self.time_timeouts += float(results[1])
     else:
       self.timeouts += 1
+      self.time_timeouts += 30.0 #The timeout time
 
     self.instances.append(instance_name)
 
   def _average(self):
     i = float(len(self.instances))
-    return self.time / i, self.overhead / i, self.polynomials / i, \
-        self.monomials / i, self.max_degree / i, self.reductions / i
+    j = float(len(self.instances) - self.timeouts)
+    return self.time_timeouts / i , self.time / j, self.overhead / j, \
+      self.polynomials / j, self.monomials / j, self.max_degree / j, \
+      self.reductions / j
 
   def report(self):
-    time, overhead, polys, monomials, deg, reductions = self._average()
-    print self.n, len(self.instances), self.timeouts, time, overhead, polys, monomials, deg, reductions
+    t1, t2, overhead, polys, monomials, deg, reductions = self._average()
+    print self.n, self.timeouts, t1, t2, overhead, polys, monomials, deg, reductions
 
 def header():
-  print "Variables Instances Timeouts time overhead polys monomials maxdeg reductions"
+  print "Variables Timeouts t1 t2 overhead polys monomials maxdeg reductions"
 
 min_nvars = 2
 max_nvars = 8
