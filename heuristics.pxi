@@ -108,6 +108,7 @@ cpdef bool is_edge(int i, int j, list LMs):
   Returns true iff (i, j) is an edge in the Buchberger graph of LMs
   """
   cdef int k, m
+  cdef MPolynomialRing_libsingular R = LMs[0].parent()
   for k in xrange(len(LMs)):
     if k == i or k == j:
       continue
