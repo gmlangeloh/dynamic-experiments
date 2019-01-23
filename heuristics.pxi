@@ -107,13 +107,11 @@ cpdef bool is_edge(int i, int j, list LMs):
   r"""
   Returns true iff (i, j) is an edge in the Buchberger graph of LMs
   """
-  cdef MPolynomialRing_libsingular R = LMs[0].parent()
   cdef int k, m
   for k in xrange(len(LMs)):
     if k == i or k == j:
       continue
     for v in R.gens():
-      #TODO careful here, this is not quite it!
       m = max([LMs[i].degree(v), LMs[j].degree(v)])
       if LMs[k].degree(v) >= m:
         if m > 0 or LMs[k].degree(v) > m:
@@ -125,9 +123,11 @@ cpdef bool is_edge(int i, int j, list LMs):
 cpdef int graph_edges(list LMs):
   cdef int num_edges = 0
   cdef int j, i
-  for j in xrange(len(LMs)):
+  cdef MPolynomialRing_libsingular R = LMs[0].parent()
+  cdef list reduced = list(R.ideal(LMs).interreduced_basis())
+  for j in xrange(len(reduced)):
     for i in xrange(j):
-      if is_edge(i, j, LMs):
+      if is_edge(i, j, reduced):
         num_edges += 1
   return num_edges
 
