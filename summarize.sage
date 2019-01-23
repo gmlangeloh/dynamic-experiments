@@ -57,7 +57,7 @@ class NVarResults:
     print self.n, len(self.instances), self.timeouts, time, overhead, polys, monomials, deg, reductions
 
 def header():
-  print "Variables Instances Timeouts time overhead #G monomials maxdeg reductions"
+  print "Variables Instances Timeouts time overhead polys monomials maxdeg reductions"
 
 min_nvars = 2
 max_nvars = 8
