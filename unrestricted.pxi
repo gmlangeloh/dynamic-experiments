@@ -29,46 +29,6 @@ cpdef GLPKBackend make_solver(int n):
 
   return lp
 
-cpdef void append_linear_program(GLPKBackend glpk, MPolynomial_libsingular p, int k):
-  r"""
-  Appends constraints and variables of the Newton polyhedron of `p` to the current
-  linear program in `glpk`.
-
-  INPUTS:
-
-  - `glpk` -- current representation of the linear programming model in GLPK
-  - `p` -- polynomial whose affine Newton Polyhedron will be added to the linear programming model
-  - `k` -- number of polynomials in current basis (including p)
-  """
-
-  cdef int n = p.parent().ngens()
-  cdef tuple a
-  cdef list variables, coefs
-
-  #Remove previous auxiliary constraints
-  if glpk.nrows() > 0:
-    for i in xrange(glpk.nrows() - 1, glpk.nrows() - n - 1, -1):
-      glpk.remove_constraint(glpk.nrows() - 1)
-
-  NP = p.newton_polytope() + Polyhedron(rays=(-identity_matrix(n)).rows())
-  lp = NP.to_linear_program(solver="GLPK")
-  cdef int cols = glpk.ncols()
-
-  glpk.add_variables(n)
-
-  for lb, a, ub in lp.constraints():
-    variables, coefs = a
-    variables = [ i + cols - n for i in variables ]
-    glpk.add_linear_constraint(list(zip(variables, coefs)), lb, ub)
-
-  #Add auxiliary constraints
-  for i in xrange(n):
-    L = [ (i + j * n, -1) for j in xrange(k) ]
-    L.append((i + cols, 1))
-    glpk.add_linear_constraint(L, 0.0, 0.0)
-
-  return
-
 @cython.profile(True)
 cpdef void init_linear_program(GLPKBackend lp, int n):
   lp.add_variables(n) #Add variables representing the negative orthant summand
@@ -134,37 +94,15 @@ cpdef list weight_vector(GLPKBackend lp, int n):
     w.append(lp.objective_coefficient(i))
   return w
 
-cpdef Vector_real_double_dense tableau_row(GLPKBackend lp, int i, list nonbasic):
-  r"""
-  Returns the i-th row of the simplex tableau of `lp` as a dense vector.
-
-  INPUTS:
-
-  - `lp` -- a previously solved GLPK linear programming model
-  - `i` -- index of the desired row
-  - `nonbasic` -- list of nonbasic variable indices of `lp`
-
-  OUTPUT:
-
-  - a vector representation of the i-th row of `lp`
-  """
-
-  cdef list row = [], row_indices, row_coeffs
-  row_indices, row_coeffs = lp.eval_tab_row(i)
-  cdef int idx = 0, m = lp.nrows(), j
-  for j in nonbasic:
-    if idx < len(row_indices) and j == row_indices[idx]:
-      if j >= m:
-        row.append(-row_coeffs[idx])
-      else:
-        row.append(row_coeffs[idx])
-      idx += 1
-    else:
-      row.append(0.0)
-  return vector(RDF, row)
-
 @cython.profile(True)
 cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int change_idx, int n):
+
+  r"""
+  Returns a list of weight vectors corresponding to neighboring orders to the optimum of lp.
+  """
+
+  cdef list vectors = []
+  cdef list w
 
   cdef float epsilon = 0.001
   if abs(lower - round(lower)) < epsilon:
@@ -174,96 +112,43 @@ cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int
 
   cdef float increment
   if lower == float("-inf") and upper == float("inf"):
-    return weight_vector(lp, n)
+    return vectors
   if upper == float("inf"):
     increment = ceil(lower) - 1
     if lp.objective_coefficient(change_idx) + increment <= 0:
-      return weight_vector(lp, n)
+      return vectors
   elif lower == float("-inf"):
+    #Append only negative increment to list
     increment = floor(upper) + 1
+    w = weight_vector(lp, n)
+    w[change_idx] += increment
+    vectors.append(w)
   else:
-    #Lower coefficient, when possible, 50% of the time
     increment = ceil(lower) - 1
     if lp.objective_coefficient(change_idx) + increment <= 0:
+      #Append only positive increment to list
       increment = floor(upper) + 1
-    elif randint(0, 1):
+      w = weight_vector(lp, n)
+      w[change_idx] += increment
+      vectors.append(w)
+    else:
+      #Append negative increment to list
+      w = weight_vector(lp, n)
+      w[change_idx] += increment
+      vectors.append(w)
+      #Append positive increment to list
       increment = floor(upper) + 1
-      #pass
+      w = weight_vector(lp, n)
+      w[change_idx] += increment
+      vectors.append(w)
 
-  assert abs(increment) > 0
-  cdef float old_value = lp.objective_coefficient(change_idx)
-  lp.objective_coefficient(change_idx, old_value + increment)
+  return vectors
 
-  return weight_vector(lp, n)
+  #assert abs(increment) > 0
+  #cdef float old_value = lp.objective_coefficient(change_idx)
+  #lp.objective_coefficient(change_idx, old_value + increment)
 
-@cython.profile(True)
-cpdef tuple sensitivity(GLPKBackend lp, int n, int k):
-  r"""
-  Changes the current lp objective function to point to a neighbor.
-
-  INPUTS:
-
-  - `lp` - a GLPK linear programming model pointing to the current chosen order
-  - `n` - the number of variables in the input polynomial system
-  - `k` - the number of polynomials currently in the basis
-  """
-
-  cdef list basic = [], nonbasic = []
-  cdef int m = lp.nrows(), idx, i, j
-
-  #Classify variables in basic/nonbasic
-  for i in xrange(m):
-    if lp.is_slack_variable_basic(i):
-      basic.append(i)
-    else:
-      nonbasic.append(i)
-  for i in xrange(lp.ncols()):
-    if lp.is_variable_basic(i):
-      basic.append(m + i)
-    else:
-      nonbasic.append(m + i)
-
-  #Compute zN and DzN
-  cdef int change = randint(0, n-1) #Choose which coefficient should be changed
-  cdef list zN = []
-  cdef Vector_real_double_dense DcN = vector(RDF, [ 0.0 ] * len(nonbasic))
-  for idx, i in enumerate(nonbasic):
-    if i >= m:
-      zN.append(-lp.get_col_dual(i - m))
-      if (i - m) % n == change:
-        DcN[idx] = 1.0
-    else:
-      zN.append(lp.get_row_dual(i))
-
-  cdef Vector_real_double_dense DzN
-  if lp.is_variable_basic(change + k * n):
-    DzN = tableau_row(lp, m + change + k * n, nonbasic) - DcN
-  else:
-    DzN = -DcN
-
-  #Compute min/max interval
-  cdef float t
-  cdef float upper = float("inf")
-  cdef float lower = float("-inf")
-
-  cdef float epsilon = 0.00001
-  for i in xrange(len(nonbasic)):
-    if abs(DzN[i]) < epsilon and abs(zN[i]) < epsilon:
-      t = 0.0
-    elif abs(zN[i]) < epsilon:
-      t = float("-inf") if DzN[i] > 0 else float("inf")
-    else:
-      t = -zN[i] / DzN[i]
-    if t >= 0 and t < upper:
-      upper = t
-    if t <= 0 and t > lower:
-      lower = t
-
-  print "sensitivity:", lower, upper
-  assert upper >= 0 and lower <= 0, "Inconsistent sensitivity range"
-
-  #return apply_sensitivity_range(lower, upper, lp, n * k + change, n), n * k + change
-  return [], n * k + change
+  #return weight_vector(lp, n)
 
 cpdef void sensitivity_warm_start(GLPKBackend lp, GLPKBackend aux):
 
@@ -349,8 +234,6 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
   #Solve for maximization
   cdef float upper
   glpk.set_sense(+1)
-  #lp.write_lp("wtf.lp")
-  #glpk.write_lp("sensitivity.lp")
   sensitivity_warm_start(lp, glpk)
   try:
     glpk.solve()
@@ -380,13 +263,13 @@ cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
     else:
       raise e
 
-  print "wide sensitivity:", lower, upper
+  #print "wide sensitivity:", lower, upper
   assert lower < epsilon and upper > -epsilon, "Inconsistent sensitivity range"
 
   return apply_sensitivity_range(lower, upper, lp, coef_change_idx, n)
 
 @cython.profile(True)
-cpdef list find_monomials2(GLPKBackend lp, MPolynomialRing_libsingular R, list vertices, int k):
+cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, list vertices, int k):
   #vertices is a list with tuples (idx, tuple) where tuple is a tuple with vertices, and idx is the index of the
   #first variable in lp referring to these vertices
   cdef int n = R.ngens()
@@ -408,39 +291,10 @@ cpdef list find_monomials2(GLPKBackend lp, MPolynomialRing_libsingular R, list v
   return LTs
 
 @cython.profile(True)
-cpdef list find_monomials(GLPKBackend lp, MPolynomialRing_libsingular R, int k):
-  r"""
-  Obtains the leading monomials chosen by the order w in the linear programming model.
-
-  INPUTS:
-
-  - `lp` -- linear programming model (must be already solved)
-  - `R` -- a polynomial ring
-  - `k` -- number of polynomials in current basis
-
-  OUTPUTS:
-
-  - a list of leading monomials
-  """
-  cdef int n = R.ngens()
-  cdef list LTs = []
-  cdef int i, j, e
-  cdef MPolynomial_libsingular monomial
-  for i in xrange(k):
-    #build i-th leading monomial
-    monomial = R(1)
-    for j in xrange(n):
-      e = round(lp.get_variable_value(j + i * n))
-      monomial *= R.gens()[j]**e
-    LTs.append(monomial)
-  return LTs
-
-first = True
-#TODO why does the number of iterations affect performance so much?
-@cython.profile(True)
 cpdef tuple choose_simplex_ordering\
-    (list G, list current_ordering, GLPKBackend lp, list vertices, str heuristic,
-     int iterations = 5):
+    (list G, list current_ordering, GLPKBackend lp, list vertices, str heuristic, \
+     int prev_betti, int prev_hilb):
+
   r"""
 
   INPUTS:
@@ -463,60 +317,39 @@ cpdef tuple choose_simplex_ordering\
   cdef int i, j, it = 0
   cdef list CLTs, LTs, oldLTs, w, best_w
 
-  #Initial random ordering
-  if first:
-    #w = [ randint(1, 10000) for i in xrange(n) ]
-    init_linear_program(lp, n)
-    #w = [10000.0] * n
-    w = [4627, 8716, 1234, 876, 1038]
-    first = False
-  else:
-    w = current_ordering
-  best_w = w
+  best_w = current_ordering
 
   #Transform last element of G to linear program, set objective function given by w and solve
-  #append_linear_program(lp, G[len(G)-1].value(), k)
   update_linear_program(lp, G[k-1].value(), vertices)
-  lp.set_objective(w)
+  lp.set_objective(best_w)
   lp.solve()
 
   #Get current LTs to compare with Hilbert heuristic
-  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
-  LTs = find_monomials2(lp, newR, vertices, k)
-  oldLTs = LTs
+  newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(best_w))
+  LTs = find_monomials(lp, newR, vertices, k)
   #CLTs = [ (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), w ) ]
-  CLTs = [ (LTs, w) ]
+  CLTs = [ (LTs, best_w) ]
 
-  #Do sensitivity analysis to get neighbor, compare
-  while it < iterations:
-    #w, c = sensitivity(lp, n, k)
-    w = wide_sensitivity(lp, n)
-    lp.solve()
-    newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
-    LTs = find_monomials2(lp, newR, vertices, k)
-    #print [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False), len(LTs)
-    if [LTs[i] == oldLTs[i] for i in xrange(len(LTs))].count(False) == 0:
-      continue
-    CLTs.append( (LTs, w) )
-    CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True)
-    best_w = CLTs[0][2][0] #Take first improvement
-    if best_w == w:
-      oldLTs = LTs
+  #Try sensitivity in each variable
+  for i in xrange(n):
+    wlist = wide_sensitivity(lp, n, i)
+
+    for w in wlist:
+      lp.set_objective(w)
+      lp.solve()
+      newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
+      LTs = find_monomials(lp, newR, vertices, k)
+      CLTs.append( (LTs, w) )
+
+    CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
+    if heuristic == 'hilbert' or heuristic == 'mixed':
+      prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
+    best_w = CLTs[0][2][1] #Take first improvement
+    CLTs = [ CLTs[0][2] ]
     lp.set_objective(best_w)
     lp.solve()
-    CLTs = CLTs[:1]
-    it += 1
 
-  ##Compare with current_ordering - keep the current one if they tie!
-  #newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(current_ordering))
-  #LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
-  #CLTs.insert(0, (newR.ideal(LTs).hilbert_polynomial(), newR.ideal(LTs).hilbert_series(), current_ordering))
-  #CLTs.sort(cmp=hs_heuristic)
-  #best_w = CLTs[0][2]
-  #lp.set_objective(best_w * k)
-  #lp.solve()
-
-  return best_w, vertices
+  return best_w, vertices, prev_hilb
 
 @cython.profile(True)
 cpdef tuple choose_random_ordering(list G, list current_ordering, str heuristic,\

@@ -545,8 +545,11 @@ cpdef tuple dynamic_gb \
   lp = new_linear_program(n = n)
 
   #State for additional algorithms
-  old_polyhedron = Polyhedron(rays=(-identity_matrix(n)).rows())
-  slp = make_solver(n)
+  if unrestricted:
+    old_polyhedron = Polyhedron(rays=(-identity_matrix(n)).rows())
+  if simplex:
+    slp = make_solver(n)
+    init_linear_program(slp, n)
   cdef list constraints = []
   cdef list vertices = []
 
@@ -595,7 +598,7 @@ cpdef tuple dynamic_gb \
 
     # select critical pairs of minimal degree
     Pd = P.pop(0)
- 
+
     #Stop here and return ordering if asked
     if iteration_count >= itmax:
       return (current_ordering, )
@@ -649,9 +652,9 @@ cpdef tuple dynamic_gb \
             current_ordering, prev_hilbert_degree = choose_perturbation_ordering \
                 (G, current_ordering, heuristic, len(P), prev_hilbert_degree)
           elif simplex:
-            current_ordering, vertices = \
+            current_ordering, vertices, prev_hilbert_degree = \
               choose_simplex_ordering(G, current_ordering, slp, vertices, \
-                                      heuristic)
+                                      heuristic, len(P), prev_hilbert_degree)
           elif reinsert:
             current_ordering, lp, boundary_vectors, constraints, changed = \
               choose_cone_ordering(G, current_ordering, constraints, lp, \
@@ -683,25 +686,6 @@ cpdef tuple dynamic_gb \
           if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
             if unrestricted or random or perturbation or simplex:
               P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, sugar_type)
-              ##P = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
-              #unchanged_G = []
-              #unchanged_LTs = []
-              #changed = []
-              #for i in xrange(len(LTs)-1):
-              #  if oldLTs[i] == LTs[i]:
-              #    unchanged_G.append(G[i])
-              #    unchanged_LTs.append(LTs[i])
-              #  else:
-              #    changed.append(i)
-              ##print "Changed order:", len(changed), "changes out of", len(oldLTs), "possible"
-              ##TODO can I only gm_update stuff that had its LT changed?
-              ## rebuild P - this is necessary because we changed leading terms
-              #for i in changed:
-              #  #P = gm_update(PR, P, G[:i], LTs[:i], strategy)
-              #  unchanged_G.append(G[i])
-              #  unchanged_LTs.append(LTs[i])
-              #  P = gm_update(PR, P, unchanged_G, unchanged_LTs, strategy, \
-              #                sugar_type)
             elif reinsert and changed:
               P = gm_update(PR, P, G[:len(G)-1], LTs[:len(LTs)-1], strategy, \
                             sugar_type) #do update w.r.t new poly
