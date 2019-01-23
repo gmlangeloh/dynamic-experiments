@@ -54,10 +54,10 @@ class NVarResults:
 
   def report(self):
     time, overhead, polys, monomials, deg, reductions = self._average()
-    print self.n, self.timeouts, time, overhead, polys, monomials, deg, reductions
+    print self.n, len(self.instances), self.timeouts, time, overhead, polys, monomials, deg, reductions
 
 def header():
-  print "Variables Timeouts time overhead #G monomials maxdeg reductions"
+  print "Variables Instances Timeouts time overhead polys monomials maxdeg reductions"
 
 min_nvars = 2
 max_nvars = 8
