@@ -37,6 +37,8 @@ class NVarResults:
   def update(self, instance_results):
     results = instance_results.split()
     instance_name = results[0]
+    if len(results) < 2:
+      sys.stderr.write("problems with " + instance_name + "\n")
     if results[1] != 'inf':
       self.time += float(results[1])
       self.overhead += float(results[2])

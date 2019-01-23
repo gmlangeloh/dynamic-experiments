@@ -12,7 +12,6 @@ for filename in files:
     instance_name = filename.split("/")[-1].split(".")[0]
     if contents == []:
       empty_files += 1
-      print instance_name, "empty"
       continue
     line0 = contents[0]
     if line0.split()[0] == 'inf':
