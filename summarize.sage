@@ -48,7 +48,7 @@ class NVarResults:
       self.time_timeouts += float(results[1])
     else:
       self.timeouts += 1
-      self.time_timeouts += 30.0 #The timeout time
+      self.time_timeouts += 30.0 * 60.0 #The timeout time
 
     self.instances.append(instance_name)
 

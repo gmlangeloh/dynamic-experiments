@@ -20,4 +20,4 @@ for filename in files:
       f.write(instance_name + " inf inf inf inf inf inf\n")
       f.truncate()
 
-print "Empty files: ", empty_files
+#print "Empty files: ", empty_files
