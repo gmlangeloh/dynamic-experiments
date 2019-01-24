@@ -110,8 +110,8 @@ cpdef bool is_edge(int i, int j, list LMs):
   cdef int k, m
   cdef MPolynomialRing_libsingular R = LMs[0].parent()
   for k in xrange(len(LMs)):
-    if k == i or k == j:
-      continue
+    #if k == i or k == j:
+    #  continue
     for v in R.gens():
       m = max([LMs[i].degree(v), LMs[j].degree(v)])
       if LMs[k].degree(v) >= m:
@@ -124,11 +124,11 @@ cpdef bool is_edge(int i, int j, list LMs):
 cpdef int graph_edges(list LMs):
   cdef int num_edges = 0
   cdef int j, i
-  cdef MPolynomialRing_libsingular R = LMs[0].parent()
-  cdef list reduced = list(R.ideal(LMs).interreduced_basis())
-  for j in xrange(len(reduced)):
+  #cdef MPolynomialRing_libsingular R = LMs[0].parent()
+  #cdef list reduced = list(R.ideal(LMs).interreduced_basis())
+  for j in xrange(len(LMs)):
     for i in xrange(j):
-      if is_edge(i, j, reduced):
+      if is_edge(i, j, LMs):
         num_edges += 1
   return num_edges
 
@@ -174,11 +174,6 @@ cpdef list sort_CLTs_by_heuristic_restricted \
     L.sort(cmp=hilbert_betti_heuristic)
     return L
 
-  CLTs = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(),
-           R.ideal(current_Ts + [tup[1]]).hilbert_series(),
-           tup) for tup in CLTs]
-  CLTs.sort(cmp=hs_heuristic) # sort according to hilbert heuristic
-
   raise ValueError("Invalid heuristic function: " + heuristic)
 
 cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
@@ -205,11 +200,11 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
 
     old_order = [ ((), (), CLTs[0]) ]
     if use_weights:
-      #L = [ (graph_edges(LTs[0]), (), LTs) for LTs in CLTs ]
-      L = [ (betti_number(LTs[0]), (), LTs) for LTs in CLTs ]
+      L = [ (graph_edges(LTs[0]), (), LTs) for LTs in CLTs ]
+      #L = [ (betti_number(LTs[0]), (), LTs) for LTs in CLTs ]
     else:
-      #L = [ (graph_edges(LTs), (), LTs) for LTs in CLTs ]
-      L = [ (betti_number(LTs), (), LTs) for LTs in CLTs ]
+      L = [ (graph_edges(LTs), (), LTs) for LTs in CLTs ]
+      #L = [ (betti_number(LTs), (), LTs) for LTs in CLTs ]
     L.sort(cmp=betti_heuristic)
     if prev_betti >= 0 and prev_betti <= L[0][0]:
       return old_order
@@ -220,13 +215,13 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
     old_order = [ ((), (), CLTs[0]) ]
     if use_weights:
       L = [ (R.ideal(LTs[0]).hilbert_polynomial(),
-             #graph_edges(LTs[0]),
-             betti_number(LTs[0]),
+             graph_edges(LTs[0]),
+             #betti_number(LTs[0]),
              LTs) for LTs in CLTs ]
     else:
       L = [ (R.ideal(LTs).hilbert_polynomial(),
-             #graph_edges(LTs),
-             betti_number(LTs),
+             graph_edges(LTs),
+             #betti_number(LTs),
              LTs) for LTs in CLTs ]
     L.sort(cmp=hilbert_betti_heuristic)
     if prev_hilb >= L[0][0] and prev_betti >= 0 and prev_betti < L[0][1]:

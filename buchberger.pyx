@@ -417,34 +417,49 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
   G.append(cf)
   return Pnew
 
-cpdef rebuild_queue(list G, list LMs, list P, strategy, int sugar_type):
+cpdef list rebuild_queue(list G, list LMs, list P, str strategy, int sugar_type):
 
-  r'''
-  Rebuilds the S-polynomial queue (for use when the ordering changes)
-  '''
-
-  cdef list Pnew = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
-  cdef clothed_polynomial cf, cg
-  cdef int i, j
-
-  #Rebuild according to the Buchberger graph criterion
-  for i in xrange(len(G)):
-    for j in xrange(i):
-      if is_edge(i, j, LMs):
-        cf = G[i]
-        cg = G[j]
-        if strategy=='sugar':
-          Pnew.append((cf,cg,sug_of_critical_pair((cf,cg), sugar_type)))
-        elif strategy=='normal':
-          Pnew.append((cf,cg,lcm_of_critical_pair((cf,cg))))
-        elif strategy=='mindeg':
-          Pnew.append((cf,cg,deg_of_critical_pair((cf,cg))))
-
-  if strategy == 'sugar': Pnew.sort(key=last_element_then_lcm)
-  elif strategy == 'normal': Pnew.sort(key=lcm_of_critical_pair)
-  elif strategy == 'mindeg': Pnew.sort(key=deg_of_critical_pair)
+  cdef list Pnew = [ Pd for Pd in P if Pd[1].value() == 0 ]
+  cdef int i
+  cdef MPolynomialRing_libsingular R = G[0].value().parent()
+  for i in xrange(1, len(G)):
+    Pnew = gm_update(R, Pnew, G[:i], LMs[:i], strategy, sugar_type)
 
   return Pnew
+
+#cpdef tuple rebuild_queue(list G, list LMs, list P, strategy, int sugar_type):
+#
+#  r'''
+#  Rebuilds the S-polynomial queue (for use when the ordering changes)
+#  '''
+#
+#  cdef list Pnew = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
+#  cdef clothed_polynomial cf, cg, g
+#  cdef MPolynomial_libsingular p
+#  cdef int i, j
+#
+#  cdef MPolynomialRing_libsingular PR = G[0].value().parent()
+#  G = [ clothed_polynomial(p, sugar_type) for p in PR.ideal([g.value() for g in G]).interreduced_basis()]
+#  LMs = [ g.value().lm() for g in G ]
+#
+#  #Rebuild according to the Buchberger graph criterion
+#  for i in xrange(len(G)):
+#    for j in xrange(i):
+#      if is_edge(i, j, LMs):
+#        cf = G[i]
+#        cg = G[j]
+#        if strategy=='sugar':
+#            Pnew.append((cf,cg,sug_of_critical_pair((cf,cg), sugar_type)))
+#        elif strategy=='normal':
+#            Pnew.append((cf,cg,lcm_of_critical_pair((cf,cg))))
+#        elif strategy=='mindeg':
+#            Pnew.append((cf,cg,deg_of_critical_pair((cf,cg))))
+#
+#  if strategy == 'sugar': Pnew.sort(key=last_element_then_lcm)
+#  elif strategy == 'normal': Pnew.sort(key=lcm_of_critical_pair)
+#  elif strategy == 'mindeg': Pnew.sort(key=deg_of_critical_pair)
+#
+#  return Pnew, G, LMs
 
 #TODO fix bug that happens when the number of dynamic iterations is smaller than number of polys
 @cython.profile(True)
@@ -598,6 +613,7 @@ cpdef tuple dynamic_gb \
 
     # select critical pairs of minimal degree
     Pd = P.pop(0)
+    print 'queue', len(P), len(G)
 
     #Stop here and return ordering if asked
     if iteration_count >= itmax:
@@ -682,7 +698,6 @@ cpdef tuple dynamic_gb \
             G[k].set_value(PR(G[k].value()))
             LTs.append(G[k].value().lm())
 
-          #TODO check if after rebuild P is still in sugar order....
           if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
             if unrestricted or random or perturbation or simplex:
               P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, sugar_type)
@@ -700,9 +715,9 @@ cpdef tuple dynamic_gb \
         #print "have new polys and new lts"
         #print PR.term_order()
         P = gm_update(PR, P, G, LTs, strategy, sugar_type)
+        #print "queue", len(P)
         #print "updated P"
         m = len(G)
-
 
   # done; prune redundant elements
   i = m - 1
