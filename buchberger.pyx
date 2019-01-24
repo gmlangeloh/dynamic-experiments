@@ -613,7 +613,6 @@ cpdef tuple dynamic_gb \
 
     # select critical pairs of minimal degree
     Pd = P.pop(0)
-    print 'queue', len(P), len(G)
 
     #Stop here and return ordering if asked
     if iteration_count >= itmax:
