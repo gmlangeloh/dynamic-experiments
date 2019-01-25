@@ -227,3 +227,11 @@ class Benchmark:
         n = self.ideal.ring().ngens()
         m = len(self.ideal.gens())
         return (n, m) + _metadata(self.ideal.gens()) + self.hilbert_metadata()
+
+    def data(self):
+        n = self.ideal.ring().ngens()
+        m = len(self.ideal.gens())
+        k = self.ideal.ring().base_ring().characteristic()
+        deg = max([ f.total_degree(True) for f in self.ideal.gens() ])
+        mon = sum([ len(f.monomials()) for f in self.ideal.gens() ])
+        return n, m, k, mon, deg
