@@ -501,11 +501,26 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
     np.set_real(np[k])
     np.set_max(np[k],64000)
 
+
   # set up new solution
   result = (t,sol,np)
   #print np.number_of_constraints(), "constraints"
   #print "returning solution"
   return result
+
+cpdef list possible_lts_all(MPolynomial_libsingular f):
+  cdef list U = f.monomials()
+  cdef list M = []
+  cdef MPolynomial_libsingular ux
+  cdef tuple u
+
+  for ux in U:
+
+    if ux != 1:
+      u = ux.exponents(as_ETuples=False)[0]
+      M.append((u, ux))
+
+  return M
 
 @cython.profile(True)
 cpdef list possible_lts(MPolynomial_libsingular f, set boundary_vectors, \
@@ -616,7 +631,8 @@ restricted_iterations = 1
 cpdef tuple choose_ordering_restricted \
     (list G, list current_Ts, int mold, list current_ordering, \
      MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, \
-     int use_dcs, bool print_candidates, str heuristic):
+     int use_dcs, bool print_candidates, str heuristic, \
+     bool all_possible_lts=False):
   r"""
     Chooses a weight vector for a term ordering for the basis ``G`` that refines
     the weight vector that solves ``lp``.
@@ -679,7 +695,10 @@ cpdef tuple choose_ordering_restricted \
     #print "finding lts for", i
     g = G[i].value()
     #print len(g.monomials()), "monomials to start with"
-    CLTs = possible_lts(g, bvs, use_bvs)
+    if all_possible_lts:
+      CLTs = possible_lts_all(g)
+    else:
+      CLTs = possible_lts(g, bvs, use_bvs)
     if print_candidates:
       print restricted_iterations, len(CLTs)
     restricted_iterations += 1
@@ -702,7 +721,7 @@ cpdef tuple choose_ordering_restricted \
     found = False
     j = 0
 
-    while not found and CLTs[j][1] != g.lm():
+    while not found and (CLTs[j][1] != g.lm() or all_possible_lts):
 
       #print "testing", CLTs[j], "against", g.lm()
       #print j, LTups, CLTs
@@ -723,7 +742,7 @@ cpdef tuple choose_ordering_restricted \
     #print "success with monomial", j, CLTs[j], LTups[j]
     # no point in finding boundary vectors if g has the same leading term as
     #before
-    if CLTs[j][1] == g.lm(): return current_ordering, lp, bvs
+    if CLTs[j][1] == g.lm() and not all_possible_lts: return current_ordering, lp, bvs
     t = <MPolynomial_libsingular>CLTs[j][1]
     current_Ts.append(t) # hmm
     G[i].set_value(G[i].value() * G[i].value().coefficient(t)**(-1)) # make polynomial monic
