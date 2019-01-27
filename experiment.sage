@@ -118,6 +118,26 @@ def run_regrets(instance_path):
                        use_disjoint_cones=False, use_boundary_vectors=False)
     sys.stdout.flush()
 
+def run_gs_then_cp(instance_path):
+  B = Benchmark(instance_path)
+  if valid_instance(B):
+    name = instance_name(instance_path)
+    print name,
+    dummy = dynamic_gb(B.ideal.gens(), strategy='sugar', print_results=True, \
+                       heuristic=global_heuristic, unrestricted=True, \
+                       max_calls=len(B.ideal.gens()))
+    sys.stdout.flush()
+
+def run_simplex_then_cp(instance_path):
+  B = Benchmark(instance_path)
+  if valid_instance(B):
+    name = instance_name(instance_path)
+    print name,
+    dummy = dynamic_gb(B.ideal.gens(), strategy='sugar', print_results=True, \
+                       heuristic=global_heuristic, simplex=True, \
+                       max_calls=20)
+    sys.stdout.flush()
+
 instance_glob = './instances/*.ideal'
 global_heuristic = 'hilbert'
 init_order = 'grevlex'
@@ -155,6 +175,10 @@ if len(sys.argv) > 2:
     run_simplex(sys.argv[1])
   elif sys.argv[2] == 'regrets':
     run_regrets(sys.argv[1])
+  elif sys.argv[2] == 'gs-then-cp':
+    run_gs_then_cp(sys.argv[1])
+  elif sys.argv[2] == 'simplex-then-cp':
+    run_simplex_then_cp(sys.argv[1])
 
 sys.stderr.write("Finished" + sys.argv[1] + "\n")
 sys.stderr.flush()
