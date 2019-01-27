@@ -489,10 +489,9 @@ cpdef tuple choose_ordering_unrestricted(list G, old_polyhedron, str heuristic,\
   return best_order, new_polyhedron, prev_hilb
 
 @cython.profile(True)
-cpdef tuple choose_cone_ordering\
+cpdef tuple choose_regrets_ordering\
     (list G, list current_ordering, list constraints, \
-     MixedIntegerLinearProgram lp, set rejects, set bvs, int use_bvs, \
-     int use_dcs, str heuristic):
+     MixedIntegerLinearProgram lp, str heuristic):
   r"""
   Choose an ordering in an unrestricted way but based on Perry's algorithm.
   Idea: reinserting previously computed polynomials, in order to choose new LMs for them.
@@ -505,7 +504,7 @@ cpdef tuple choose_cone_ordering\
   cdef int i, j, k = len(G)
   cdef MPolynomialRing_libsingular R = G[0].value().parent()
   cdef int new_beginning = lp.number_of_constraints()
-  cdef tuple result = choose_ordering_restricted(G, [ G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs, False, heuristic)
+  cdef tuple result = choose_ordering_restricted(G, [ G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, set(), set(), False, False, False, heuristic, True)
   current_ordering = result[0]
   lp = result[1]
   bvs = result[2]
@@ -517,32 +516,30 @@ cpdef tuple choose_cone_ordering\
 
   #STEP 2: build the lists of useful and useless LTs
 
-  #We need to implement a criterion to decide which previous LTs are useless
-  #TODO this is not very efficient. In practice, this could be computed once and updated on changes!
-  cdef list useful_LTs = []
+  ##We need to implement a criterion to decide which previous LTs are useless
+  ##TODO this is not very efficient. In practice, this could be computed once and updated on changes!
+  #cdef list useful_LTs = []
   cdef list useless_LTs = []
   for i in xrange(k):
     if any([ monomial_divides(G[j].value().lm(), G[i].value().lm()) for j in xrange(k) if j != i ]):
       useless_LTs.append(i) #lm of G[i] is useless
-    else: #lm of G[i] is useful, add to list
-      useful_LTs.append(G[i].value().lm())
+  #  else: #lm of G[i] is useful, add to list
+  #    useful_LTs.append(G[i].value().lm())
 
-  #print useless_LTs
+  ##print useless_LTs
 
-  #STEP 3: Choose an old polynomial and reinsert it using Caboara and Perry's restricted criterion
+  ##STEP 3: Choose an old polynomial and reinsert it using Caboara and Perry's restricted criterion
   cdef int reinsert
   if len(useless_LTs) == 0:
     return result + (constraints, False)
   else:
-    #reinsert = useless_LTs[randint(0, len(useless_LTs)-1)] #TODO This suffices as criterion for now, we can find a better one latter
-    reinsert = randint(0, len(G)-2)
+    reinsert = choice(useless_LTs)
 
   #We need to keep a list of which constraints in lp correspond to which polynomials.
   #Then we remove relevant constraints from lp when a polynomial is removed and reinserted.
 
   #constraints is a list of tuples, each tuple with the beginning and end indices of constraints
   beginning, end = constraints[reinsert]
-  print constraints
   if beginning != end:
     lp.remove_constraints(xrange(beginning, end))
 
@@ -554,10 +551,10 @@ cpdef tuple choose_cone_ordering\
   cdef clothed_polynomial g = G.pop(reinsert)
   constraints.pop(reinsert)
 
-  print "showing g", g.value().lm()
+  #print "showing g", g.value().lm()
   G.append(g)
   new_beginning = lp.number_of_constraints()
-  result = choose_ordering_restricted(G, [G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, rejects, bvs, use_bvs, use_dcs, False, heuristic)
+  result = choose_ordering_restricted(G, [G[i].value().lm() for i in xrange(k-1)], k-1, current_ordering, lp, set(), set(), False, False, False, heuristic, True)
   new_end = lp.number_of_constraints()
   constraints.append((new_beginning, new_end))
 

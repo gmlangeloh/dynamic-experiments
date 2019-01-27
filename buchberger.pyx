@@ -427,40 +427,6 @@ cpdef list rebuild_queue(list G, list LMs, list P, str strategy, int sugar_type)
 
   return Pnew
 
-#cpdef tuple rebuild_queue(list G, list LMs, list P, strategy, int sugar_type):
-#
-#  r'''
-#  Rebuilds the S-polynomial queue (for use when the ordering changes)
-#  '''
-#
-#  cdef list Pnew = [ Pd for Pd in P if Pd[1].value() == 0 ] #keep unprocessed input polys in queue
-#  cdef clothed_polynomial cf, cg, g
-#  cdef MPolynomial_libsingular p
-#  cdef int i, j
-#
-#  cdef MPolynomialRing_libsingular PR = G[0].value().parent()
-#  G = [ clothed_polynomial(p, sugar_type) for p in PR.ideal([g.value() for g in G]).interreduced_basis()]
-#  LMs = [ g.value().lm() for g in G ]
-#
-#  #Rebuild according to the Buchberger graph criterion
-#  for i in xrange(len(G)):
-#    for j in xrange(i):
-#      if is_edge(i, j, LMs):
-#        cf = G[i]
-#        cg = G[j]
-#        if strategy=='sugar':
-#            Pnew.append((cf,cg,sug_of_critical_pair((cf,cg), sugar_type)))
-#        elif strategy=='normal':
-#            Pnew.append((cf,cg,lcm_of_critical_pair((cf,cg))))
-#        elif strategy=='mindeg':
-#            Pnew.append((cf,cg,deg_of_critical_pair((cf,cg))))
-#
-#  if strategy == 'sugar': Pnew.sort(key=last_element_then_lcm)
-#  elif strategy == 'normal': Pnew.sort(key=lcm_of_critical_pair)
-#  elif strategy == 'mindeg': Pnew.sort(key=deg_of_critical_pair)
-#
-#  return Pnew, G, LMs
-
 #TODO fix bug that happens when the number of dynamic iterations is smaller than number of polys
 @cython.profile(True)
 cpdef tuple dynamic_gb \
@@ -672,9 +638,7 @@ cpdef tuple dynamic_gb \
                                       heuristic, len(P), prev_hilbert_degree)
           elif reinsert:
             current_ordering, lp, boundary_vectors, constraints, changed = \
-              choose_cone_ordering(G, current_ordering, constraints, lp, \
-                                   rejects, boundary_vectors, \
-                                   use_boundary_vectors, use_disjoint_cones, \
+              choose_regrets_ordering(G, current_ordering, constraints, lp, \
                                    heuristic)
           else:
             current_ordering, lp, boundary_vectors = \
@@ -700,7 +664,7 @@ cpdef tuple dynamic_gb \
           if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
             if unrestricted or random or perturbation or simplex:
               P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, sugar_type)
-            elif reinsert and changed:
+            elif reinsert:
               P = gm_update(PR, P, G[:len(G)-1], LTs[:len(LTs)-1], strategy, \
                             sugar_type) #do update w.r.t new poly
             else:
