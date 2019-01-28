@@ -33,7 +33,6 @@ random-mixed/cyclicn5.test
 random-mixed/econ2.test
 random-mixed/econ7.test
 random-mixed/ducos7_3.test
-random-mixed/ducos7_5.test
 random-mixed/r7_2_2.test
 random-mixed/rose.test
 random-mixed/r6_2_2_h.test
@@ -41,8 +40,6 @@ random-mixed/solotarev.test
 random-mixed/aubry2.test
 random-mixed/econ5.test
 random-mixed/econ3.test
-random-hilbert/ducos7_5.test
-perturb-hilbert/ducos7_5.test
 perturb-mixed/cyclicn3.test
 perturb-mixed/r7_2_2_h.test
 perturb-mixed/hfe_segers.test
@@ -67,7 +64,6 @@ perturb-mixed/econ2.test
 perturb-mixed/econ7.test
 perturb-mixed/cyclicn6.test
 perturb-mixed/ducos7_3.test
-perturb-mixed/ducos7_5.test
 perturb-mixed/r7_2_2.test
 perturb-mixed/rose.test
 perturb-mixed/r6_2_2_h.test
@@ -88,14 +84,12 @@ simplex-mixed/solotarev.test
 simplex-mixed/aubry2.test
 simplex-mixed/econ5.test
 simplex-mixed/econ3.test
-gs-then-cp-hilbert/ducos7_5.test
 gs-then-cp-mixed/cyclicn3.test
 gs-then-cp-mixed/cyclicn2.test
 gs-then-cp-mixed/sparsesym5.test
 gs-then-cp-mixed/econ2.test
 gs-then-cp-mixed/lichtblau.test
 gs-then-cp-mixed/econ3.test
-simplex-then-cp-hilbert/ducos7_5.test
 simplex-then-cp-mixed/cyclicn2.test
 simplex-then-cp-mixed/econ4.test
 simplex-then-cp-mixed/sendra.test
