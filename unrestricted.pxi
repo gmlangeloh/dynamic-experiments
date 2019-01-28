@@ -343,7 +343,8 @@ cpdef tuple choose_simplex_ordering\
 
     CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
     if heuristic == 'hilbert' or heuristic == 'mixed':
-      prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
+      if CLTs[0][0] != ():
+        prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
     best_w = CLTs[0][2][1] #Take first improvement
     CLTs = [ CLTs[0][2] ]
     lp.set_objective(best_w)
@@ -391,7 +392,8 @@ cpdef tuple choose_random_ordering(list G, list current_ordering, str heuristic,
   #Evaluate CLTs with Hilbert function
   CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
   if heuristic == 'hilbert' or heuristic == 'mixed':
-    prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
+    if CLTs[0][0] != ():
+      prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
   #best_order = min_weights_by_Hilbert_heuristic(R, CLTs)
   best_order = CLTs[0][2][1]
 
@@ -445,7 +447,8 @@ cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
     CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
     curr_w = CLTs[0][2][1] #Work in a first improvement basis
     if heuristic == 'hilbert' or heuristic == 'mixed':
-      prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
+      if CLTs[0][0] != ():
+        prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
     CLTs = [ CLTs[0][2] ]
 
   return curr_w, prev_hilb
@@ -481,7 +484,8 @@ cpdef tuple choose_ordering_unrestricted(list G, old_polyhedron, str heuristic,\
     CLTs.append( (LTs, w) )
     CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
     if heuristic == 'hilbert' or heuristic == 'mixed':
-      prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
+      if CLTs[0][0] != ():
+        prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.
     CLTs = [ CLTs[0][2] ]
 
   cdef list best_order = CLTs[0][1]
