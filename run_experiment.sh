@@ -1,13 +1,20 @@
 #!/bin/bash
 
-MAX_TIME="30m"
-ERRORS='errors.out'
-INSTANCE_PATH='./instances'
-INSTANCE_LIST=$(find ${INSTANCE_PATH} -type f -name '*.ideal')
-
 ALGORITHM=$1
 HEURISTIC=$2
-EXTRA=$3
+
+MAX_TIME="30m"
+ERRORS='errors.out'
+if [ -z "$3" ]
+then
+    INSTANCE_PATH='./instances'
+elif [ "$3" -eq "random" ]
+    EXTRA=$3
+else
+    INSTANCE_PATH=$3
+fi
+
+INSTANCE_LIST=$(find ${INSTANCE_PATH} -type f -name '*.ideal')
 
 function experiment {
     filename=$(basename -- $1)
