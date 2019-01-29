@@ -29,11 +29,27 @@ caboara-hilbert
 caboara-betti
 caboara-mixed
 gs-hilbert
-simplex-hilbert
-perturb-hilbert
-perturb-random-hilbert
+gs-betti
+gs-mixed
 random-hilbert
 random-betti
+random-mixed
+perturb-hilbert
+perturb-betti
+perturb-mixed
+perturb-random-hilbert
+simplex-hilbert
+simplex-betti
+simplex-mixed
+regrets-hilbert
+regrets-betti
+regrets-mixed
+gs-then-cp-hilbert
+gs-then-cp-betti
+gs-then-cp-mixed
+simplex-then-cp-hilbert
+simplex-then-cp-betti
+simplex-then-cp-mixed
 "
 
 for algorithm in $ALGORITHMS

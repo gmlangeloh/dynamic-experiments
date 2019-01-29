@@ -8,7 +8,8 @@ ERRORS='errors.out'
 if [ -z "$3" ]
 then
     INSTANCE_PATH='./instances'
-elif [ "$3" -eq "random" ]
+elif [ "$3" = "random" ]
+then
     EXTRA=$3
 else
     INSTANCE_PATH=$3

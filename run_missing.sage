@@ -12,7 +12,9 @@ for line in missing:
   heuristic = algo_and_heuristic.split('-')[-1]
   instance = "./instances/" + words[1].split(".")[0] + ".ideal"
   if (algorithm, heuristic) in to_run:
-    to_run.append(instance)
+    to_run[(algorithm, heuristic)].append(instance)
+  else:
+    to_run[(algorithm, heuristic)] = [instance]
 
 algorithms = {
     'static' : 'static',
@@ -30,13 +32,13 @@ algorithms = {
 def run(algorithm, heuristic):
   dirname = "./inst-" + algorithm + "-" + heuristic
   os.mkdir(dirname)
-  for i in to_run[(algorithm, instance)]:
-    subprocess.call(['cp', i, dirname])
+  for i in to_run[(algorithm, heuristic)]:
+    subprocess.call('cp ' + i + ' ' + dirname, shell=True)
   args = [ algorithms[algorithm], heuristic, dirname ]
   subprocess.call(['./run_experiment.sh'] + args)
   #TODO Have to put results in correct directory
   target = algorithm + '-' + heuristic + '/'
-  subprocess.call(['mv', '*.test', target], shell=True)
+  subprocess.call('mv *.test ' + target, shell=True)
   os.rmdir(dirname)
 
 for (algorithm, heuristic) in to_run:

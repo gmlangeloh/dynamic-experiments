@@ -18,5 +18,10 @@ for filename in files:
       f.seek(0)
       f.write(instance_name + " inf inf inf inf inf inf\n")
       f.truncate()
+    elif len(line0.split()) == 1 and line0.split()[0] != 'inf':
+      name = line0.split()[0]
+      f.seek(0)
+      f.write(name + " inf inf inf inf inf inf\n")
+      f.truncate()
 
 #print "Empty files: ", empty_files
