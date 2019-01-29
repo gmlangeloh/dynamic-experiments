@@ -57,6 +57,10 @@ class NVarResults:
   def _average(self):
     i = float(len(self.instances))
     j = float(len(self.instances) - self.timeouts)
+    if len(self.instances) == self.timeouts:
+      Inf = float('inf')
+      sys.stderr.write("No instances of size: " + str(self.n) + "\n")
+      return self.time_timeouts / i, Inf, Inf, Inf, Inf, Inf, Inf
     return self.time_timeouts / i , self.time / j, self.overhead / j, \
       self.polynomials / j, self.monomials / j, self.max_degree / j, \
       self.reductions / j
