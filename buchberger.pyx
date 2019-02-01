@@ -422,7 +422,7 @@ cpdef list rebuild_queue(list G, list LMs, list P, str strategy, int sugar_type)
   cdef list Pnew = [ Pd for Pd in P if Pd[1].value() == 0 ]
   cdef int i
   cdef MPolynomialRing_libsingular R = G[0].value().parent()
-  for i in xrange(1, len(G)):
+  for i in xrange(1, 1+len(G)):
     Pnew = gm_update(R, Pnew, G[:i], LMs[:i], strategy, sugar_type)
 
   return Pnew
@@ -661,7 +661,7 @@ cpdef tuple dynamic_gb \
             G[k].set_value(PR(G[k].value()))
             LTs.append(G[k].value().lm())
 
-          if len(oldLTs) > 2 and oldLTs != LTs[:len(LTs)-1]:
+          if len(oldLTs) > 0 and oldLTs != LTs[:len(LTs)-1]:
             if unrestricted or random or perturbation or simplex:
               P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, sugar_type)
             elif reinsert:
@@ -708,6 +708,6 @@ cpdef tuple dynamic_gb \
   #print current_ordering
 
   #Check that the results are correct
-  assert PR.ideal(reducers) == PR.ideal(F), "Output basis generates wrong ideal"
   assert PR.ideal(reducers).gens().is_groebner(), "Output basis is not a GB"
+  assert PR.ideal(reducers) == PR.ideal(F), "Output basis generates wrong ideal"
   return reducers, LTs, rejects, G
