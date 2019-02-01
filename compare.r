@@ -49,17 +49,55 @@ algorithmname <- function(path) {
 
 meanratios <- function() {
   files <- list.files(path="raw-results", pattern="*.out", full.names=TRUE, recursive=FALSE)
-  df <- data.frame(matrix(ncol=7, nrow=0))
-  colnames(df) <- c("Algorithm1, Algorithm2, t, polys, mons, deg, reds")
+  df <- data.frame(matrix(ncol=8, nrow=0))
+  colnames(df) <- c("Algorithm1, Algorithm2, no_t, t, polys, mons, deg, reds")
   for (i in 1:length(files)) {
     for (j in 1:i) {
       if (i != j) {
         mf <- compare(files[[i]], files[[j]])
         name1 <- algorithmname(files[[i]])
 	name2 <- algorithmname(files[[j]])
-        nf <- data.frame("Algorithm1"=name1, "Algorithm2"=name2, "t"=mean(mf$t_ratio), "polys"=mean(mf$polys_ratio), "mons"=mean(mf$mons_ratio), "deg"=mean(mf$deg_ratio), "reds"=mean(mf$reds_ratio))
+        nf <- data.frame("Algorithm1"=name1, "Algorithm2"=name2, "no_t"=nrow(mf),"t"=mean(mf$t_ratio), "polys"=mean(mf$polys_ratio), "mons"=mean(mf$mons_ratio), "deg"=mean(mf$deg_ratio), "reds"=mean(mf$reds_ratio))
   	df <- rbind(df, nf)
       }
+    }
+  }
+  library(xtable)
+  print(xtable(df), include.rownames=F)
+  return(df)
+}
+
+bettivsmixed <- function() {
+  betti <- list.files(path="raw-results", pattern="*betti.out", full.names=TRUE, recursive=FALSE)
+  mixed <- list.files(path="raw-results", pattern="*mixed.out", full.names=TRUE, recursive=FALSE)
+  df <- data.frame(matrix(ncol=8, nrow=0))
+  colnames(df) <- c("Algorithm1, Algorithm2, no_t, t, polys, mons, deg, reds")
+  for (i in 1:length(betti)) {
+    for (j in 1:length(mixed)) {
+      mf <- compare(betti[[i]], mixed[[j]])
+      name1 <- algorithmname(betti[[i]])
+      name2 <- algorithmname(mixed[[j]])
+      nf <- data.frame("Algorithm1"=name1, "Algorithm2"=name2, "no_t"=nrow(mf), "t"=mean(mf$t_ratio), "polys"=mean(mf$polys_ratio), "mons"=mean(mf$mons_ratio), "deg"=mean(mf$deg_ratio), "reds"=mean(mf$reds_ratio))
+      df <- rbind(df, nf)
+    }
+  }
+  library(xtable)
+  print(xtable(df), include.rownames=F)
+  return(df)
+}
+
+hilbertvsmixed <- function() {
+  hilbert <- list.files(path="raw-results", pattern="*hilbert.out", full.names=TRUE, recursive=FALSE)
+  mixed <- list.files(path="raw-results", pattern="*mixed.out", full.names=TRUE, recursive=FALSE)
+  df <- data.frame(matrix(ncol=8, nrow=0))
+  colnames(df) <- c("Algorithm1, Algorithm2, no_t, t, polys, mons, deg, reds")
+  for (i in 1:length(hilbert)) {
+    for (j in 1:length(mixed)) {
+      mf <- compare(hilbert[[i]], mixed[[j]])
+      name1 <- algorithmname(hilbert[[i]])
+      name2 <- algorithmname(mixed[[j]])
+      nf <- data.frame("Algorithm1"=name1, "Algorithm2"=name2, "no_t"=nrow(mf), "t"=mean(mf$t_ratio), "polys"=mean(mf$polys_ratio), "mons"=mean(mf$mons_ratio), "deg"=mean(mf$deg_ratio), "reds"=mean(mf$reds_ratio))
+      df <- rbind(df, nf)
     }
   }
   library(xtable)
