@@ -140,6 +140,13 @@ min_max_sizes <- function() {
   return(m[, c('V1', 'minbasis', 'minarg', 'maxbasis')])
 }
 
+count_str <- function(col1, col2) {
+  smaller <- sum(col1 < col2)
+  equals <- sum(col1 == col2)
+  larger <- sum(col1 > col2)
+  paste(c(toString(smaller), '/', toString(equals), '/', toString(larger)), collapse='')
+}
+
 compare_all_wrt_param <- function(parameter) {
   static <- "raw-results/static.out"
   hilbert <- c(static, list.files(path="raw-results", pattern="*hilbert.out", full.names=TRUE, recursive=FALSE))
@@ -148,6 +155,7 @@ compare_all_wrt_param <- function(parameter) {
 
   #Ratio matrix for this parameter --- row algorithm / col algorithm
   m <- matrix(ncol=total_algorithms, nrow=total_algorithms)
+  mcount <- matrix(ncol=total_algorithms, nrow=total_algorithms)
   param1 <- paste(parameter, '.x', sep='')
   param2 <- paste(parameter, '.y', sep='')
 
@@ -168,6 +176,7 @@ compare_all_wrt_param <- function(parameter) {
       res <- col1 / col2
       res[is.nan(res)] <- 1
       m[i, j] <- gmean(res)
+      mcount[i, j] <- count_str(col1, col2)
     }
   }
 
@@ -178,6 +187,11 @@ compare_all_wrt_param <- function(parameter) {
   colnames(df) <- c(names)
   rownames(df) <- c(algorithms)
   print(xtable(df, caption=parameter, digits=2), include.rownames=T)
+
+  df2 <- data.frame(mcount)
+  colnames(df2) <- c(names)
+  rownames(df2) <- c(algorithms)
+  print(xtable(df2, caption=parameter), include.rownames=T)
   return(df)
 }
 
