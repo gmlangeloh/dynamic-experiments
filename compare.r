@@ -1,3 +1,7 @@
+gmean <- function(data) {
+  return(exp(mean(log(data))))
+}
+
 lteqgt <- function(col1, col2) {
 
   print(sum(col1 < col2))
@@ -47,6 +51,18 @@ algorithmname <- function(path) {
   return(algorithm[[1]][1])
 }
 
+algorithmname_noheuristic <- function(path) {
+  name_heuristic <- algorithmname(path)
+  name <- strsplit(name_heuristic, "-", fixed=T)
+  l <- length(name[[1]])
+  fullname <- name[[1]][1:(l-1)]
+  return(paste(fullname, collapse='-'))
+}
+
+algorithmnames_noheuristic <- function(paths) {
+  lapply(paths, algorithmname_noheuristic)
+}
+
 meanratios <- function() {
   files <- list.files(path="raw-results", pattern="*.out", full.names=TRUE, recursive=FALSE)
   df <- data.frame(matrix(ncol=8, nrow=0))
@@ -67,18 +83,22 @@ meanratios <- function() {
   return(df)
 }
 
-bettivsmixed <- function() {
-  betti <- list.files(path="raw-results", pattern="*betti.out", full.names=TRUE, recursive=FALSE)
-  mixed <- list.files(path="raw-results", pattern="*mixed.out", full.names=TRUE, recursive=FALSE)
+compare_heuristics <- function(heuristic1, heuristic2) {
+  patternh1 <- paste(c('*', heuristic1, '.out'), collapse='')
+  patternh2 <- paste(c('*', heuristic2, '.out'), collapse='')
+  filesh1 <- list.files(path="raw-results", pattern=patternh1, full.names=TRUE, recursive=FALSE)
+  filesh2 <- list.files(path="raw-results", pattern=patternh2, full.names=TRUE, recursive=FALSE)
   df <- data.frame(matrix(ncol=8, nrow=0))
   colnames(df) <- c("Algorithm1, Algorithm2, no_t, t, polys, mons, deg, reds")
-  for (i in 1:length(betti)) {
-    for (j in 1:length(mixed)) {
-      mf <- compare(betti[[i]], mixed[[j]])
-      name1 <- algorithmname(betti[[i]])
-      name2 <- algorithmname(mixed[[j]])
-      nf <- data.frame("Algorithm1"=name1, "Algorithm2"=name2, "no_t"=nrow(mf), "t"=mean(mf$t_ratio), "polys"=mean(mf$polys_ratio), "mons"=mean(mf$mons_ratio), "deg"=mean(mf$deg_ratio), "reds"=mean(mf$reds_ratio))
-      df <- rbind(df, nf)
+  for (i in 1:length(filesh1)) {
+    for (j in 1:length(filesh2)) {
+      if (algorithmname_noheuristic(filesh1[[i]]) == algorithmname_noheuristic(filesh2[[j]])) {
+        mf <- compare(filesh1[[i]], filesh2[[j]])
+        name1 <- algorithmname(filesh1[[i]])
+        name2 <- algorithmname(filesh2[[j]])
+        nf <- data.frame("Algorithm1"=name1, "Algorithm2"=name2, "no_t"=nrow(mf), "t"=gmean(mf$t_ratio), "polys"=gmean(mf$polys_ratio), "mons"=gmean(mf$mons_ratio), "deg"=gmean(mf$deg_ratio), "reds"=gmean(mf$reds_ratio))
+        df <- rbind(df, nf)
+      }
     }
   }
   library(xtable)
@@ -86,23 +106,10 @@ bettivsmixed <- function() {
   return(df)
 }
 
-hilbertvsmixed <- function() {
-  hilbert <- list.files(path="raw-results", pattern="*hilbert.out", full.names=TRUE, recursive=FALSE)
-  mixed <- list.files(path="raw-results", pattern="*mixed.out", full.names=TRUE, recursive=FALSE)
-  df <- data.frame(matrix(ncol=8, nrow=0))
-  colnames(df) <- c("Algorithm1, Algorithm2, no_t, t, polys, mons, deg, reds")
-  for (i in 1:length(hilbert)) {
-    for (j in 1:length(mixed)) {
-      mf <- compare(hilbert[[i]], mixed[[j]])
-      name1 <- algorithmname(hilbert[[i]])
-      name2 <- algorithmname(mixed[[j]])
-      nf <- data.frame("Algorithm1"=name1, "Algorithm2"=name2, "no_t"=nrow(mf), "t"=mean(mf$t_ratio), "polys"=mean(mf$polys_ratio), "mons"=mean(mf$mons_ratio), "deg"=mean(mf$deg_ratio), "reds"=mean(mf$reds_ratio))
-      df <- rbind(df, nf)
-    }
-  }
-  library(xtable)
-  print(xtable(df), include.rownames=F)
-  return(df)
+compare_all_heuristics <- function() {
+  compare_heuristics('betti', 'mixed')
+  compare_heuristics('hilbert', 'betti')
+  compare_heuristics('hilbert', 'mixed')
 }
 
 min_max_sizes <- function() {
@@ -131,4 +138,54 @@ min_max_sizes <- function() {
   m$minarg <- colnames(m)[apply(m, 1, which.min)]
   m$V1 <- V1
   return(m[, c('V1', 'minbasis', 'minarg', 'maxbasis')])
+}
+
+compare_all_wrt_param <- function(parameter) {
+  static <- "raw-results/static.out"
+  hilbert <- c(static, list.files(path="raw-results", pattern="*hilbert.out", full.names=TRUE, recursive=FALSE))
+  mixed <- c(static, list.files(path="raw-results", pattern="*mixed.out", full.names=TRUE, recursive=FALSE))
+  total_algorithms <- length(hilbert)
+
+  #Ratio matrix for this parameter --- row algorithm / col algorithm
+  m <- matrix(ncol=total_algorithms, nrow=total_algorithms)
+  param1 <- paste(parameter, '.x', sep='')
+  param2 <- paste(parameter, '.y', sep='')
+
+  for (i in 1:total_algorithms) {
+    for (j in 1:total_algorithms) {
+      if (i < j) { #Hilbert
+        algo1 <- read.table(hilbert[[i]], header=F)
+        algo2 <- read.table(hilbert[[j]], header=F)
+      }
+      else { #Mixed
+        algo1 <- read.table(mixed[[i]], header=F)
+        algo2 <- read.table(mixed[[j]], header=F)
+      }
+      mf <- merge(algo1, algo2, by='V1')
+      mf <- mf[which(mf$V4.x != Inf & mf$V4.y != Inf), ]
+      col1 <- mf[[param1]]
+      col2 <- mf[[param2]]
+      res <- col1 / col2
+      res[is.nan(res)] <- 1
+      m[i, j] <- gmean(res)
+    }
+  }
+
+  #Make a nice data frame with named rows/columns and print
+  names <- algorithmnames_noheuristic(hilbert)
+  algorithms <- lapply(names, function(x) paste('row-', x, sep=''))
+  df <- data.frame(m)
+  colnames(df) <- c(names)
+  rownames(df) <- c(algorithms)
+  print(xtable(df, caption=parameter, digits=2), include.rownames=T)
+  return(df)
+}
+
+compare_all <- function() {
+  compare_all_wrt_param('V2') #Time
+  compare_all_wrt_param('V4') #Basis size
+  compare_all_wrt_param('V5') #Monomials in basis
+  compare_all_wrt_param('V6') #Degrees
+  compare_all_wrt_param('V7') #s-reductions
+  return()
 }

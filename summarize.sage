@@ -88,3 +88,4 @@ with open(sys.argv[1], "r") as f:
 header()
 for n in xrange(min_nvars, max_nvars + 1):
   results[n].report()
+
