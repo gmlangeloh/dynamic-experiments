@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#Usage example: run_summarize.sh cp-hilbert
-
 function generate_summary(){
   EXPERIMENT_NAME=$1
   echo -n "Generating summary for ${EXPERIMENT_NAME}..."
