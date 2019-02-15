@@ -1,3 +1,7 @@
+'''
+Implementation of unrestricted algorithms.
+'''
+
 import cython
 
 from random import randint, choice
@@ -13,12 +17,12 @@ from sage.geometry.polyhedron.constructor import Polyhedron
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 cpdef GLPKBackend make_solver(int n):
-  r"""
+  '''
   Creates an empty model in a GLPK backend solver.
 
   OUTPUTS:
   - a GLPK backend
-  """
+  '''
 
   from sage.numerical.backends.generic_backend import get_solver
   import sage.numerical.backends.glpk_backend as backend
@@ -73,7 +77,7 @@ cpdef void update_linear_program(GLPKBackend lp, MPolynomial_libsingular p, list
 
 @cython.profile(True)
 cpdef list weight_vector(GLPKBackend lp, int n):
-  r"""
+  '''
   Returns the weight vector currently used as objective function in the linear
   programming model lp.
 
@@ -85,7 +89,7 @@ cpdef list weight_vector(GLPKBackend lp, int n):
   OUTPUTS:
 
   - a list representing a weight vector
-  """
+  '''
   cdef list w = []
   cdef int i
   #for i in xrange(lp.ncols() - n, lp.ncols()):
@@ -97,9 +101,9 @@ cpdef list weight_vector(GLPKBackend lp, int n):
 @cython.profile(True)
 cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int change_idx, int n):
 
-  r"""
+  '''
   Returns a list of weight vectors corresponding to neighboring orders to the optimum of lp.
-  """
+  '''
 
   cdef list vectors = []
   cdef list w
@@ -196,9 +200,9 @@ cpdef list lp_bounds(GLPKBackend lp):
 
 @cython.profile(True)
 cpdef list wide_sensitivity(GLPKBackend lp, int n, int coef = 0):
-  r"""
+  '''
   Implements the sensitivity analysis idea from Jensen et al, 1997.
-  """
+  '''
 
   #Make model here
   cdef int coef_change_idx, idx
@@ -295,7 +299,7 @@ cpdef tuple choose_simplex_ordering\
     (list G, list current_ordering, GLPKBackend lp, list vertices, str heuristic, \
      int prev_betti, int prev_hilb):
 
-  r"""
+  '''
 
   INPUTS:
 
@@ -308,7 +312,7 @@ cpdef tuple choose_simplex_ordering\
   OUTPUTS:
 
   - a list of weights representing a monomial order
-  """
+  '''
   global first
   cdef MPolynomialRing_libsingular R = G[0].value().parent()
   cdef MPolynomialRing_libsingular newR
@@ -355,7 +359,7 @@ cpdef tuple choose_simplex_ordering\
 @cython.profile(True)
 cpdef tuple choose_random_ordering(list G, list current_ordering, str heuristic,\
                                    int prev_betti, int prev_hilb, int iterations=10):
-  r"""
+  '''
   Chooses a weight vector for a term ordering for the basis ``G`` that is optimal
   with respect to the Hilbert tentative function on G among randomly generated orders.
 
@@ -368,7 +372,7 @@ cpdef tuple choose_random_ordering(list G, list current_ordering, str heuristic,
   OUTPUTS:
 
   - a weighted ordering, as a list of weights
-  """
+  '''
 
   cdef int n = G[0].value().parent().ngens()
   cdef list rand_weights = [ current_ordering ]
@@ -402,7 +406,7 @@ cpdef tuple choose_random_ordering(list G, list current_ordering, str heuristic,
 @cython.profile(True)
 cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
                                         str heuristic, int prev_betti, int prev_hilb):
-  r"""
+  '''
   Chooses a weight vector for polynomial system `G` randomly and then optimizes it
   locally for a few iterations using small perturbations.
 
@@ -415,7 +419,7 @@ cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
   OUTPUTS:
 
   - a weighted ordering, as a list of weights
-  """
+  '''
 
   cdef int n = G[0].value().parent().ngens()
   cdef list curr_w, w, LTs, CLTs
@@ -454,9 +458,9 @@ cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
   return curr_w, prev_hilb
 
 cpdef normal(v, P):
-  r"""
+  '''
   Computes a vector in the normal cone N(v, P)
-  """
+  '''
 
   cdef tuple inequalities = P.inequalities()
   cdef list indices = [ ieq.index() for ieq in v.incident() ]
@@ -496,13 +500,13 @@ cpdef tuple choose_ordering_unrestricted(list G, old_polyhedron, str heuristic,\
 cpdef tuple choose_regrets_ordering\
     (list G, list current_ordering, list constraints, \
      MixedIntegerLinearProgram lp, str heuristic):
-  r"""
+  '''
   Choose an ordering in an unrestricted way but based on Perry's algorithm.
   Idea: reinserting previously computed polynomials, in order to choose new LMs for them.
 
   I think Perry's simplifications of constraints make so that this doesn't work
   evidence: too many cases where no constraints are added - i.e., only one LM was possible
-  """
+  '''
 
   #STEP 1: apply Perry's algorithm on the new polynomial
   cdef int i, j, k = len(G)

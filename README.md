@@ -12,6 +12,7 @@ Calling from SageMath
 ---------------------
 
 Load the code with `load(buchberger.pyx)` and call the `dynamic_gb` function.
+See the function docstring for additional information on its arguments.
 
 Running experiments
 -------------------
@@ -21,6 +22,7 @@ Requires GNU Parallel. To run an experiment, run:
 `./run_experiment.sh <algorithm> <heuristic>`
 
 where <algorithm> is one of:
+
   - static
   - caboara-perry
   - random
@@ -29,7 +31,9 @@ where <algorithm> is one of:
   - gritzmann-sturmfels
   - simplex
   - gs-then-cp
+
 and <heuristic> is one of:
+
   - hilbert
   - betti
   - mixed
@@ -43,6 +47,7 @@ Requires R/Rscript and Python. To make all tables, run:
 
 Result files (output of `run_experiment.sh`) are expected to be in the following
 directories:
+
   - static
   - cp-hilbert
   - cp-betti
