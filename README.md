@@ -19,9 +19,9 @@ Running experiments
 
 Requires GNU Parallel. To run an experiment, run:
 
-`./run_experiment.sh <algorithm> <heuristic>`
+`./run_experiment.sh algorithm heuristic`
 
-where <algorithm> is one of:
+where algorithm is one of:
 
   - static
   - caboara-perry
@@ -32,7 +32,7 @@ where <algorithm> is one of:
   - simplex
   - gs-then-cp
 
-and <heuristic> is one of:
+and heuristic is one of:
 
   - hilbert
   - betti
