@@ -21,18 +21,18 @@ Requires GNU Parallel. To run an experiment, run:
 `./run_experiment.sh <algorithm> <heuristic>`
 
 where <algorithm> is one of:
-- static
-- caboara-perry
-- random
-- caboara
-- perturbation
-- gritzmann-sturmfels
-- simplex
-- gs-then-cp
+  - static
+  - caboara-perry
+  - random
+  - caboara
+  - perturbation
+  - gritzmann-sturmfels
+  - simplex
+  - gs-then-cp
 and <heuristic> is one of:
-- hilbert
-- betti
-- mixed
+  - hilbert
+  - betti
+  - mixed
 
 Making tables
 -------------
@@ -43,28 +43,28 @@ Requires R/Rscript and Python. To make all tables, run:
 
 Result files (output of `run_experiment.sh`) are expected to be in the following
 directories:
-- static
-- cp-hilbert
-- cp-betti
-- cp-mixed
-- caboara-hilbert
-- caboara-betti
-- caboara-mixed
-- gs-hilbert
-- gs-betti
-- gs-mixed
-- random-hilbert
-- random-betti
-- random-mixed
-- perturb-hilbert
-- perturb-betti
-- perturb-mixed
-- simplex-hilbert
-- simplex-betti
-- simplex-mixed
-- regrets-hilbert
-- regrets-betti
-- regrets-mixed
-- gs-then-cp-hilbert
-- gs-then-cp-betti
-- gs-then-cp-mixed
+  - static
+  - cp-hilbert
+  - cp-betti
+  - cp-mixed
+  - caboara-hilbert
+  - caboara-betti
+  - caboara-mixed
+  - gs-hilbert
+  - gs-betti
+  - gs-mixed
+  - random-hilbert
+  - random-betti
+  - random-mixed
+  - perturb-hilbert
+  - perturb-betti
+  - perturb-mixed
+  - simplex-hilbert
+  - simplex-betti
+  - simplex-mixed
+  - regrets-hilbert
+  - regrets-betti
+  - regrets-mixed
+  - gs-then-cp-hilbert
+  - gs-then-cp-betti
+  - gs-then-cp-mixed
