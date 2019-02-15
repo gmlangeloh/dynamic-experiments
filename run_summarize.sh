@@ -17,6 +17,7 @@ function generate_summary(){
 
   #Group results by number of variables
   sage summarize.sage ${table} > "results/summary-${EXPERIMENT_NAME}.out"
+  cp ${table} "raw-results/${EXPERIMENT_NAME}.out"
   echo "done"
   echo
 }
@@ -37,7 +38,6 @@ random-mixed
 perturb-hilbert
 perturb-betti
 perturb-mixed
-perturb-random-hilbert
 simplex-hilbert
 simplex-betti
 simplex-mixed
@@ -47,9 +47,6 @@ regrets-mixed
 gs-then-cp-hilbert
 gs-then-cp-betti
 gs-then-cp-mixed
-simplex-then-cp-hilbert
-simplex-then-cp-betti
-simplex-then-cp-mixed
 "
 
 for algorithm in $ALGORITHMS
