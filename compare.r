@@ -166,8 +166,8 @@ compare_all_wrt_param <- function(parameter) {
         algo2 <- read.table(hilbert[[j]], header=F)
       }
       else { #Mixed
-        algo1 <- read.table(mixed[[i]], header=F)
-        algo2 <- read.table(mixed[[j]], header=F)
+        algo2 <- read.table(mixed[[i]], header=F)
+        algo1 <- read.table(mixed[[j]], header=F)
       }
       mf <- merge(algo1, algo2, by='V1')
       mf <- mf[which(mf$V4.x != Inf & mf$V4.y != Inf), ]
@@ -202,4 +202,65 @@ compare_all <- function() {
   compare_all_wrt_param('V6') #Degrees
   compare_all_wrt_param('V7') #s-reductions
   return()
+}
+
+count_timeouts <- function() {
+  static <- "raw-results/static.out"
+  static_res <- read.table(static, header=F)
+  cat("static", nrow(static_res[which(static_res$V4 != Inf), ]), "\n")
+
+  hilbert <- c(static, list.files(path="raw-results", pattern="*hilbert.out", full.names=TRUE, recursive=FALSE))
+  total_algorithms <- length(hilbert)
+
+  for (i in 1:total_algorithms) {
+    algo <- read.table(hilbert[[i]], header=F)
+    cat(hilbert[[i]], nrow(algo[which(algo$V4 != Inf), ]), "\n")
+  }
+}
+
+compare_all_size_degree <- function() {
+  static <- "raw-results/static.out"
+  hilbert <- c(static, list.files(path="raw-results", pattern="*hilbert.out", full.names=TRUE, recursive=FALSE))
+  total_algorithms <- length(hilbert)
+
+  #Ratio matrix for this parameter --- row algorithm / col algorithm
+  m <- matrix(ncol=total_algorithms, nrow=total_algorithms)
+  #mcount <- matrix(ncol=total_algorithms, nrow=total_algorithms)
+
+  for (i in 1:total_algorithms) {
+    for (j in 1:total_algorithms) {
+      #Read results for each algorithm
+      if (i < j) { #Basis size
+          param1 <- 'V4.x'
+          param2 <- 'V4.y'
+      } else {
+          param1 <- 'V6.x'
+          param2 <- 'V6.y'
+      }
+      algo1 <- read.table(hilbert[[i]], header=F)
+      algo2 <- read.table(hilbert[[j]], header=F)
+      mf <- merge(algo1, algo2, by='V1')
+      mf <- mf[which(mf$V4.x != Inf & mf$V4.y != Inf), ]
+      col1 <- mf[[param1]]
+      col2 <- mf[[param2]]
+      res <- col1 / col2
+      res[is.nan(res)] <- 1
+      m[i, j] <- gmean(res)
+      #mcount[i, j] <- count_str(col1, col2)
+    }
+  }
+
+  #Make a nice data frame with named rows/columns and print
+  names <- algorithmnames_noheuristic(hilbert)
+  algorithms <- lapply(names, function(x) paste('row-', x, sep=''))
+  df <- data.frame(m)
+  colnames(df) <- c(names)
+  rownames(df) <- c(algorithms)
+  print(xtable(df, caption="size and degree", digits=2), include.rownames=T)
+
+  #df2 <- data.frame(mcount)
+  #colnames(df2) <- c(names)
+  #rownames(df2) <- c(algorithms)
+  #print(xtable(df2, caption=parameter), include.rownames=T)
+  return(df)
 }
