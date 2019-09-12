@@ -476,12 +476,9 @@ cpdef tuple dynamic_gb \
       - `simplex` -- run the Simplex-based algorithm
       - `reinsert` -- run the Regrets algorithm
   """
-  global first, restricted_iterations
   statistics.set_print_results(print_results)
   statistics.reset_all_stats()
   running_time = time.time()
-  restricted_iterations = 1
-  first = True
   cdef int sugar_type
   # counters
   cdef int i, j, k

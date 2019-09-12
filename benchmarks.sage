@@ -17,13 +17,13 @@ def _makeRing(char, n, s, M):
 
 def _readWeights(s, w, f):
     if s == 1:
-        return map(int, w)
+        return list(map(int, w))
     total = len(w)
     M = []
-    M.append(map(int, w))
+    M.append(list(map(int, w)))
     for i in range(1, s):
         w = f.readline().split()
-        M.append(map(int, w))
+        M.append(list(map(int, w)))
     return M
 
 def _readHeader(f):

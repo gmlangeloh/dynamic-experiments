@@ -89,21 +89,21 @@ cdef class Stats:
 
   cpdef void report(self):
     if self.print_results:
-      print "final order", self.ordering
-      print self.number_of_spolynomials, "s-polynomials considered (direct count)", self.basis_size, "polynomials in basis;", self.zero_reductions, "zero reductions"
-      print "there were at most", self.maximum_size_of_intermediate_basis, "polynomials in the basis at any one time"
-      print "there are", self.basis_monomials, "monomials in the output basis"
-      print self.rejections, "comparisons were eliminated by rejection"
-      print self.monomials_eliminated, "monomials were eliminated by hypercube vectors"
-      print self.number_of_programs_created, "linear programs were created (including copies)"
-      print self.failed_systems, "failed systems and ", self.number_of_rejects, "rejections stored"
-      print self.number_of_constraints, "constraints are in the linear program"
+      print("final order", self.ordering)
+      print(self.number_of_spolynomials, "s-polynomials considered (direct count)", self.basis_size, "polynomials in basis;", self.zero_reductions, "zero reductions")
+      print("there were at most", self.maximum_size_of_intermediate_basis, "polynomials in the basis at any one time")
+      print("there are", self.basis_monomials, "monomials in the output basis")
+      print(self.rejections, "comparisons were eliminated by rejection")
+      print(self.monomials_eliminated, "monomials were eliminated by hypercube vectors")
+      print(self.number_of_programs_created, "linear programs were created (including copies)")
+      print(self.failed_systems, "failed systems and ", self.number_of_rejects, "rejections stored")
+      print(self.number_of_constraints, "constraints are in the linear program")
 
   cpdef void brief_report(self):
     if self.print_results:
-        print self.running_time, self.dynamic_overhead, self.basis_size, \
+        print(self.running_time, self.dynamic_overhead, self.basis_size, \
             self.basis_monomials, self.basis_max_degree, \
-            self.number_of_spolynomials
+            self.number_of_spolynomials)
 
 #I will use this stats instance everywhere
 statistics = Stats()

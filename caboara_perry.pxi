@@ -700,7 +700,7 @@ cpdef tuple choose_ordering_restricted \
     else:
       CLTs = possible_lts(g, bvs, use_bvs)
     if print_candidates:
-      print restricted_iterations, len(CLTs)
+      print(restricted_iterations, len(CLTs))
     restricted_iterations += 1
     #print len(CLTs), "compatible leading monomials"
     #print CLTs
