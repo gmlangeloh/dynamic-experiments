@@ -28,6 +28,7 @@ cpdef GLPKBackend make_solver(int n):
   import sage.numerical.backends.glpk_backend as backend
   lp = get_solver(solver="GLPK")
   lp.solver_parameter(backend.glp_simplex_or_intopt, backend.glp_simplex_only)
+  lp.set_sense(1) #Maximization
   if n > 0:
     lp.add_variables(n)
 
@@ -66,10 +67,10 @@ cpdef void update_linear_program(GLPKBackend lp, MPolynomial_libsingular p, list
   cdef list var_indices, var_coefs
   for i in xrange(n):
     if first:
-      var_indices = [i, i + n] + range(lp.ncols() - l, lp.ncols())
+      var_indices = [i, i + n] + list(range(lp.ncols() - l, lp.ncols()))
       var_coefs = [-1.0, -1.0] + [ Vs[j][i] for j in xrange(l) ]
     else:
-      var_indices = rows[i][0] + range(lp.ncols() - l, lp.ncols())
+      var_indices = rows[i][0] + list(range(lp.ncols() - l, lp.ncols()))
       var_coefs = rows[i][1] + [ Vs[j][i] for j in xrange(l) ]
     lp.add_linear_constraint(list(zip(var_indices, var_coefs)), 0.0, 0.0)
 
@@ -108,10 +109,12 @@ cpdef list apply_sensitivity_range(float lower, float upper, GLPKBackend lp, int
   cdef list vectors = []
   cdef list w
 
+  from math import isinf
+
   cdef float epsilon = 0.001
-  if abs(lower - round(lower)) < epsilon:
+  if (not isinf(lower)) and abs(lower - round(lower)) < epsilon:
     lower = float(round(lower))
-  if abs(upper - round(upper)) < epsilon:
+  if (not isinf(upper)) and abs(upper - round(upper)) < epsilon:
     upper = float(round(upper))
 
   cdef float increment

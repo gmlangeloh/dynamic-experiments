@@ -1,3 +1,5 @@
+from functools import cmp_to_key
+
 cpdef int hs_heuristic(tuple f, tuple g):
   r"""
     Implements the Hilbert heuristic recommended by Caboara in his 1993 paper.
@@ -41,10 +43,10 @@ cpdef list sort_CLTs_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
   # the first entry is the tentative Hilbert polynomial
   # the second is the tentative Hilbert series
   # the third is tup itself (the compatible leading term)
-  CLTs = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(),
+  CLTs = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(algorithm='singular'),
            R.ideal(current_Ts + [tup[1]]).hilbert_series(),
            tup) for tup in CLTs]
-  CLTs.sort(cmp=hs_heuristic) # sort according to hilbert heuristic
+  CLTs.sort(key=cmp_to_key(hs_heuristic)) # sort according to hilbert heuristic
   #print CLTs
 
   return CLTs
@@ -67,10 +69,10 @@ cpdef list min_CLT_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
 
   cdef list leads #lists of leading monomials in CLTs
 
-  CLTs = [(R.ideal(leads).hilbert_polynomial(),
+  CLTs = [(R.ideal(leads).hilbert_polynomial(algorithm='singular'),
            R.ideal(leads).hilbert_series(),
            leads) for leads in CLTs]
-  CLTs.sort(cmp=hs_heuristic)
+  CLTs.sort(key=cmp_to_key(hs_heuristic))
   #TODO this could be optimized, we are sorting just to find the minimum...
   return CLTs[0][2]
 
@@ -93,10 +95,10 @@ cpdef list min_weights_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
 
   cdef tuple leads #lists of leading monomials in CLTs
 
-  CLTs = [(R.ideal(leads[1]).hilbert_polynomial(),
+  CLTs = [(R.ideal(leads[1]).hilbert_polynomial(algorithm='singular'),
            R.ideal(leads[1]).hilbert_series(),
            leads[0]) for leads in CLTs]
-  CLTs.sort(cmp=hs_heuristic)
+  CLTs.sort(key=cmp_to_key(hs_heuristic))
 
   #TODO this could be optimized, we are sorting just to find the minimum...
   return CLTs[0][2]
@@ -152,6 +154,27 @@ cpdef int hilbert_betti_heuristic(tuple f, tuple g):
 
   return f[0].degree() - g[0].degree()
 
+cpdef float avgdeg(list LMs):
+
+  '''
+  Computes the average degree of the minimum generators of (the ideal generated
+  by) LMs.
+  '''
+
+  cdef MPolynomialRing_libsingular R = LMs[0].parent()
+  cdef list reduced = list(R.ideal(LMs).interreduced_basis())
+  cdef int s = 0
+
+  for monomial in reduced:
+      #TODO also, try for non std grading...
+      s += monomial.degree(std_grading=True)
+
+  return float(s) / len(reduced)
+
+cpdef float avgdeg_heuristic(tuple f):
+
+  return f[0] #The avg degree is the first coordinate of the tuple
+
 cpdef list sort_CLTs_by_heuristic_restricted \
     (MPolynomialRing_libsingular R, list current_Ts, list CLTs, str heuristic):
 
@@ -163,15 +186,21 @@ cpdef list sort_CLTs_by_heuristic_restricted \
     L = [(graph_edges(current_Ts + [tup[1]]),
           (),
           tup) for tup in CLTs]
-    L.sort(cmp=betti_heuristic)
+    L.sort(key=cmp_to_key(betti_heuristic))
     return L
 
   elif heuristic == 'mixed':
 
-    L = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(),
+    L = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(algorithm='singular'),
           graph_edges(current_Ts + [tup[1]]),
           tup) for tup in CLTs ]
-    L.sort(cmp=hilbert_betti_heuristic)
+    L.sort(key=cmp_to_key(hilbert_betti_heuristic))
+    return L
+
+  elif heuristic == 'avgdeg':
+
+    L = [ (avgdeg(current_Ts + [tup[1]]), (), tup) for tup in CLTs]
+    L.sort(key=avgdeg_heuristic)
     return L
 
   raise ValueError("Invalid heuristic function: " + heuristic)
@@ -186,14 +215,14 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
   if heuristic == 'hilbert':
 
     if use_weights:
-      L = [ (R.ideal(LTs[0]).hilbert_polynomial(),
+      L = [ (R.ideal(LTs[0]).hilbert_polynomial(algorithm='singular'),
              R.ideal(LTs[0]).hilbert_series(),
              LTs) for LTs in CLTs ]
     else:
-      L = [ (R.ideal(LTs).hilbert_polynomial(),
+      L = [ (R.ideal(LTs).hilbert_polynomial(algorithm='singular'),
              R.ideal(LTs).hilbert_series(),
              LTs) for LTs in CLTs ]
-    L.sort(cmp=hs_heuristic)
+    L.sort(key=cmp_to_key(hs_heuristic))
     return L
 
   elif heuristic == 'betti':
@@ -205,7 +234,7 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
     else:
       L = [ (graph_edges(LTs), (), LTs) for LTs in CLTs ]
       #L = [ (betti_number(LTs), (), LTs) for LTs in CLTs ]
-    L.sort(cmp=betti_heuristic)
+    L.sort(key=cmp_to_key(betti_heuristic))
     if prev_betti >= 0 and prev_betti <= L[0][0]:
       return old_order
     return L
@@ -214,18 +243,27 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
 
     old_order = [ ((), (), CLTs[0]) ]
     if use_weights:
-      L = [ (R.ideal(LTs[0]).hilbert_polynomial(),
+      L = [ (R.ideal(LTs[0]).hilbert_polynomial(algorithm='singular'),
              graph_edges(LTs[0]),
              #betti_number(LTs[0]),
              LTs) for LTs in CLTs ]
     else:
-      L = [ (R.ideal(LTs).hilbert_polynomial(),
+      L = [ (R.ideal(LTs).hilbert_polynomial(algorithm='singular'),
              graph_edges(LTs),
              #betti_number(LTs),
              LTs) for LTs in CLTs ]
-    L.sort(cmp=hilbert_betti_heuristic)
+    L.sort(key=cmp_to_key(hilbert_betti_heuristic))
     if prev_hilb >= L[0][0] and prev_betti >= 0 and prev_betti < L[0][1]:
       return old_order
+    return L
+
+  elif heuristic == 'avgdeg':
+
+    if use_weights:
+      L = [ (avgdeg(LTs[0]), (), LTs) for LTs in CLTs ]
+    else:
+      L = [ (avgdeg(LTs), (), LTs) for LTs in CLTs ]
+    L.sort(key=avgdeg_heuristic)
     return L
 
   raise ValueError("Invalid heuristic function: " + heuristic)
