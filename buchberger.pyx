@@ -662,9 +662,9 @@ cpdef tuple dynamic_gb \
             LTs.append(G[k].value().lm())
 
           if len(oldLTs) > 0 and oldLTs != LTs[:len(LTs)-1]:
-            if unrestricted or random or perturbation or simplex:
+            if algorithm in [ 'gritzmann-sturmfels', 'random', 'perturbation', 'simplex' ]:
               P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, sugar_type)
-            elif reinsert:
+            elif algorithm == 'regrets':
               P = gm_update(PR, P, G[:len(G)-1], LTs[:len(LTs)-1], strategy, \
                             sugar_type) #do update w.r.t new poly
             else:
