@@ -1,5 +1,7 @@
 '''
 Generic tools to run experiments in Sage.
+
+These are my original experiments in my master's thesis.
 '''
 
 import glob

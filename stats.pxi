@@ -1,3 +1,5 @@
+import time
+
 cdef class Stats:
 
   cdef bool print_results
@@ -15,6 +17,7 @@ cdef class Stats:
 
   cdef float dynamic_overhead
   cdef float running_time
+  cdef object initial_time
 
   #Solution data
   cdef list ordering
@@ -46,6 +49,7 @@ cdef class Stats:
     self.number_of_rejects = 0
     self.number_of_constraints = 0
     self.dynamic_overhead = 0.0
+    self.initial_time = time.time()
     self.running_time = 0.0
 
     self.ordering = []
@@ -55,7 +59,8 @@ cdef class Stats:
 
   cpdef void inc_dynamic_overhead(self, float val): self.dynamic_overhead += val
 
-  cpdef void update_running_time(self, float time): self.running_time = time
+  cpdef void update_running_time(self):
+    self.running_time = time.time() - self.initial_time
 
   cpdef void inc_rejections(self): self.rejections += 1
 
