@@ -26,6 +26,14 @@ else:
                 "katsuran6",
                 "katsuranh6" ]
 
+if len(sys.argv) > 2:
+  algorithms = [ sys.argv[2] ]
+else:
+  algorithms = [ "static",
+                 #"caboara",
+                 "caboara-perry",
+                 "perturbation" ]
+
 prefix = "./instances/"
 suffix = ".ideal"
 
@@ -33,10 +41,6 @@ def instance_path(instance):
   return prefix + instance + suffix
 
 #I am keeping here only the algorithms that seem promising
-algorithms = [ "static",
-               #"caboara",
-               "caboara-perry",
-               "perturbation" ]
 
 for algorithm in algorithms:
   print()
