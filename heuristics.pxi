@@ -1,3 +1,4 @@
+import time
 from functools import cmp_to_key
 
 cpdef int hs_heuristic(tuple f, tuple g):
@@ -178,8 +179,11 @@ cpdef float avgdeg_heuristic(tuple f):
 cpdef list sort_CLTs_by_heuristic_restricted \
     (MPolynomialRing_libsingular R, list current_Ts, list CLTs, str heuristic):
 
+  init_time = time.time()
   if heuristic == 'hilbert':
-    return sort_CLTs_by_Hilbert_heuristic(R, current_Ts, CLTs)
+    return_val = sort_CLTs_by_Hilbert_heuristic(R, current_Ts, CLTs)
+    statistics.inc_heuristic_overhead(time.time() - init_time)
+    return return_val
 
   elif heuristic == 'betti':
 
@@ -187,6 +191,7 @@ cpdef list sort_CLTs_by_heuristic_restricted \
           (),
           tup) for tup in CLTs]
     L.sort(key=cmp_to_key(betti_heuristic))
+    statistics.inc_heuristic_overhead(time.time() - init_time)
     return L
 
   elif heuristic == 'mixed':
@@ -195,12 +200,14 @@ cpdef list sort_CLTs_by_heuristic_restricted \
           graph_edges(current_Ts + [tup[1]]),
           tup) for tup in CLTs ]
     L.sort(key=cmp_to_key(hilbert_betti_heuristic))
+    statistics.inc_heuristic_overhead(time.time() - init_time)
     return L
 
   elif heuristic == 'avgdeg':
 
     L = [ (avgdeg(current_Ts + [tup[1]]), (), tup) for tup in CLTs]
     L.sort(key=avgdeg_heuristic)
+    statistics.inc_heuristic_overhead(time.time() - init_time)
     return L
 
   raise ValueError("Invalid heuristic function: " + heuristic)
@@ -212,6 +219,7 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
   # otherwise, it is a list of candidate lts
   cdef list L, old_order
   cdef MPolynomialRing_libsingular R = CLTs[0][0][0].parent()
+  init_time = time.time()
   if heuristic == 'hilbert':
 
     if use_weights:
@@ -223,6 +231,7 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
              R.ideal(LTs).hilbert_series(),
              LTs) for LTs in CLTs ]
     L.sort(key=cmp_to_key(hs_heuristic))
+    statistics.inc_heuristic_overhead(time.time() - init_time)
     return L
 
   elif heuristic == 'betti':
@@ -236,7 +245,9 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
       #L = [ (betti_number(LTs), (), LTs) for LTs in CLTs ]
     L.sort(key=cmp_to_key(betti_heuristic))
     if prev_betti >= 0 and prev_betti <= L[0][0]:
+      statistics.inc_heuristic_overhead(time.time() - init_time)
       return old_order
+    statistics.inc_heuristic_overhead(time.time() - init_time)
     return L
 
   elif heuristic == 'mixed':
@@ -254,7 +265,9 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
              LTs) for LTs in CLTs ]
     L.sort(key=cmp_to_key(hilbert_betti_heuristic))
     if prev_hilb >= L[0][0] and prev_betti >= 0 and prev_betti < L[0][1]:
+      statistics.inc_heuristic_overhead(time.time() - init_time)
       return old_order
+    statistics.inc_heuristic_overhead(time.time() - init_time)
     return L
 
   elif heuristic == 'avgdeg':
@@ -264,6 +277,7 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
     else:
       L = [ (avgdeg(LTs), (), LTs) for LTs in CLTs ]
     L.sort(key=avgdeg_heuristic)
+    statistics.inc_heuristic_overhead(time.time() - init_time)
     return L
 
   raise ValueError("Invalid heuristic function: " + heuristic)

@@ -417,7 +417,6 @@ cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
 
   - `G` -- a basis of a polynomial ideal
   - `current_ordering` -- the current ordering of G, as a list of weights
-  - `iterations` -- number of neighbors to evaluate
 
   OUTPUTS:
 
@@ -429,7 +428,6 @@ cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
   cdef MPolynomialRing_libsingular R = G[0].value().parent()
   cdef MPolynomialRing_libsingular newR
 
-  #Choose random initial vector
   curr_w = current_ordering
   LTs = [ G[k].value().lm() for k in xrange(len(G)) ]
   CLTs = [ (LTs, curr_w) ]

@@ -90,6 +90,8 @@ cpdef clothed_polynomial reduce_polynomial_with_sugar \
     - `s` -- s-polynomial to reduce
     - `G` -- list of reducers
   """
+
+  init_time = time.time()
   # counters
   cdef int i, m
   # measures
@@ -143,6 +145,9 @@ cpdef clothed_polynomial reduce_polynomial_with_sugar \
   # completed reduction; clean up
   if r != 0: r *= r.lc()**(-1) # make monic
   s.set_value(r); s.set_sugar(d)
+
+  statistics.inc_reduction_time(time.time() - init_time)
+
   return s
 
 @cython.profile(True)

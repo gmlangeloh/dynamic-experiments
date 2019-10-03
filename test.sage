@@ -33,7 +33,10 @@ def instance_path(instance):
   return prefix + instance + suffix
 
 #I am keeping here only the algorithms that seem promising
-algorithms = [ "static", "caboara", "caboara-perry", "perturbation" ]
+algorithms = [ "static",
+               #"caboara",
+               "caboara-perry",
+               "perturbation" ]
 
 for algorithm in algorithms:
   print()

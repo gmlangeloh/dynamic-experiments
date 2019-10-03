@@ -15,9 +15,11 @@ cdef class Stats:
   cdef int number_of_rejects
   cdef int number_of_constraints
 
+  cdef float reduction_time
   cdef float dynamic_overhead
   cdef float running_time
   cdef float queue_overhead
+  cdef float heuristic_overhead
   cdef object initial_time
 
   #Solution data
@@ -50,7 +52,9 @@ cdef class Stats:
     self.number_of_rejects = 0
     self.number_of_constraints = 0
     self.dynamic_overhead = 0.0
+    self.heuristic_overhead = 0.0
     self.queue_overhead = 0.0
+    self.reduction_time = 0.0
     self.initial_time = time.time()
     self.running_time = 0.0
 
@@ -66,6 +70,12 @@ cdef class Stats:
 
   cpdef void inc_queue_time(self, float val):
     self.queue_overhead += val
+
+  cpdef void inc_heuristic_overhead(self, float val):
+    self.heuristic_overhead += val
+
+  cpdef void inc_reduction_time(self, float val):
+    self.reduction_time += val
 
   cpdef void inc_rejections(self): self.rejections += 1
 
@@ -111,10 +121,12 @@ cdef class Stats:
 
   cpdef void brief_report(self):
     if self.print_results:
-        print('%.2f %.2f %.2f' % (self.running_time, self.dynamic_overhead,
-                                  self.queue_overhead), \
+        print('%.2f %.2f %.2f %.2f %.2f %.2f' %
+              (self.running_time, self.dynamic_overhead, self.heuristic_overhead,
+               self.queue_overhead, self.reduction_time,
+               self.reduction_time / self.number_of_spolynomials), \
               self.basis_size, self.basis_monomials, self.basis_max_degree, \
-              self.number_of_spolynomials)
+              self.number_of_spolynomials, self.zero_reductions)
 
 #I will use this stats instance everywhere
 statistics = Stats()
