@@ -21,6 +21,7 @@ include "unrestricted.pxi"
 #Python-level imports
 
 import cython
+import time
 
 from copy import copy
 
@@ -28,7 +29,7 @@ from sage.rings.infinity import Infinity
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 @cython.profile(True)
-cpdef clothed_polynomial spoly(tuple Pd, list generators, int sugar_type):
+cpdef clothed_polynomial spoly(tuple Pd, int sugar_type):
   """
     Computes an s-polynomial indexed by ``Pd``.
 
@@ -36,7 +37,6 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators, int sugar_type):
 
     - ``Pd`` -- tuple (f,g); we wish to compute spoly(`f,g`) where f and g are
       clothed
-    - `generators` -- the generators of the ideal
   """
   # counters
   cdef int k
@@ -74,10 +74,6 @@ cpdef clothed_polynomial spoly(tuple Pd, list generators, int sugar_type):
     s = f; new_sugar = cf.get_sugar()
     k = 0
     #print "building", f.lm()
-
-    while k < len(generators):
-      if generators[k] == cf: generators.pop(k)
-      k += 1
 
   #print s
   cs = clothed_polynomial(s, sugar_type); cs.set_sugar(new_sugar)
@@ -479,7 +475,6 @@ cpdef tuple dynamic_gb \
 
   # variables related to the polynomials and the basis
   cdef list G = list()
-  cdef list generators = list()
   cdef list reducers
   cdef MPolynomial_libsingular p, t
   cdef clothed_polynomial f, g, s, r
@@ -507,11 +502,15 @@ cpdef tuple dynamic_gb \
   # initialize polynomial ring
   PR = F[0].parent()
   n = len(PR.gens())
-  cdef clothed_zero = clothed_polynomial(PR(0), sugar_type)
   if initial_ordering == 'random':
-    current_ordering = [ randint(1, 10) for k in xrange(n) ]
+      current_ordering = [ randint(1, 10) for k in xrange(n) ]
   elif initial_ordering == 'grevlex':
-    current_ordering = [1 for k in xrange(n)]
+      current_ordering = [1 for k in xrange(n)]
+  else:
+      current_ordering = initial_ordering
+  PR = PolynomialRing(PR.base_ring(), PR.gens(), order=create_order(current_ordering))
+  cdef clothed_zero = clothed_polynomial(PR(0), sugar_type)
+
 
   # set up the linear program and associated variables
   cdef set rejects = set()
@@ -544,7 +543,6 @@ cpdef tuple dynamic_gb \
   # clothe the generators
   for p in F:
     f = clothed_polynomial(PR(p), sugar_type)
-    generators.append(f)
     if strategy == 'sugar':
       P.append((f,clothed_zero,\
                 sug_of_critical_pair((f,clothed_zero), sugar_type)))
@@ -575,7 +573,7 @@ cpdef tuple dynamic_gb \
     #print "predicted hilbert series", hs
     #print "predicted hilbert dimension", hp.degree()
 
-    # select critical pairs of minimal degree
+    # select critical pairs of minimal sugar / degree / ...
     Pd = P.pop(0)
 
     #Stop here and return ordering if asked
@@ -588,7 +586,7 @@ cpdef tuple dynamic_gb \
 
       # compute s-polynomials
       #if sugar_strategy: print "current suga", Pd[len(Pd)-1]
-      s = spoly(Pd, generators, sugar_type)
+      s = spoly(Pd, sugar_type)
       #number_of_spolynomials += 1
       statistics.inc_spolynomials()
 
@@ -600,20 +598,16 @@ cpdef tuple dynamic_gb \
       #print "new polynomial generated",
       #print "leading monomial with current ordering would be", r.value().lm()
       if r.value()==0: statistics.inc_zero_reductions()
-      #zero_reductions += 1
 
       if r.value() != 0: # add to basis, choose new ordering, update pairs
 
         #print r
         G.append(r)
 
-        #Start using Perry's restricted algorithm
+        #Start using Perry's restricted algorithm when limit to calls of
+        #unrestricted algorithm has been reached
         if calls == max_calls:
-          simplex = False
-          unrestricted = False
-          perturbation = False
-          random = False
-          reinsert = False
+          algorithm = 'caboara-perry'
 
         #TODO decide whether to take max_calls or not!
         #TODO maybe use some other criterion to activate dynamic algorithms
@@ -663,21 +657,24 @@ cpdef tuple dynamic_gb \
 
           if len(oldLTs) > 0 and oldLTs != LTs[:len(LTs)-1]:
             if algorithm in [ 'gritzmann-sturmfels', 'random', 'perturbation', 'simplex' ]:
+              queue_time = time.time()
               P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, sugar_type)
+              statistics.inc_queue_time(time.time() - queue_time)
             elif algorithm == 'regrets':
+              queue_time = time.time()
               P = gm_update(PR, P, G[:len(G)-1], LTs[:len(LTs)-1], strategy, \
                             sugar_type) #do update w.r.t new poly
+              statistics.inc_queue_time(time.time() - queue_time)
             else:
               raise ValueError, "leading terms changed" # this should never happen
-
-          for k in xrange(len(generators)):
-            generators[k].set_value(PR(generators[k].value()))
 
         # setup reduction for next round
         reducers = [G[k].value() for k in xrange(len(G))]
         #print "have new polys and new lts"
         #print PR.term_order()
+        queue_time = time.time()
         P = gm_update(PR, P, G, LTs, strategy, sugar_type)
+        statistics.inc_queue_time(time.time() - queue_time)
         #print "queue", len(P)
         #print "updated P"
         m = len(G)

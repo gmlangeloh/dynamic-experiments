@@ -17,6 +17,7 @@ cdef class Stats:
 
   cdef float dynamic_overhead
   cdef float running_time
+  cdef float queue_overhead
   cdef object initial_time
 
   #Solution data
@@ -49,6 +50,7 @@ cdef class Stats:
     self.number_of_rejects = 0
     self.number_of_constraints = 0
     self.dynamic_overhead = 0.0
+    self.queue_overhead = 0.0
     self.initial_time = time.time()
     self.running_time = 0.0
 
@@ -61,6 +63,9 @@ cdef class Stats:
 
   cpdef void update_running_time(self):
     self.running_time = time.time() - self.initial_time
+
+  cpdef void inc_queue_time(self, float val):
+    self.queue_overhead += val
 
   cpdef void inc_rejections(self): self.rejections += 1
 
@@ -106,9 +111,10 @@ cdef class Stats:
 
   cpdef void brief_report(self):
     if self.print_results:
-        print(self.running_time, self.dynamic_overhead, self.basis_size, \
-            self.basis_monomials, self.basis_max_degree, \
-            self.number_of_spolynomials)
+        print('%.2f %.2f %.2f' % (self.running_time, self.dynamic_overhead,
+                                  self.queue_overhead), \
+              self.basis_size, self.basis_monomials, self.basis_max_degree, \
+              self.number_of_spolynomials)
 
 #I will use this stats instance everywhere
 statistics = Stats()
