@@ -593,7 +593,6 @@ cpdef tuple dynamic_gb \
       # compute s-polynomials
       #if sugar_strategy: print "current suga", Pd[len(Pd)-1]
       s = spoly(Pd, sugar_type)
-      #number_of_spolynomials += 1
       statistics.inc_spolynomials()
 
       # reduce s-polynomials modulo current basis wrt current order
@@ -607,7 +606,6 @@ cpdef tuple dynamic_gb \
 
       if r.value() != 0: # add to basis, choose new ordering, update pairs
 
-        #print r
         G.append(r)
 
         #Start using Perry's restricted algorithm when limit to calls of
