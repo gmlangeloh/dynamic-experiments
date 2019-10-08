@@ -249,7 +249,8 @@ cpdef deg_of_critical_pair(tuple pair):
   elif g == 0: tfg = tf
   else: tfg = tf.lcm(tg)
 
-  sfg = sum(tfg.exponents(as_ETuples=False)[0])
+  #sfg = sum(tfg.exponents(as_ETuples=False)[0])
+  sfg = tfg.total_degree(True)
   return sfg
 
 # the next three functions are used for sorting the critical pairs
@@ -415,8 +416,10 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
   Pnew.extend(D)
   # sort according to strategy
   if strategy == 'sugar': Pnew.sort(key=last_element_then_lcm)
-  elif strategy == 'normal': Pnew.sort(key=lcm_of_critical_pair)
-  elif strategy == 'mindeg': Pnew.sort(key=deg_of_critical_pair)
+  elif strategy == 'normal': #Pnew.sort(key=lcm_of_critical_pair)
+    Pnew.sort(key=last_element_then_lcm)
+  elif strategy == 'mindeg': #Pnew.sort(key=deg_of_critical_pair)
+    Pnew.sort(key=last_element_then_lcm)
   #print [(pair[0].value().lm(), pair[1].value().lm(), lcm_of_critical_pair(pair), pair[-1]) for pair in Pnew]
 
   # DO NOT REMOVE REDUNDANT ELEMENTS FROM BASIS -- performance suffers
