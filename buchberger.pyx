@@ -546,6 +546,7 @@ cpdef tuple dynamic_gb \
   #F4 declarations
   cdef list pairs_to_reduce
   cdef set terms_to_reduce
+  cdef bool basis_increased
 
   # set up the basis
   m = 0; P = list(); Done = set()
@@ -610,13 +611,14 @@ cpdef tuple dynamic_gb \
       # reduce s-polynomials modulo current basis wrt current order
       if sugar_strategy: r = reduce_polynomial_with_sugar(s, G, sugar_type)
       elif reducer == 'F4':
-        G = reduce_F4(pairs_to_reduce, terms_to_reduce, G)
+        reduce_F4(pairs_to_reduce, terms_to_reduce, G)
       else: r = reduce_poly(s, reducers)
 
       # diagnostic
       #print "new polynomial generated",
       #print "leading monomial with current ordering would be", r.value().lm()
-      if reducer == 'classical' and r.value()==0: statistics.inc_zero_reductions()
+      if reducer == 'classical' and r.value()==0:
+        statistics.inc_zero_reductions()
 
       if reducer == 'F4' or r.value() != 0: # add to basis, choose new ordering, update pairs
 
@@ -694,7 +696,11 @@ cpdef tuple dynamic_gb \
         #print "have new polys and new lts"
         #print PR.term_order()
         queue_time = time.time()
-        P = gm_update(PR, P, G, LTs, strategy, sugar_type)
+        if reducer == 'classical':
+          P = gm_update(PR, P, G, LTs, strategy, sugar_type)
+        else: #F4 reducer, call gm_update once for every new polynomial
+          for i in range(m, len(G)):
+            P = gm_update(PR, P, G[:(i+1)], LTs[:(i+1)], strategy, sugar_type)
         statistics.inc_queue_time(time.time() - queue_time)
         #print "queue", len(P)
         #print "updated P"
@@ -721,6 +727,8 @@ cpdef tuple dynamic_gb \
   statistics.set_number_of_constraints(lp.number_of_constraints())
   statistics.update_basis_data(reducers)
   statistics.brief_report()
+  if reducer == 'F4':
+    statistics.report_f4()
 
   #print current_ordering
 

@@ -28,6 +28,11 @@ cdef class Stats:
   cdef int basis_monomials
   cdef int basis_max_degree
 
+  #F4 profiling data
+  cdef float preprocessing_time
+  cdef float matrix_time
+  cdef float addpolys_time
+
   def __cinit__(self):
 
     self.print_results = True
@@ -58,10 +63,23 @@ cdef class Stats:
     self.initial_time = time.time()
     self.running_time = 0.0
 
+    self.preprocessing_time = 0.0
+    self.matrix_time = 0.0
+    self.addpolys_time = 0.0
+
     self.ordering = []
     self.basis_size = 0
     self.basis_monomials = 0
     self.basis_max_degree = 0
+
+  cpdef void inc_preprocessing_time(self, float val):
+    self.preprocessing_time += val
+
+  cpdef void inc_matrix_time(self, float val):
+    self.matrix_time += val
+
+  cpdef void inc_addpolys_time(self, float val):
+    self.addpolys_time += val
 
   cpdef void inc_dynamic_overhead(self, float val): self.dynamic_overhead += val
 
@@ -127,6 +145,11 @@ cdef class Stats:
                self.reduction_time / self.number_of_spolynomials), \
               self.basis_size, self.basis_monomials, self.basis_max_degree, \
               self.number_of_spolynomials, self.zero_reductions)
+
+  cpdef void report_f4(self):
+    if self.print_results:
+      print('%.2f %.2f %.2f' %
+            (self.preprocessing_time, self.matrix_time, self.addpolys_time))
 
 #I will use this stats instance everywhere
 statistics = Stats()
