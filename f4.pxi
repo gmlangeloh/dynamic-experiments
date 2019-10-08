@@ -12,7 +12,7 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
   #of the matrix
   cdef MPolynomial_libsingular f, g #Polynomials
   cdef MPolynomial_libsingular m, n #Monomials
-  cdef MPolynomialRing_libsingular R = G[0].parent()
+  cdef MPolynomialRing_libsingular R = L[0].parent()
   while todo:
     m = todo.pop()
     #Check if m is top-reducible by G. If it is, add corresponding reducer
@@ -38,28 +38,35 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
   #then make the relation indices <--> coefs, create dictionary
   cdef dict indices_to_coefs = {}
   cdef int i, j
-  for i in range(len(F)):
-    g = F[i]
+  for i in range(len(L)):
+    g = L[i]
     for m in g.monomials():
       j = monomial_list.index(m)
       indices_to_coefs[(i, j)] = g.monomial_coefficient(m)
 
   #and finally write this dict as a sparse Sage matrix
-  cdef Matrix_modn_sparse M = matrix(R.base_ring(), len(F), len(monomial_list),
+  cdef Matrix_modn_sparse M = matrix(R.base_ring(), len(L), len(monomial_list),
                                      indices_to_coefs, sparse=True)
 
   return M, monomial_list
 
-cpdef list polynomials_from_matrix (Matrix_modn_sparse M,
-                                    list monomial_list,
-                                    MPolynomialRing_libsingular R):
+cpdef list add_polynomials_from_matrix (Matrix_modn_sparse M,
+                                        list monomial_list,
+                                        MPolynomialRing_libsingular R,
+                                        list G):
 
   cdef list new_polys = [ R(0) ] * M.nrows()
   cdef int i, j
   for i, j in M.dict():
     new_polys[i] += M[i][j] * monomial_list[j]
 
-  return new_polys
+  cdef MPolynomial_libsingular f, g
+  cdef previous_lms = [ g.lm() for g in G ]
+  for f in new_polys:
+    if f != 0 and f.lm() not in previous_lms:
+      G.append(clothed_polynomial(f, 1))
+
+  return G
 
 cpdef list reduce_F4 (list L, set todo, list G):
   '''
@@ -68,9 +75,12 @@ cpdef list reduce_F4 (list L, set todo, list G):
   here because it means I don't have to worry about updating sugars.
   Faugère reports that the normal strategy works better in his original F4 paper.
   '''
+  cdef Matrix_modn_sparse M, Mred
+  cdef list monomials
+  cdef MPolynomialRing_libsingular R = L[0].parent()
   M, monomials = symbolic_preprocessing(L, todo, G) #Build the matrix
   Mred = M.rref() #Do row reduction
-  return polynomials_from_matrix(M, monomials, G[0].parent())
+  return add_polynomials_from_matrix(M, monomials, R, G)
 
 cpdef tuple select_pairs_normal_F4 (list P):
   '''
@@ -91,11 +101,11 @@ cpdef tuple select_pairs_normal_F4 (list P):
   while P[i][2] == min_deg:
 
     #compute both "branches" of the S-polynomial and add to the reducer list
-    f = P[i][0]
-    g = P[i][1]
+    f = P[i][0].value()
+    g = P[i][1].value()
     tf = f.lm()
     tg = g.lm()
-    tgf = tf.lcm(tg)
+    tfg = tf.lcm(tg)
     R = tfg.parent()
     s1 = R.monomial_quotient(tfg, tf) * f
     s2 = R.monomial_quotient(tfg, tg) * g
@@ -104,6 +114,7 @@ cpdef tuple select_pairs_normal_F4 (list P):
     #slicing off the first monomial of their lists (i.e., their lms)
     todo.update(s1.monomials()[1:], s2.monomials()[1:])
 
-    L.append((s1, s2))
+    L.append(s1)
+    L.append(s2)
     i += 1
   return L, todo

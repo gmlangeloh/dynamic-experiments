@@ -17,6 +17,7 @@ include "stats.pxi"
 include "heuristics.pxi"
 include "caboara_perry.pxi"
 include "unrestricted.pxi"
+include "f4.pxi"
 
 #Python-level imports
 
@@ -501,6 +502,8 @@ cpdef tuple dynamic_gb \
   cdef tuple Pd
 
   # check the strategy first
+  if reducer == 'F4':
+    strategy = 'mindeg' #Use mindeg / normal strategy for F4
   if strategy == 'sugar':
     sugar_strategy = True
     sugar_type = weighted_sugar
@@ -539,6 +542,10 @@ cpdef tuple dynamic_gb \
   cdef list vertices = []
 
   cdef int prev_hilbert_degree = -1
+
+  #F4 declarations
+  cdef list pairs_to_reduce
+  cdef set terms_to_reduce
 
   # set up the basis
   m = 0; P = list(); Done = set()
@@ -581,7 +588,10 @@ cpdef tuple dynamic_gb \
     #print "predicted hilbert dimension", hp.degree()
 
     # select critical pairs of minimal sugar / degree / ...
-    Pd = P.pop(0)
+    if reducer == 'classical':
+      Pd = P.pop(0)
+    else: #F4 reducer, use special function to select pairs
+      pairs_to_reduce, terms_to_reduce = select_pairs_normal_F4(P)
 
     #Stop here and return ordering if asked
     if iteration_count >= itmax:
@@ -593,21 +603,25 @@ cpdef tuple dynamic_gb \
 
       # compute s-polynomials
       #if sugar_strategy: print "current suga", Pd[len(Pd)-1]
-      s = spoly(Pd, sugar_type)
+      if reducer == 'classical':
+        s = spoly(Pd, sugar_type)
       statistics.inc_spolynomials()
 
       # reduce s-polynomials modulo current basis wrt current order
       if sugar_strategy: r = reduce_polynomial_with_sugar(s, G, sugar_type)
+      elif reducer == 'F4':
+        G = reduce_F4(pairs_to_reduce, terms_to_reduce, G)
       else: r = reduce_poly(s, reducers)
 
       # diagnostic
       #print "new polynomial generated",
       #print "leading monomial with current ordering would be", r.value().lm()
-      if r.value()==0: statistics.inc_zero_reductions()
+      if reducer == 'classical' and r.value()==0: statistics.inc_zero_reductions()
 
-      if r.value() != 0: # add to basis, choose new ordering, update pairs
+      if reducer == 'F4' or r.value() != 0: # add to basis, choose new ordering, update pairs
 
-        G.append(r)
+        if reducer != 'F4':
+          G.append(r)
 
         #Start using Perry's restricted algorithm when limit to calls of
         #unrestricted algorithm has been reached
