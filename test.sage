@@ -29,6 +29,7 @@ else:
 if len(sys.argv) > 2:
   algorithms = [ sys.argv[2] ]
 else:
+  #I am keeping here only the algorithms that seem promising
   algorithms = [ "static",
                  #"caboara",
                  "caboara-perry",
@@ -39,8 +40,6 @@ suffix = ".ideal"
 
 def instance_path(instance):
   return prefix + instance + suffix
-
-#I am keeping here only the algorithms that seem promising
 
 print("instance algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions")
 
