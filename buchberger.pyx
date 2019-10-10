@@ -473,6 +473,7 @@ cpdef tuple dynamic_gb \
       - `reducer` -- either 'classical' (Buchberger algorithm) or 'F4'
   """
   statistics.set_print_results(print_results)
+  statistics.set_algorithm(algorithm)
   statistics.reset_all_stats()
   cdef int sugar_type
   # counters

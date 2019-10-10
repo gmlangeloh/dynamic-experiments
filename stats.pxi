@@ -3,6 +3,7 @@ import time
 cdef class Stats:
 
   cdef bool print_results
+  cdef str algorithm
 
   #Statistics
   cdef int rejections
@@ -36,6 +37,7 @@ cdef class Stats:
   def __cinit__(self):
 
     self.print_results = True
+    self.algorithm = 'unknown'
 
   def __init__(self):
 
@@ -44,6 +46,10 @@ cdef class Stats:
   cpdef void set_print_results(self, bool value):
 
     self.print_results = value
+
+  cpdef void set_algorithm(self, str algorithm):
+
+    self.algorithm = algorithm
 
   cpdef void reset_all_stats(self):
 
@@ -139,10 +145,9 @@ cdef class Stats:
 
   cpdef void brief_report(self):
     if self.print_results:
-        print('%.2f %.2f %.2f %.2f %.2f %.2f' %
+        print(self.algorithm, '%.2f %.2f %.2f %.2f %.2f' %
               (self.running_time, self.dynamic_overhead, self.heuristic_overhead,
-               self.queue_overhead, self.reduction_time,
-               self.reduction_time / self.number_of_spolynomials), \
+               self.queue_overhead, self.reduction_time), \
               self.basis_size, self.basis_monomials, self.basis_max_degree, \
               self.number_of_spolynomials, self.zero_reductions)
 

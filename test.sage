@@ -42,9 +42,9 @@ def instance_path(instance):
 
 #I am keeping here only the algorithms that seem promising
 
+print("instance algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions")
+
 for algorithm in algorithms:
-  print()
-  print("Running " + str(algorithm) + "...")
   for instance in instances:
     benchmark = Benchmark(instance_path(instance))
     print(instance, end=" ")
