@@ -44,6 +44,7 @@ else:
                            "f633h",
                            "virasoro",
                            "noon7"]
+  instances = basic_instances + additional_instances
 
 if len(sys.argv) > 2:
   algorithms = [ sys.argv[2] ]
