@@ -12,9 +12,44 @@ library(tidyverse)
 dyn_results <- read.table("basic_data2.out", header=T)
 ```
 
-In this document, I will analyze some results of dynamic Gröbner Basis algorithms. The following algorithms and instances were used to generate the data.
+# Introduction
 
-```{r}
+The goal of this document is to do some exploratory analysis on dynamic Gröbner Basis algorithms. *Gröbner bases* 
+(GB) are a fundamental tool in computer algebra to solve multivariate polynomial (non-linear) systems, among other
+applications. Traditional *static* Gröbner Basis algorithms receive an ordering (a vector) as part of the
+input. The performance of the algorithm, as well as the size of the output itself strongly depends on this input
+ordering. *Dynamic* Gröbner Basis algorithms were proposed to avoid having to choose an ordering a priori,
+computing one during the execution of the algorithm itself, hoping that this would lead to at least some
+of the following:
+
+- shorter computation times
+- fewer polynomials in the output
+- sparser polynomials in the output
+- polynomials of lower degree in the output
+
+These are the main values that are computed in the experiments that follow. Four algorithms were used: 
+
+- the static algorithm (with a fixed input ordering, commonly used in the literature)
+- the caboara-perry algorithm (proposed in 2014, uses linear programming)
+- the perturbation algorithm (new, looks for better orderings by applying perturbations to the current one)
+- the random algorithm (new, does a random walk in the space of orderings)
+
+Due to particular traits of these algorithms, the perturbation and random algorithms only look for new orderings
+every 10 iterations of the Gröbner basis computation. It would also be interesting to find a better period
+more rigorously, but we do not do that here.
+
+# Experimental setup and environment
+
+All algorithms were implemented in the Sage computer algebra system (version 8.8, Python version 3.7.3) 
+and share all basic functionality from the underlying algorithm used to compute Gröbner Bases.
+Our implementation is based on that of Caboara and Perry (2014).
+Experiments were run on an Intel(R) Core(TM) i7 CPU 930 @ 2.80GHz machine with 12GB of RAM.
+
+All `r length(unique(dyn_results$instance))` instances were extracted from Christian Eder's benchmark library for 
+Gröbner Bases. For each algorithm was run on every instance 30 times, the presented results corresponding to the
+average of these runs.
+
+```{r, eval=FALSE, include=FALSE}
 "Instances"
 unique(dyn_results$instance)
 "Algorithms"
@@ -23,7 +58,7 @@ unique(dyn_results$algorithm)
 
 We take the mean over all repetitions for each pair (algorithm, instance).
 
-```{r}
+```{r, include=FALSE}
 by_instance <- dyn_results %>% group_by(instance)
 by_algorithm <- dyn_results %>% group_by(algorithm)
 by_inst_alg <- dyn_results %>% 
@@ -32,6 +67,31 @@ by_inst_alg <- dyn_results %>%
   select(-rep)
 print(by_inst_alg)
 ```
+
+# Partial results from some previous works
+
+Timings are not reported in the paper.
+
+```{r}
+caboara_perry <- read.table("caboara-perry2014.out", header = TRUE)
+knitr::kable(
+  caboara_perry,
+  caption='Results from Caboara and Perry, 2014'
+)
+```
+
+For completeness, we also show the results from Perry (2017), that uses a slightly modified version of the 
+caboara-perry algorithm and a simple implementation in C++.
+
+```{r}
+perry <- read.table("perry2017.out", header = TRUE)
+knitr::kable(
+  perry,
+  caption="Results from Perry, 2017"
+)
+```
+
+# Exploratory analysis
 
 First, we want to visualize the running time of the algorithms per instance, comparatively, and to find the algorithm that runs the fastest for each instance.
 
