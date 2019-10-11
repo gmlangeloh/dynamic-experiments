@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, eval = TRUE)
 library(tidyverse)
 
 dyn_results <- read.table("basic_data2.out", header=T)
@@ -70,7 +70,7 @@ print(by_inst_alg)
 
 # Partial results from some previous works
 
-Timings are not reported in the paper.
+We cannot reproduce these results. Timings are not reported in the paper.
 
 ```{r}
 caboara_perry <- read.table("caboara-perry2014.out", header = TRUE)
@@ -89,7 +89,11 @@ knitr::kable(
   perry,
   caption="Results from Perry, 2017"
 )
+by_inst_alg %>% filter(algorithm == "caboara-perry", grepl("cyclicn", instance)) %>%
+  select(instance, polynomials, monomials, time)
 ```
+
+TODO: compare with current caboara-perry, but note that timings are not exactly comparable.
 
 # Exploratory analysis
 
@@ -99,14 +103,20 @@ First, we want to visualize the running time of the algorithms per instance, com
 ggplot(by_inst_alg, aes(x=instance, y=time, fill=algorithm)) + 
   geom_col(position='dodge') + 
   coord_flip()
-#Fastest algorithm
-by_inst_alg %>% 
-  filter(rank(time) == 1) %>% 
-  select(instance, algorithm)
-#Slowest algorithm
-by_inst_alg %>% 
-  filter(rank(desc(time)) == 1) %>% 
-  select(instance, algorithm)
+
+knitr::kable(
+  by_inst_alg %>% 
+    filter(rank(time) == 1) %>% 
+    select(instance, algorithm),
+  caption = "Fastest algorithm per instance"
+)
+
+knitr::kable(
+  by_inst_alg %>% 
+    filter(rank(desc(time)) == 1) %>% 
+    select(instance, algorithm),
+  caption = "Slowest algorithm per instance"
+)
 ```
 
 We observe that static is the fastest algorithm on most instances, and caboara-perry is slowest on most. These instances are pretty biased towards static, though, as they are small enough so that the dynamic overhead makes a big difference.
