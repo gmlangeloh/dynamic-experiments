@@ -2,7 +2,11 @@
 Test some dynamic GB algorithms.
 '''
 
+import io
+import random
 import sys
+from contextlib import redirect_stdout
+from multiprocessing import Pool, Lock
 
 load("benchmarks.sage")
 load("buchberger.pyx")
@@ -51,7 +55,6 @@ if len(sys.argv) > 2:
 else:
   #I am keeping here only the algorithms that seem promising
   algorithms = [ "static",
-                 #"caboara",
                  "caboara-perry",
                  "perturbation",
                  "random" ]
@@ -62,12 +65,42 @@ suffix = ".ideal"
 def instance_path(instance):
   return prefix + instance + suffix
 
+def run_algorithm(algorithm, instance, repetition):
+
+  #Run the experiment
+  benchmark = Benchmark(instance_path(instance))
+  f = io.StringIO()
+  with redirect_stdout(f):
+    _ = dynamic_gb(benchmark.ideal.gens(), algorithm=algorithm, print_results=True)
+  out = f.getvalue()
+
+  #Print correctly in stdout
+  lock.acquire()
+  try:
+    print(instance, end=" ")
+    print(repetition, end=" ")
+    print(out, end="")
+    sys.stdout.flush()
+  finally:
+    lock.release()
+
+def init(l):
+  global lock
+  lock = l
+
 print("instance rep algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions")
 
+#Prepare (shuffled) list of experiments
+lock = Lock()
+experiments = []
 for algorithm in algorithms:
   for instance in instances:
-    benchmark = Benchmark(instance_path(instance))
     for repetition in range(30):
-      print(instance, end=" ")
-      print(repetition, end=" ")
-      _ = dynamic_gb(benchmark.ideal.gens(), algorithm=algorithm, print_results=True)
+      experiments.append((algorithm, instance, repetition))
+random.shuffle(experiments)
+
+with Pool(initializer=init, initargs=(lock,), processes=4) as pool:
+  for experiment in experiments:
+    pool.apply_async(run_algorithm, args = experiment)
+  pool.close()
+  pool.join()
