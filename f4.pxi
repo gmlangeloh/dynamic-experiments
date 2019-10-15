@@ -62,11 +62,17 @@ cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
                                    MPolynomialRing_libsingular R,
                                    list G):
 
+  before_add = time.time()
   cdef list new_polys = [ R(0) ] * M.nrows()
-  cdef int i, j
-  for i, j in M.dict():
-    new_polys[i] += M[i][j] * monomial_list[j]
+  cdef int i, j, k
+  #for i, j in M.dict():
+  #  new_polys[i] += M[i][j] * monomial_list[j]
+  for i from 0 <= i < M.nrows():
+    for j from 0 <= j < M.rows[i].num_nonzero:
+      k = M.rows[i].positions[j]
+      new_polys[i] += M.rows[i].entries[j] * monomial_list[k]
 
+  statistics.inc_addpolys_time(time.time() - before_add)
   cdef MPolynomial_libsingular f, g
 
   cdef set previous_lms = set([ g.lm() for g in reducers ])
@@ -95,9 +101,7 @@ cpdef reduce_F4 (list L, set todo, list G):
   Mred = M.rref() #Do row reduction
   statistics.inc_matrix_time(time.time() - before_red)
 
-  before_add = time.time()
   add_polynomials_from_matrix(Mred, reducers, monomials, R, G)
-  statistics.inc_addpolys_time(time.time() - before_add)
 
   statistics.inc_reduction_time(time.time() - init_time)
 
