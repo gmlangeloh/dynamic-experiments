@@ -54,24 +54,25 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
   cdef Matrix_modn_sparse M = matrix(R.base_ring(), len(L), len(monomial_list),
                                      indices_to_coefs, sparse=True)
 
-  return M, monomial_list
+  return M, L, monomial_list
 
 cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
-                                        list monomial_list,
-                                        MPolynomialRing_libsingular R,
-                                        list G):
+                                   list reducers,
+                                   list monomial_list,
+                                   MPolynomialRing_libsingular R,
+                                   list G):
 
   cdef list new_polys = [ R(0) ] * M.nrows()
   cdef int i, j
   for i, j in M.dict():
     new_polys[i] += M[i][j] * monomial_list[j]
 
-  cdef clothed_polynomial g
-  cdef MPolynomial_libsingular f
-  cdef set previous_lms = set([ g.value().lm() for g in G ])
+  cdef MPolynomial_libsingular f, g
+
+  cdef set previous_lms = set([ g.lm() for g in reducers ])
+
   for f in new_polys:
     if f != 0 and f.lm() not in previous_lms:
-      basis_increased = True
       G.append(clothed_polynomial(f, 1))
 
 cpdef reduce_F4 (list L, set todo, list G):
@@ -83,10 +84,11 @@ cpdef reduce_F4 (list L, set todo, list G):
   '''
   init_time = time.time()
   cdef Matrix_modn_sparse M, Mred
+  cdef list reducers
   cdef list monomials
   cdef MPolynomialRing_libsingular R = L[0].parent()
 
-  M, monomials = symbolic_preprocessing(L, todo, G) #Build the matrix
+  M, reducers, monomials = symbolic_preprocessing(L, todo, G) #Build the matrix
   statistics.inc_preprocessing_time(time.time() - init_time)
 
   before_red = time.time()
@@ -94,7 +96,7 @@ cpdef reduce_F4 (list L, set todo, list G):
   statistics.inc_matrix_time(time.time() - before_red)
 
   before_add = time.time()
-  add_polynomials_from_matrix(Mred, monomials, R, G)
+  add_polynomials_from_matrix(Mred, reducers, monomials, R, G)
   statistics.inc_addpolys_time(time.time() - before_add)
 
   statistics.inc_reduction_time(time.time() - init_time)

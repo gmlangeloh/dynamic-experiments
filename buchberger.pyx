@@ -562,13 +562,20 @@ cpdef tuple dynamic_gb \
   # clothe the generators
   for p in F:
     f = clothed_polynomial(PR(p), sugar_type)
-    if strategy == 'sugar':
-      P.append((f,clothed_zero,\
-                sug_of_critical_pair((f,clothed_zero), sugar_type)))
-    elif strategy == 'normal':
-      P.append((f,clothed_zero,lcm_of_critical_pair((f,clothed_zero))))
-    elif strategy == 'mindeg':
-      P.append((f,clothed_zero,deg_of_critical_pair((f,clothed_zero))))
+
+    #If F4 reducer, the input has to be in the basis initially
+    if reducer == 'F4':
+      G.append(f)
+      LTs.append(f.value().lm())
+      P = gm_update(PR, P, G, LTs, strategy, sugar_type)
+    else:
+      if strategy == 'sugar':
+        P.append((f,clothed_zero,\
+                  sug_of_critical_pair((f,clothed_zero), sugar_type)))
+      elif strategy == 'normal':
+        P.append((f,clothed_zero,lcm_of_critical_pair((f,clothed_zero))))
+      elif strategy == 'mindeg':
+        P.append((f,clothed_zero,deg_of_critical_pair((f,clothed_zero))))
   m = len(G)
 
   # initial sort
@@ -710,6 +717,7 @@ cpdef tuple dynamic_gb \
         #print "queue", len(P)
         #print "updated P"
         m = len(G)
+
 
   # done; prune redundant elements
   i = m - 1
