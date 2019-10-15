@@ -10,6 +10,8 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
 
   #Step 1: Finish computing L, the list of polynomials that will appear as rows
   #of the matrix
+
+  time1 = time.time()
   cdef clothed_polynomial sg
   cdef MPolynomial_libsingular f, g #Polynomials
   cdef MPolynomial_libsingular tg, m, n #Monomials
@@ -31,6 +33,8 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
         todo.update([ n for n in f.monomials() if n not in done ])
         break
 
+  print("Step1: " + str(time.time() - time1))
+  time2 = time.time()
   #Step 2: Build the F4 matrix from L
   #TODO this is inefficient! Do this better later.
 
@@ -41,7 +45,11 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
   cdef list monomial_list = list(monomial_set)
   monomial_list.sort(reverse=True) #Sort in descending order
 
+  print("Step2: " + str(time.time() - time2))
+  time3 = time.time()
+
   #then make the relation indices <--> coefs, create dictionary
+  #TODO this is the really slow part, I should optimize this.
   cdef dict indices_to_coefs = {}
   cdef int i, j
   for i in range(len(L)):
@@ -50,9 +58,13 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
       j = monomial_list.index(m)
       indices_to_coefs[(i, j)] = g.monomial_coefficient(m)
 
+  print("Step3: " + str(time.time() - time3))
+
   #and finally write this dict as a sparse Sage matrix
+  time4 = time.time()
   cdef Matrix_modn_sparse M = matrix(R.base_ring(), len(L), len(monomial_list),
                                      indices_to_coefs, sparse=True)
+  print("Step4: " + str(time.time() - time4))
 
   return M, L, monomial_list
 
@@ -62,7 +74,6 @@ cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
                                    MPolynomialRing_libsingular R,
                                    list G):
 
-  before_add = time.time()
   cdef list new_polys = [ R(0) ] * M.nrows()
   cdef int i, j, k
   #for i, j in M.dict():
@@ -72,7 +83,6 @@ cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
       k = M.rows[i].positions[j]
       new_polys[i] += M.rows[i].entries[j] * monomial_list[k]
 
-  statistics.inc_addpolys_time(time.time() - before_add)
   cdef MPolynomial_libsingular f, g
 
   cdef set previous_lms = set([ g.lm() for g in reducers ])
@@ -101,7 +111,9 @@ cpdef reduce_F4 (list L, set todo, list G):
   Mred = M.rref() #Do row reduction
   statistics.inc_matrix_time(time.time() - before_red)
 
+  before_add = time.time()
   add_polynomials_from_matrix(Mred, reducers, monomials, R, G)
+  statistics.inc_addpolys_time(time.time() - before_add)
 
   statistics.inc_reduction_time(time.time() - init_time)
 
