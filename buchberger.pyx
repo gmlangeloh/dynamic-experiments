@@ -636,7 +636,7 @@ cpdef tuple dynamic_gb \
       #if sugar_strategy: print "current suga", Pd[len(Pd)-1]
       if reducer == 'classical':
         s = spoly(Pd, sugar_type)
-      statistics.inc_spolynomials()
+        statistics.inc_spolynomials()
 
       # reduce s-polynomials modulo current basis wrt current order
       if sugar_strategy: r = reduce_polynomial_with_sugar(s, G, sugar_type)
@@ -720,7 +720,10 @@ cpdef tuple dynamic_gb \
                             sugar_type) #do update w.r.t new poly
               statistics.inc_queue_time(time.time() - queue_time)
             else:
-              raise ValueError, "leading terms changed" # this should never happen
+              #When the reducer is F4, we add many polynomials at the same time
+              #So, the polynomial lists differ by more than the last position
+              if reducer != 'F4':
+                raise ValueError, "leading terms changed" # this should never happen
 
         # setup reduction for next round
         reducers = [G[k].value() for k in xrange(len(G))]

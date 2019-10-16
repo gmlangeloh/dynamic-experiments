@@ -82,6 +82,8 @@ cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
   for f in new_polys:
     if f != 0 and f.lm() not in previous_lms:
       G.append(clothed_polynomial(f, 1))
+    elif f == 0:
+      statistics.inc_zero_reductions()
 
 @cython.profile(True)
 cpdef reduce_F4 (list L, set todo, list G):
@@ -98,6 +100,7 @@ cpdef reduce_F4 (list L, set todo, list G):
   cdef MPolynomialRing_libsingular R = L[0].parent()
 
   M, reducers, monomials = symbolic_preprocessing(L, todo, G) #Build the matrix
+  statistics.update_spolynomials(M.nrows())
   statistics.inc_preprocessing_time(time.time() - init_time)
 
   before_red = time.time()

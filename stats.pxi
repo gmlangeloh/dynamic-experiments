@@ -117,6 +117,9 @@ cdef class Stats:
 
   cpdef void inc_spolynomials(self): self.number_of_spolynomials += 1
 
+  cpdef void update_spolynomials(self, int value):
+    self.number_of_spolynomials += value
+
   cpdef void set_number_of_rejects(self, int value):
     self.number_of_rejects = value
 
