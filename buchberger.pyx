@@ -166,9 +166,9 @@ cpdef clothed_polynomial reduce_poly(clothed_polynomial s, list G):
   return s
 
 @cython.profile(True)
-cpdef int sug_of_critical_pair(tuple pair, int sugar_type):
+cpdef tuple sug_of_critical_pair(tuple pair, int sugar_type):
   """
-    Compute the sugar of a critical pair.
+    Compute the sugar and lcm of a critical pair.
   """
   # measures
   cdef int sf, sg, sfg, su, sv
@@ -206,10 +206,10 @@ cpdef int sug_of_critical_pair(tuple pair, int sugar_type):
 
     sfg = max(sf + su, sg + sv)
 
-  return sfg
+  return sfg, tfg
 
 @cython.profile(True)
-cpdef lcm_of_critical_pair(tuple pair):
+cpdef MPolynomial_libsingular lcm_of_critical_pair(tuple pair):
   """
     Compute the lcm of a critical pair.
   """
@@ -221,7 +221,6 @@ cpdef lcm_of_critical_pair(tuple pair):
   cf, cg = pair[0], pair[1]
   f, g = cf.value(), cg.value()
   tf = f.lm(); tg = g.lm()
-  R = g.parent()
 
   if f == 0: tfg = tg
   elif g == 0: tfg = tf
@@ -230,9 +229,10 @@ cpdef lcm_of_critical_pair(tuple pair):
   return tfg
 
 @cython.profile(True)
-cpdef deg_of_critical_pair(tuple pair):
+cpdef tuple deg_of_critical_pair(tuple pair):
   """
     Compute the exponent degree of a critical pair, based on the lcm.
+    Also return the lcm for performance.
   """
   # measures
   cdef int sfg
@@ -251,7 +251,7 @@ cpdef deg_of_critical_pair(tuple pair):
 
   #sfg = sum(tfg.exponents(as_ETuples=False)[0])
   sfg = tfg.total_degree(True)
-  return sfg
+  return sfg, tfg
 
 # the next three functions are used for sorting the critical pairs
 
@@ -259,6 +259,11 @@ cpdef deg_of_critical_pair(tuple pair):
 cpdef last_element(tuple p):
 
   return p[len(p)-1] # b/c cython doesn't allow lambda experessions, I think
+
+@cython.profile(True)
+cpdef last_two_elements(tuple p):
+
+  return (p[len(p) - 2], p[len(p) - 1])
 
 @cython.profile(True)
 cpdef lcm_then_last_element(tuple p):
@@ -291,9 +296,11 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
   cdef int fails, passes
   # polynomials, clothed and otherwise
   cdef clothed_polynomial cf, cg, ch, cp, cq
-  cdef MPolynomial_libsingular f, g, h, p, q, tf, tg, th, tp, tq, tfg, tfh, tpq
+  cdef MPolynomial_libsingular f, g, h, p, q, tf, tg, th, tp, tq, tfg, tfh, tpq, l
   # current critical pair
   cdef tuple pair
+  # additional memorized values
+  cdef int sug, deg
 
   # setup
   cf = G.pop(-1)
@@ -343,11 +350,17 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
   for cg in G:
 
     if strategy=='sugar':
+      sug, l = sug_of_critical_pair((cf,cg), sugar_type)
+      C.append((cf,cg,sug,l))
 
-      C.append((cf,cg,sug_of_critical_pair((cf,cg), sugar_type)))
+    elif strategy=='normal':
 
-    elif strategy=='normal': C.append((cf,cg,lcm_of_critical_pair((cf,cg))))
-    elif strategy=='mindeg': C.append((cf,cg,deg_of_critical_pair((cf,cg))))
+      C.append((cf,cg,lcm_of_critical_pair((cf,cg))))
+
+    elif strategy=='mindeg':
+
+      deg, l = deg_of_critical_pair((cf, cg))
+      C.append((cf,cg,deg,l))
 
   # STEP 3: eliminate new pairs by Buchberger's lcm criterion
   i = 0
@@ -355,7 +368,7 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
 
     pair = C.pop(i)
     #print "considering", pair,
-    tfg = lcm_of_critical_pair(pair)
+    tfg = pair[len(pair) - 1]
 
     if tfg == pair[0].lm() * pair[1].lm():
 
@@ -368,7 +381,7 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
       fails = False
       while j < len(C) and not fails:
 
-        tpq = lcm_of_critical_pair(C[j])
+        tpq = C[j][len(C[j]) - 1]
 
         if monomial_divides(tpq,tfg):
           #print (pair[0].value().lm(), pair[1].value().lm(), lcm_of_critical_pair(pair), pair[-1]), "pruned because of", (C[j][0].value().lm(), C[j][1].value().lm(), lcm_of_critical_pair(C[j]), C[j][-1])
@@ -380,7 +393,7 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
       j = 0
       while j < len(D) and not fails:
 
-        tpq = lcm_of_critical_pair(D[j])
+        tpq = D[j][len(D[j]) - 1]
 
         if monomial_divides(tpq,tfg):
           #print (pair[0].value().lm(), pair[1].value().lm(), lcm_of_critical_pair(pair), pair[-1]), "pruned because of", (D[j][0].value().lm(), D[j][1].value().lm(), lcm_of_critical_pair(D[j]), D[j][-1])
@@ -393,6 +406,8 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
       #else: print "not added"
 
   # STEP 4: eliminate new pairs by Buchberger's gcd criterion
+  #TODO check if this part cannot be done more efficiently.
+  #Some of these lcms and gcds seem redundant
   for cg in G:
 
     g = cg.value(); tg = g.lm()
@@ -415,11 +430,12 @@ cpdef gm_update(MPolynomialRing_libsingular R, list P, list G, list T, \
   # add new polynomials to basis
   Pnew.extend(D)
   # sort according to strategy
-  if strategy == 'sugar': Pnew.sort(key=last_element_then_lcm)
+  if strategy == 'sugar': #Pnew.sort(key=last_element_then_lcm)
+    Pnew.sort(key=last_two_elements)
   elif strategy == 'normal': #Pnew.sort(key=lcm_of_critical_pair)
-    Pnew.sort(key=last_element_then_lcm)
+    Pnew.sort(key=last_element)
   elif strategy == 'mindeg': #Pnew.sort(key=deg_of_critical_pair)
-    Pnew.sort(key=last_element_then_lcm)
+    Pnew.sort(key=last_two_elements)
   #print [(pair[0].value().lm(), pair[1].value().lm(), lcm_of_critical_pair(pair), pair[-1]) for pair in Pnew]
 
   # DO NOT REMOVE REDUNDANT ELEMENTS FROM BASIS -- performance suffers
@@ -560,6 +576,8 @@ cpdef tuple dynamic_gb \
   LTs = []
 
   # clothe the generators
+  cdef int sug, deg
+  cdef MPolynomial_libsingular l
   for p in F:
     f = clothed_polynomial(PR(p), sugar_type)
 
@@ -570,12 +588,13 @@ cpdef tuple dynamic_gb \
       P = gm_update(PR, P, G, LTs, strategy, sugar_type)
     else:
       if strategy == 'sugar':
-        P.append((f,clothed_zero,\
-                  sug_of_critical_pair((f,clothed_zero), sugar_type)))
+        sug, l = sug_of_critical_pair((f,clothed_zero), sugar_type)
+        P.append((f,clothed_zero,sug,l))
       elif strategy == 'normal':
         P.append((f,clothed_zero,lcm_of_critical_pair((f,clothed_zero))))
       elif strategy == 'mindeg':
-        P.append((f,clothed_zero,deg_of_critical_pair((f,clothed_zero))))
+        deg, l = deg_of_critical_pair((f,clothed_zero))
+        P.append((f,clothed_zero,deg,l))
   m = len(G)
 
   # initial sort

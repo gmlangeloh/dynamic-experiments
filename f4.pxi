@@ -10,8 +10,6 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
 
   #Step 1: Finish computing L, the list of polynomials that will appear as rows
   #of the matrix
-
-  time1 = time.time()
   cdef clothed_polynomial sg
   cdef MPolynomial_libsingular f, g #Polynomials
   cdef MPolynomial_libsingular tg, m, n #Monomials
@@ -33,10 +31,7 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
         todo.update([ n for n in f.monomials() if n not in done ])
         break
 
-  print("Step1: " + str(time.time() - time1))
-  time2 = time.time()
   #Step 2: Build the F4 matrix from L
-  #TODO this is inefficient! Do this better later.
 
   #find set of all monomials in L, sort them (decreasing order)
   cdef set monomial_set = set()
@@ -45,26 +40,22 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
   cdef list monomial_list = list(monomial_set)
   monomial_list.sort(reverse=True) #Sort in descending order
 
-  print("Step2: " + str(time.time() - time2))
-  time3 = time.time()
-
-  #then make the relation indices <--> coefs, create dictionary
-  #TODO this is the really slow part, I should optimize this.
-  cdef dict indices_to_coefs = {}
+  cdef dict monomial_indices = {}
   cdef int i, j
+  for i in range(len(monomial_list)):
+    monomial_indices[monomial_list[i]] = i
+
+  #TODO building dictionary of indices is still relatively expensive.
+  cdef dict indices_to_coefs = {}
   for i in range(len(L)):
     g = L[i]
     for m in g.monomials():
-      j = monomial_list.index(m)
+      j = monomial_indices[m]
       indices_to_coefs[(i, j)] = g.monomial_coefficient(m)
 
-  print("Step3: " + str(time.time() - time3))
-
   #and finally write this dict as a sparse Sage matrix
-  time4 = time.time()
   cdef Matrix_modn_sparse M = matrix(R.base_ring(), len(L), len(monomial_list),
                                      indices_to_coefs, sparse=True)
-  print("Step4: " + str(time.time() - time4))
 
   return M, L, monomial_list
 
