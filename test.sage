@@ -12,9 +12,15 @@ load("benchmarks.sage")
 load("buchberger.pyx")
 
 #Run the instance named sys.argv[1], if available. Else run a list of instances
+basic_instances_only = False
+single_instance = False
 if len(sys.argv) > 1:
-  instances = [ sys.argv[1] ]
-else:
+  if sys.argv[1] == "basic":
+    basic_instances_only = True
+  else:
+    single_instance = True
+    instances = [ sys.argv[1] ]
+if not single_instance:
   #These instances were chosen because they are small but non-trivial.
   #This means they are easy to test whenever changes are made to the codebase.
   basic_instances = [ "cyclicn4",
@@ -48,7 +54,10 @@ else:
                            "f633h",
                            "virasoro",
                            "noon7"]
-  instances = basic_instances + additional_instances
+  if not basic_instances_only:
+    instances = basic_instances + additional_instances
+  else:
+    instances = basic_instances
 
 if len(sys.argv) > 2:
   algorithms = [ sys.argv[2] ]

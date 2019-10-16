@@ -204,3 +204,11 @@ ggplot(by_inst_alg, aes(x=degree, y=time, color=algorithm)) +
   scale_x_log10() + 
   scale_y_log10()
 ```
+
+I should also measure fraction of time taken managing the queue, unrestricted vs restricted algorithms.
+
+```{r}
+ggplot(by_inst_alg, aes(x=instance, y=, color=algorithm)) +
+  geom_col(position='dodge') + 
+  coord_flip()
+```

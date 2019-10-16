@@ -6,6 +6,7 @@ Caboara and Perry's (2014) implementation of classical reductions.
 
 from sage.matrix.matrix_modn_sparse cimport Matrix_modn_sparse
 
+@cython.profile(True)
 cpdef tuple symbolic_preprocessing (list L, set todo, list G):
 
   #Step 1: Finish computing L, the list of polynomials that will appear as rows
@@ -59,6 +60,7 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
 
   return M, L, monomial_list
 
+@cython.profile(True)
 cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
                                    list reducers,
                                    list monomial_list,
@@ -67,8 +69,7 @@ cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
 
   cdef list new_polys = [ R(0) ] * M.nrows()
   cdef int i, j, k
-  #for i, j in M.dict():
-  #  new_polys[i] += M[i][j] * monomial_list[j]
+
   for i from 0 <= i < M.nrows():
     for j from 0 <= j < M.rows[i].num_nonzero:
       k = M.rows[i].positions[j]
@@ -82,6 +83,7 @@ cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
     if f != 0 and f.lm() not in previous_lms:
       G.append(clothed_polynomial(f, 1))
 
+@cython.profile(True)
 cpdef reduce_F4 (list L, set todo, list G):
   '''
   Build a matrix from a list of pairs L and reduces w.r.t. G.
@@ -108,6 +110,7 @@ cpdef reduce_F4 (list L, set todo, list G):
 
   statistics.inc_reduction_time(time.time() - init_time)
 
+@cython.profile(True)
 cpdef tuple select_pairs_normal_F4 (list P):
   '''
   Select pairs to be reduced in F4 using the normal strategy, that is,
@@ -131,6 +134,7 @@ cpdef tuple select_pairs_normal_F4 (list P):
     #compute both "branches" of the S-polynomial and add to the reducer list
     f = P[0][0].value()
     g = P[0][1].value()
+    tfg = P[0][len(P[0]) - 1]
 
     if g == 0:
 
@@ -142,8 +146,7 @@ cpdef tuple select_pairs_normal_F4 (list P):
 
       tf = f.lm()
       tg = g.lm()
-      tfg = tf.lcm(tg)
-      R = tfg.parent()
+      R = tf.parent()
       s1 = R.monomial_quotient(tfg, tf) * f
       s2 = R.monomial_quotient(tfg, tg) * g
 

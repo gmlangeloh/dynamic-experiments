@@ -751,7 +751,7 @@ cpdef tuple dynamic_gb \
     i -= 1
 
   #The procedure above is not enough to obtain a reduced GB...
-  reducers = list(PR.ideal(reducers).interreduced_basis())
+  reducers = list(PR.ideal(reducers).interreduced_basis()) 
 
   #Update and print statistics on the execution
   statistics.update_running_time()
@@ -759,8 +759,8 @@ cpdef tuple dynamic_gb \
   statistics.set_number_of_constraints(lp.number_of_constraints())
   statistics.update_basis_data(reducers)
   statistics.brief_report()
-  if reducer == 'F4':
-    statistics.report_f4()
+  #if reducer == 'F4':
+  #  statistics.report_f4()
 
   #print current_ordering
 
