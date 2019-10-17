@@ -10,10 +10,11 @@ cdef first(tuple t):
   return t[0]
 
 @cython.profile(True)
-cpdef tuple build_matrix_dict (list L):
+cdef tuple build_matrix_dict (list L):
   '''
   This is nlogn in the number of terms of L.
-  Aside from the sort, it is linear
+  Aside from the sort, it is linear.
+  This isn't much better than my simple dictionary approach, but I'll use it.
   '''
   cdef list monomial_list = []
   cdef list unique_monomials = []
@@ -40,12 +41,11 @@ cpdef tuple build_matrix_dict (list L):
     else:
       j = len(unique_monomials) - 1
     matrix_dict[(i, j)] = c
-    #if j == 0 or (j != 0 and unique_monomials[j-1] != m):
 
   return matrix_dict, unique_monomials
 
 @cython.profile(True)
-cpdef tuple symbolic_preprocessing (list L, set todo, list G):
+cdef tuple symbolic_preprocessing (list L, set todo, list G):
 
   #Step 1: Finish computing L, the list of polynomials that will appear as rows
   #of the matrix
@@ -102,7 +102,7 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
   return M, L, monomial_list
 
 @cython.profile(True)
-cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
+cdef add_polynomials_from_matrix (Matrix_modn_sparse M,
                                    list reducers,
                                    list monomial_list,
                                    MPolynomialRing_libsingular R,
@@ -127,7 +127,7 @@ cpdef add_polynomials_from_matrix (Matrix_modn_sparse M,
       statistics.inc_zero_reductions()
 
 @cython.profile(True)
-cpdef reduce_F4 (list L, set todo, list G):
+cdef reduce_F4 (list L, set todo, list G):
   '''
   Build a matrix from a list of pairs L and reduces w.r.t. G.
   For now, I am assuming the normal selection strategy - this is relevant
@@ -155,7 +155,7 @@ cpdef reduce_F4 (list L, set todo, list G):
   statistics.inc_reduction_time(time.time() - init_time)
 
 @cython.profile(True)
-cpdef tuple select_pairs_normal_F4 (list P):
+cdef tuple select_pairs_normal_F4 (list P):
   '''
   Select pairs to be reduced in F4 using the normal strategy, that is,
   picks the critical pairs with minimal degree.
