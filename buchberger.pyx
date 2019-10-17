@@ -631,13 +631,16 @@ cpdef tuple dynamic_gb \
       # reduce s-polynomials modulo current basis wrt current order
       if sugar_strategy: r = reduce_polynomial_with_sugar(s, G, sugar_type)
       elif reducer == 'F4':
-        reduce_F4(pairs_to_reduce, terms_to_reduce, G)
+        basis_increased = reduce_F4(pairs_to_reduce, terms_to_reduce, G)
       else: r = reduce_poly(s, [ g.value() for g in G])
 
-      if reducer == 'classical' and r.value()==0:
+      if reducer == 'classical' and r.value() == 0:
         statistics.inc_zero_reductions()
+        basis_increased = False
+      elif reducer == 'classical' and r.value() != 0:
+        basis_increased = True
 
-      if reducer == 'F4' or r.value() != 0:
+      if basis_increased:
         # add to basis, choose new ordering, update pairs
 
         if reducer != 'F4':

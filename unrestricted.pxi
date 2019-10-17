@@ -359,7 +359,6 @@ cpdef tuple choose_simplex_ordering\
 
   return best_w, vertices, prev_hilb
 
-#TODO bugfix: initial orderings are never evaluated!
 cdef class PopulationAlgorithm:
   cdef list population
   cdef list current_best
@@ -514,7 +513,9 @@ cpdef tuple choose_perturbation_ordering \
       LTs = [ newR(g.value()).lm() for g in G ]
       CLTs.append( (LTs, w) )
 
+    #Choose best one among current and perturbed orders
     CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
+    curr_w = CLTs[0][2][1] #Work in a first improvement basis
     if heuristic == 'hilbert' or heuristic == 'mixed':
       if CLTs[0][0] != ():
         prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.

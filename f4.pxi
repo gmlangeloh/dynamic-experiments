@@ -110,6 +110,7 @@ cdef add_polynomials_from_matrix (Matrix_modn_sparse M,
 
   cdef list new_polys = [ R(0) ] * M.nrows()
   cdef int i, j, k
+  cdef bool basis_increased = False
 
   for i from 0 <= i < M.nrows():
     for j from 0 <= j < M.rows[i].num_nonzero:
@@ -123,8 +124,11 @@ cdef add_polynomials_from_matrix (Matrix_modn_sparse M,
   for f in new_polys:
     if f != 0 and f.lm() not in previous_lms:
       G.append(clothed_polynomial(f, 1))
+      basis_increased = True
     elif f == 0:
       statistics.inc_zero_reductions()
+
+  return basis_increased
 
 @cython.profile(True)
 cdef reduce_F4 (list L, set todo, list G):
@@ -148,11 +152,14 @@ cdef reduce_F4 (list L, set todo, list G):
   Mred = M.rref() #Do row reduction
   statistics.inc_matrix_time(time.time() - before_red)
 
+  cdef basis_increased = False
   before_add = time.time()
-  add_polynomials_from_matrix(Mred, reducers, monomials, R, G)
+  basis_increased = add_polynomials_from_matrix(Mred, reducers, monomials, R, G)
   statistics.inc_addpolys_time(time.time() - before_add)
 
   statistics.inc_reduction_time(time.time() - init_time)
+
+  return basis_increased
 
 @cython.profile(True)
 cdef tuple select_pairs_normal_F4 (list P):
