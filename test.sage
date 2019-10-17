@@ -80,7 +80,8 @@ def run_algorithm(algorithm, instance, repetition):
   benchmark = Benchmark(instance_path(instance))
   f = io.StringIO()
   with redirect_stdout(f):
-    _ = dynamic_gb(benchmark.ideal.gens(), algorithm=algorithm, print_results=True)
+    _ = dynamic_gb(benchmark.ideal.gens(), algorithm=algorithm, \
+                   print_results=True, seed=repetition)
   out = f.getvalue()
 
   #Print correctly in stdout

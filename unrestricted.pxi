@@ -407,8 +407,8 @@ cpdef tuple choose_random_ordering(list G, list current_ordering, str heuristic,
   return best_order, prev_hilb
 
 @cython.profile(True)
-cpdef tuple choose_perturbation_ordering(list G, list current_ordering, \
-                                        str heuristic, int prev_betti, int prev_hilb):
+cpdef tuple choose_perturbation_ordering \
+    (list G, list current_ordering, str heuristic, int prev_betti, int prev_hilb):
   '''
   Chooses a weight vector for polynomial system `G` randomly and then optimizes it
   locally for a few iterations using small perturbations.
