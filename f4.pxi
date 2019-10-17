@@ -6,6 +6,44 @@ Caboara and Perry's (2014) implementation of classical reductions.
 
 from sage.matrix.matrix_modn_sparse cimport Matrix_modn_sparse
 
+cdef first(tuple t):
+  return t[0]
+
+@cython.profile(True)
+cpdef tuple build_matrix_dict (list L):
+  '''
+  This is nlogn in the number of terms of L.
+  Aside from the sort, it is linear
+  '''
+  cdef list monomial_list = []
+  cdef list unique_monomials = []
+  cdef dict matrix_dict = {}
+
+  cdef MPolynomial_libsingular f
+  cdef list monomials, coefficients
+  cdef int i, j
+  for i from 0 <= i < len(L):
+    f = L[i]
+    monomials = f.monomials()
+    coefficients = f.coefficients()
+    for j from 0 <= j < len(monomials):
+      monomial_list.append((monomials[j], coefficients[j], i))
+
+  monomial_list.sort(reverse=True, key=first)
+
+  cdef MPolynomial_libsingular m
+  j = 0
+  for m, c, i in monomial_list:
+    j = len(unique_monomials)
+    if j == 0 or unique_monomials[j-1] != m:
+      unique_monomials.append(m)
+    else:
+      j = len(unique_monomials) - 1
+    matrix_dict[(i, j)] = c
+    #if j == 0 or (j != 0 and unique_monomials[j-1] != m):
+
+  return matrix_dict, unique_monomials
+
 @cython.profile(True)
 cpdef tuple symbolic_preprocessing (list L, set todo, list G):
 
@@ -34,25 +72,28 @@ cpdef tuple symbolic_preprocessing (list L, set todo, list G):
 
   #Step 2: Build the F4 matrix from L
 
-  #find set of all monomials in L, sort them (decreasing order)
-  cdef set monomial_set = set()
-  for f in L:
-    monomial_set.update(f.monomials())
-  cdef list monomial_list = list(monomial_set)
-  monomial_list.sort(reverse=True) #Sort in descending order
+  ##find set of all monomials in L, sort them (decreasing order)
+  #cdef set monomial_set = set()
+  #for f in L:
+  #  monomial_set.update(f.monomials())
+  #cdef list monomial_list = list(monomial_set)
+  #monomial_list.sort(reverse=True) #Sort in descending order
 
-  cdef dict monomial_indices = {}
-  cdef int i, j
-  for i in range(len(monomial_list)):
-    monomial_indices[monomial_list[i]] = i
+  #cdef dict monomial_indices = {}
+  #cdef int i, j
+  #for i in range(len(monomial_list)):
+  #  monomial_indices[monomial_list[i]] = i
 
-  #TODO building dictionary of indices is still relatively expensive.
-  cdef dict indices_to_coefs = {}
-  for i in range(len(L)):
-    g = L[i]
-    for m in g.monomials():
-      j = monomial_indices[m]
-      indices_to_coefs[(i, j)] = g.monomial_coefficient(m)
+  ##TODO building dictionary of indices is still relatively expensive.
+  #cdef dict indices_to_coefs = {}
+  #for i in range(len(L)):
+  #  g = L[i]
+  #  for m in g.monomials():
+  #    j = monomial_indices[m]
+  #    indices_to_coefs[(i, j)] = g.monomial_coefficient(m)
+  cdef dict indices_to_coefs
+  cdef list monomial_list
+  indices_to_coefs, monomial_list = build_matrix_dict(L)
 
   #and finally write this dict as a sparse Sage matrix
   cdef Matrix_modn_sparse M = matrix(R.base_ring(), len(L), len(monomial_list),
