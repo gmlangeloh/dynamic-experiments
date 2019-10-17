@@ -359,9 +359,74 @@ cpdef tuple choose_simplex_ordering\
 
   return best_w, vertices, prev_hilb
 
+#TODO bugfix: initial orderings are never evaluated!
+cdef class PopulationAlgorithm:
+  cdef list population
+  cdef list current_best
+  cdef int population_size
+  cdef int _max_value
+
+  def __init__(self, int n, bool random=False, int max_value=10000):
+    self.population_size = n
+    self._max_value = max_value
+
+    if random:
+      self.population = self._random_ordering(n)
+    else:
+      self.population = self._spread_ordering(n)
+
+  cdef list _random_ordering(self, int n):
+    cdef list orderings = []
+    for i from 0 <= i < self.population_size:
+      orderings.append([ randint(1, self._max_value) for i from 0 <= i < n])
+    return orderings
+
+  cdef list _spread_ordering(self, int n):
+    '''
+    Creates a list of orderings that are "spread out" in the search space.
+    '''
+    cdef list grevlex = [ 1 ] * n
+    cdef list orderings = [ grevlex ]
+    cdef list new_ordering
+    for i from 0 <= i < n:
+      new_ordering = copy(grevlex)
+      new_ordering[i] = self._max_value
+      orderings.append(new_ordering)
+
+    return orderings
+
+  cdef list midpoint(self, list order1, list order2):
+    '''
+    The order that is geometrically the midpoint of the line segment passing
+    through order1 and order2.
+    '''
+    cdef list mid = []
+    for i from 0 <= i < len(order1):
+      mid.append(int(order1[i] + order2[i] / 2))
+    return mid
+
+  cdef list next_ordering(self, list G):
+    '''
+    Chooses best ordering for current basis G.
+    '''
+    cdef list candidates = self.population
+    cdef int i, j
+
+    #TODO this is probably pretty heavy (too many orderings)
+    #I could try sampling from this if necessary
+    for i from 0 <= i < self.population_size:
+      for j from 0 <= j < i:
+        candidates.append(self.midpoint(self.population[i], self.population[j]))
+    cdef list ordered_candidates = best_orderings_hilbert(self.population, G)
+
+    self.population = ordered_candidates[:self.population_size]
+
+    return ordered_candidates[0] #Ordering of best candidate
+
 @cython.profile(True)
-cpdef tuple choose_random_ordering(list G, list current_ordering, str heuristic,\
-                                   int prev_betti, int prev_hilb, int iterations=10):
+cpdef tuple choose_random_ordering \
+    (list G, list current_ordering, str heuristic,\
+     int prev_betti, int prev_hilb, int iterations=10):
   '''
   Chooses a weight vector for a term ordering for the basis ``G`` that is optimal
   with respect to the Hilbert tentative function on G among randomly generated orders.
@@ -427,9 +492,10 @@ cpdef tuple choose_perturbation_ordering \
   cdef list curr_w, w, LTs, CLTs
   cdef MPolynomialRing_libsingular R = G[0].value().parent()
   cdef MPolynomialRing_libsingular newR
+  cdef clothed_polynomial g
 
   curr_w = current_ordering
-  LTs = [ G[k].value().lm() for k in xrange(len(G)) ]
+  LTs = [ g.value().lm() for g in G ]
   CLTs = [ (LTs, curr_w) ]
 
   #Compute perturbations
@@ -445,12 +511,10 @@ cpdef tuple choose_perturbation_ordering \
       #Find LTs w.r.t current order w
       w[i] += perturbation
       newR = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
-      LTs = [ newR(G[k].value()).lm() for k in xrange(len(G)) ]
+      LTs = [ newR(g.value()).lm() for g in G ]
       CLTs.append( (LTs, w) )
 
-    #Choose best one among current and perturbed orders
     CLTs = sort_CLTs_by_heuristic(CLTs, heuristic, True, prev_betti, prev_hilb)
-    curr_w = CLTs[0][2][1] #Work in a first improvement basis
     if heuristic == 'hilbert' or heuristic == 'mixed':
       if CLTs[0][0] != ():
         prev_hilb = CLTs[0][0].degree() #New Hilbert degree, IF IT IS USED by the current heuristic. Else, harmless.

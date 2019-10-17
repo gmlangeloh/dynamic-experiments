@@ -566,6 +566,8 @@ cpdef tuple dynamic_gb \
   if algorithm == 'simplex':
     slp = make_solver(n)
     init_linear_program(slp, n)
+  if algorithm == 'population':
+    population = PopulationAlgorithm(n)
   cdef list constraints = []
   cdef list vertices = []
 
@@ -673,6 +675,8 @@ cpdef tuple dynamic_gb \
             current_ordering, lp, boundary_vectors, constraints, changed = \
               choose_regrets_ordering(G, current_ordering, constraints, lp, \
                                    heuristic)
+          elif algorithm == 'population':
+            current_ordering = population.next_ordering(G)
           else:
             current_ordering, lp, boundary_vectors = \
               choose_ordering_restricted(G, LTs[:m], m, current_ordering, \
@@ -700,7 +704,7 @@ cpdef tuple dynamic_gb \
 
           if len(oldLTs) > 0 and oldLTs != LTs[:len(LTs)-1]:
             if algorithm in [ 'gritzmann-sturmfels', 'random', 'perturbation', \
-                              'simplex' ]:
+                              'simplex', 'population' ]:
               queue_time = time.time()
               if iteration_count % dynamic_period == 1:
                 P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, \

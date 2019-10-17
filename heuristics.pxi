@@ -281,3 +281,28 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
     return L
 
   raise ValueError("Invalid heuristic function: " + heuristic)
+
+cdef tuple hilbert_key (tuple t):
+  '''
+  Comparison by the Hilbert heuristic is done using this key:
+  (Hilbert degree, HS coefficients)
+  '''
+  I = t[0]
+  return (I.hilbert_polynomial(algorithm='singular').degree(),
+          I.hilbert_series().numerator().coefficients())
+
+cdef list best_orderings_hilbert (list orderings, list G):
+
+  cdef list w, LMs, candidates = []
+  cdef clothed_polynomial g
+  cdef MPolynomialRing_libsingular R = G[0].value().parent()
+  for w in orderings:
+    R = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w))
+    LMs = [ R(g.value()).lm() for g in G ]
+    I = R.ideal(LMs)
+    candidates.append((I, w))
+
+  candidates.sort(key = hilbert_key)
+
+  cdef tuple t
+  return [ t[1] for t in candidates]
