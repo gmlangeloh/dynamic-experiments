@@ -1,5 +1,5 @@
 '''
-Base functionality of Buchberger's algorithm for dynamic Buchberger algorithms.
+Base functionality of Gröbner Basis algorithms for dynamic GBs.
 
 To run, call dynamic_gb.
 '''

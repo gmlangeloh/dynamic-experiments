@@ -7,9 +7,10 @@ import random
 import sys
 from contextlib import redirect_stdout
 from multiprocessing import Pool, Lock
+from threading import Thread
 
 load("benchmarks.sage")
-load("buchberger.pyx")
+load("dynamicgb.pyx")
 
 #Run the instance named sys.argv[1], if available. Else run a list of instances
 basic_instances_only = False
@@ -41,7 +42,6 @@ if not single_instance:
                            "cyclicnh7",
                            "katsuran7",
                            "katsuranh7",
-                           "butcher8",
                            "econ4",
                            "econh4",
                            "econ5",
@@ -52,7 +52,9 @@ if not single_instance:
                            "econh7",
                            "f633",
                            "f633h",
-                           "virasoro",
+                           "butcher8",
+                           "fateman",
+                           "fatemanh",
                            "noon7"]
   if not basic_instances_only:
     instances = basic_instances + additional_instances
@@ -65,8 +67,7 @@ else:
   #I am keeping here only the algorithms that seem promising
   algorithms = [ "static",
                  "caboara-perry",
-                 "perturbation",
-                 "random" ]
+                 "perturbation" ]
 
 prefix = "./instances/"
 suffix = ".ideal"
@@ -74,20 +75,21 @@ suffix = ".ideal"
 def instance_path(instance):
   return prefix + instance + suffix
 
-def run_algorithm(algorithm, instance, repetition):
+def run_algorithm(algorithm, instance, reducer, repetition):
 
   #Run the experiment
   benchmark = Benchmark(instance_path(instance))
   f = io.StringIO()
   with redirect_stdout(f):
     _ = dynamic_gb(benchmark.ideal.gens(), algorithm=algorithm, \
-                   print_results=True, seed=repetition)
+                   print_results=True, seed=repetition, reducer=reducer)
   out = f.getvalue()
 
   #Print correctly in stdout
   lock.acquire()
   try:
     print(instance, end=" ")
+    print(reducer, end=" ")
     print(repetition, end=" ")
     print(out, end="")
     sys.stdout.flush()
@@ -98,15 +100,16 @@ def init(l):
   global lock
   lock = l
 
-print("instance rep algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions")
+print("instance reducer rep algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions")
 
 #Prepare (shuffled) list of experiments
 lock = Lock()
 experiments = []
 for algorithm in algorithms:
   for instance in instances:
-    for repetition in range(30):
-      experiments.append((algorithm, instance, repetition))
+    for reducer in ['classical', 'F4']:
+      for repetition in range(30):
+        experiments.append((algorithm, instance, reducer, repetition))
 random.shuffle(experiments)
 
 with Pool(initializer=init, initargs=(lock,), processes=4) as pool:
