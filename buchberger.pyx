@@ -681,12 +681,17 @@ cpdef tuple dynamic_gb \
           elif algorithm == 'population':
             current_ordering = population.next_ordering(G)
           else:
-            current_ordering, lp, boundary_vectors = \
-              choose_ordering_restricted(G, LTs[:m], m, current_ordering, \
-                                         lp, rejects, boundary_vectors,
-                                         use_boundary_vectors,
-                                         use_disjoint_cones, print_candidates, \
-                                         heuristic)
+            #We need to iterate this construction in the case of the F4 reducer
+            #because in that case many polynomials are added at once
+            for i in range(m, len(G)):
+              current_ordering, lp, boundary_vectors = \
+                  choose_ordering_restricted(G[:i+1], LTs[:i], i, \
+                                             current_ordering, \
+                                             lp, rejects, boundary_vectors, \
+                                             use_boundary_vectors, \
+                                             use_disjoint_cones, \
+                                             print_candidates, \
+                                             heuristic)
 
           statistics.inc_dynamic_overhead(time.time() - dynamic_time)
 
