@@ -3,6 +3,7 @@ import time
 cdef class Stats:
 
   cdef bool print_results
+  cdef bool return_stats
   cdef str algorithm
 
   #Statistics
@@ -37,15 +38,17 @@ cdef class Stats:
   def __cinit__(self):
 
     self.print_results = True
+    self.return_stats = False
     self.algorithm = 'unknown'
 
   def __init__(self):
 
     self.reset_all_stats()
 
-  cpdef void set_print_results(self, bool value):
+  cpdef void set_options(self, bool prnt, bool ret):
 
-    self.print_results = value
+    self.print_results = prnt
+    self.return_stats = ret
 
   cpdef void set_algorithm(self, str algorithm):
 
@@ -91,6 +94,9 @@ cdef class Stats:
 
   cpdef void update_running_time(self):
     self.running_time = time.time() - self.initial_time
+
+  cpdef float get_running_time(self):
+    return self.running_time
 
   cpdef void inc_queue_time(self, float val):
     self.queue_overhead += val
@@ -146,18 +152,33 @@ cdef class Stats:
       print(self.failed_systems, "failed systems and ", self.number_of_rejects, "rejections stored")
       print(self.number_of_constraints, "constraints are in the linear program")
 
-  cpdef void brief_report(self):
+  cpdef str brief_report(self):
+    cdef str results = self.algorithm + \
+        (' %.2f %.2f %.2f %.2f %.2f %d %d %d %d %d' % (
+            self.running_time,
+            self.dynamic_overhead,
+            self.heuristic_overhead,
+            self.queue_overhead,
+            self.reduction_time,
+            self.basis_size,
+            self.basis_monomials,
+            self.basis_max_degree,
+            self.number_of_spolynomials,
+            self.zero_reductions
+        ))
     if self.print_results:
-        print(self.algorithm, '%.2f %.2f %.2f %.2f %.2f' %
-              (self.running_time, self.dynamic_overhead, self.heuristic_overhead,
-               self.queue_overhead, self.reduction_time), \
-              self.basis_size, self.basis_monomials, self.basis_max_degree, \
-              self.number_of_spolynomials, self.zero_reductions)
+      print(results)
+    if self.return_stats:
+      return results
+    return ''
 
   cpdef void report_f4(self):
     if self.print_results:
       print('%.2f %.2f %.2f' %
             (self.preprocessing_time, self.matrix_time, self.addpolys_time))
+
+  cpdef str report_timeout(self):
+    return self.algorithm + (' NA' * 10)
 
 #I will use this stats instance everywhere
 statistics = Stats()

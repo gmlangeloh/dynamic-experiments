@@ -75,15 +75,17 @@ suffix = ".ideal"
 def instance_path(instance):
   return prefix + instance + suffix
 
-def run_algorithm(algorithm, instance, reducer, repetition):
+def run_algorithm(experiment):
 
+  algorithm, instance, reducer, repetition = experiment
   #Run the experiment
+  timeout = 3600 #Use 1 hour timeout
   benchmark = Benchmark(instance_path(instance))
-  f = io.StringIO()
-  with redirect_stdout(f):
-    _ = dynamic_gb(benchmark.ideal.gens(), algorithm=algorithm, \
-                   print_results=True, seed=repetition, reducer=reducer)
-  out = f.getvalue()
+  result = dynamic_gb(benchmark.ideal.gens(), algorithm=algorithm, \
+                      return_stats=True, seed=repetition, reducer=reducer, \
+                      timeout=timeout)
+  #out = f.getvalue()
+  out = result[-1]
 
   #Print correctly in stdout
   lock.acquire()
@@ -91,7 +93,7 @@ def run_algorithm(algorithm, instance, reducer, repetition):
     print(instance, end=" ")
     print(reducer, end=" ")
     print(repetition, end=" ")
-    print(out, end="")
+    print(out)
     sys.stdout.flush()
   finally:
     lock.release()
@@ -113,7 +115,8 @@ for algorithm in algorithms:
 random.shuffle(experiments)
 
 with Pool(initializer=init, initargs=(lock,), processes=4) as pool:
-  for experiment in experiments:
-    pool.apply_async(run_algorithm, args = experiment)
-  pool.close()
-  pool.join()
+  pool.map(run_algorithm, experiments)
+  #for experiment in experiments:
+  #  pool.apply_async(run_algorithm, args = experiment)
+  #pool.close()
+  #pool.join()
