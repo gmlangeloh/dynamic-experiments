@@ -10,7 +10,7 @@ bibliography: biblio.bib
 knitr::opts_chunk$set(echo = FALSE, eval = TRUE)
 library(tidyverse)
 
-dyn_results <- read.table("basic_data2.out", header=T)
+dyn_results <- read.table("tiamat0-results5.out", header=T)
 ```
 
 # Introduction
@@ -62,10 +62,15 @@ unique(dyn_results$algorithm)
 by_instance <- dyn_results %>% group_by(instance)
 by_algorithm <- dyn_results %>% group_by(algorithm)
 by_inst_alg <- dyn_results %>% 
-  group_by(instance, algorithm) %>% 
+  group_by(instance, algorithm, reducer) %>% 
   summarize_all(mean) %>%
   select(-rep)
-print(by_inst_alg)
+buchberger <- by_inst_alg %>% filter(reducer == 'classical')
+f4 <- by_inst_alg %>% filter(reducer == 'F4')
+```
+
+```{r}
+by_inst_alg
 ```
 
 # Partial results from some previous works
@@ -91,7 +96,7 @@ knitr::kable(
   caption="Results from Perry, 2017"
 )
 knitr::kable(
-  by_inst_alg %>% filter(algorithm == "caboara-perry", grepl("cyclicn", instance)) %>%
+  buchberger %>% filter(algorithm == "caboara-perry", grepl("cyclicn", instance)) %>%
     select(instance, polynomials, monomials, time),
   caption="Current caboara-Perry results for cyclic instances"
 )
@@ -102,19 +107,19 @@ knitr::kable(
 First, we want to visualize the running time of the algorithms per instance, comparatively, and to find the algorithm that runs the fastest for each instance.
 
 ```{r}
-ggplot(by_inst_alg, aes(x=instance, y=time, fill=algorithm)) + 
+ggplot(buchberger, aes(x=instance, y=time, fill=algorithm)) + 
   geom_col(position='dodge') + 
   coord_flip()
 
 knitr::kable(
-  by_inst_alg %>% 
+  buchberger %>% 
     filter(rank(time) == 1) %>% 
     select(instance, algorithm),
   caption = "Fastest algorithm per instance"
 )
 
 knitr::kable(
-  by_inst_alg %>% 
+  buchberger %>% 
     filter(rank(desc(time)) == 1) %>% 
     select(instance, algorithm),
   caption = "Slowest algorithm per instance"
@@ -126,19 +131,19 @@ We observe that static is the fastest algorithm on most instances, and caboara-p
 Now, we compare the sizes of the output bases, in number of polynomials.
 
 ```{r}
-ggplot(by_inst_alg, aes(x=instance, y=polynomials, fill=algorithm)) + 
+ggplot(buchberger, aes(x=instance, y=polynomials, fill=algorithm)) + 
   geom_col(position='dodge') + 
   coord_flip()
 #Smallest basis
 knitr::kable(
-  by_inst_alg %>% 
+  buchberger %>% 
    filter(rank(time) == 1) %>% 
     select(instance, algorithm),
   caption="Algorithm with smallest basis for each instance"
 )
 #Largest basis
 knitr::kable(
-  by_inst_alg %>% 
+  buchberger %>% 
     filter(rank(desc(time)) == 1) %>% 
     select(instance, algorithm),
   caption="Algorithm with largest basis for each instance"
@@ -150,19 +155,19 @@ Here, the dynamic algorithms (perturbation and caboara-perry) get better results
 We should also check what happens to the degrees.
 
 ```{r}
-ggplot(by_inst_alg, aes(x=instance, y=degree, fill=algorithm)) +
+ggplot(buchberger, aes(x=instance, y=degree, fill=algorithm)) +
   geom_col(position='dodge') + 
   coord_flip()
 #Smallest degree
 knitr::kable(
-  by_inst_alg %>% 
+  buchberger %>% 
     filter(rank(time) == 1) %>% 
     select(instance, algorithm),
   caption="Algorithm with smallest degree for each instance"
 )
 #Largest degree
 knitr::kable(
-  by_inst_alg %>% 
+  buchberger %>% 
     filter(rank(desc(time)) == 1) %>% 
     select(instance, algorithm),
   caption="Algorithm with largest degree for each instance"
@@ -174,32 +179,32 @@ Algorithms tie in terms of degree for most Katsuras. For the cyclics, perturbati
 Quick idea: can we show that getting smaller bases rises the degree? (the graphic below looks awful, but I think it shows that the answer is yes for some instances, no to others).
 
 ```{r}
-ggplot(by_inst_alg, aes(x=polynomials, y=degree, color=instance)) +
+ggplot(buchberger, aes(x=polynomials, y=degree, color=instance)) +
   geom_line()
 ```
 
 Check correlation between number of S-reductions and time.
 
 ```{r}
-ggplot(by_inst_alg, aes(x=sreductions, y=time, color=algorithm)) +
+ggplot(buchberger, aes(x=sreductions, y=time, color=algorithm)) +
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10()
 ```
 
 There is clearly a positive correlation (graphically) and computing it we get
-`r cor(by_inst_alg$sreductions, by_inst_alg$time)`.
+`r cor(buchberger$sreductions, buchberger$time)`.
 
 We should also test:
 
-- polynomials and time: `r cor(by_inst_alg$polynomials, by_inst_alg$time)`
-- monomials and time: `r cor(by_inst_alg$monomials, by_inst_alg$time)`
-- degree and time: `r cor(by_inst_alg$degree, by_inst_alg$time)`
+- polynomials and time: `r cor(buchberger$polynomials, buchberger$time)`
+- monomials and time: `r cor(buchberger$monomials, buchberger$time)`
+- degree and time: `r cor(buchberger$degree, buchberger$time)`
 
 The first two are aroung $0.5$, degree is $0.81$. Graphing degree, we get:
 
 ```{r}
-ggplot(by_inst_alg, aes(x=degree, y=time, color=algorithm)) +
+ggplot(buchberger, aes(x=degree, y=time, color=algorithm)) +
   geom_point() + 
   scale_x_log10() + 
   scale_y_log10()
@@ -208,9 +213,75 @@ ggplot(by_inst_alg, aes(x=degree, y=time, color=algorithm)) +
 I should also measure fraction of time taken managing the queue, unrestricted vs restricted algorithms.
 
 ```{r}
-ggplot(by_inst_alg, aes(x=instance, y=queue / time, fill=algorithm)) +
+ggplot(buchberger, aes(x=instance, y=queue / time, fill=algorithm)) +
   geom_col(position='dodge') + 
   coord_flip()
+```
+
+# Classical reduction vs F4
+
+```{r}
+mean(buchberger$time, na.rm=TRUE)
+mean(f4$time, na.rm=TRUE)
+summary(buchberger)
+summary(f4)
+```
+
+```{r}
+cp <- by_inst_alg %>% filter(algorithm == 'caboara-perry')
+static <- by_inst_alg %>% filter(algorithm == 'static')
+perturb <- by_inst_alg %>% filter(algorithm == 'perturbation')
+
+ggplot(cp, aes(x=instance, y=1 + time, fill=reducer)) + 
+  geom_col(position='dodge') + 
+  coord_flip() + 
+  scale_y_log10()
+
+ggplot(static, aes(x=instance, y=1 + time, fill=reducer)) + 
+  geom_col(position='dodge') + 
+  coord_flip() + 
+  scale_y_log10()
+
+ggplot(perturb, aes(x=instance, y=1 + time, fill=reducer)) + 
+  geom_col(position='dodge') + 
+  coord_flip() + 
+  scale_y_log10()
+
+#Compare classical and F4 running times
+cp %>% group_by(reducer) %>% summarize(mean=mean(time, na.rm=TRUE))
+static %>% group_by(reducer) %>% summarize(mean=mean(time, na.rm=TRUE))
+perturb %>% group_by(reducer) %>% summarize(mean=mean(time, na.rm=TRUE))
+
+#Remove "outliers" and compare again
+cp %>% 
+  group_by(reducer) %>% 
+  filter(time < quantile(cp$time, 0.95, na.rm=TRUE)) %>% 
+  summarize(mean=mean(time, na.rm=TRUE))
+static %>% 
+  group_by(reducer) %>% 
+  filter(time < quantile(static$time, 0.95, na.rm=TRUE)) %>% 
+  summarize(mean=mean(time, na.rm=TRUE))
+perturb %>% 
+  group_by(reducer) %>% 
+  filter(time < quantile(perturb$time, 0.95, na.rm=TRUE)) %>% 
+  summarize(mean=mean(time, na.rm=TRUE))
+#Now F4 doesn't look more efficient at all! Check which ones are those outlier instances
+cp %>% 
+  group_by(reducer) %>% 
+  filter(time >= quantile(cp$time, 0.95, na.rm=TRUE))
+static %>% 
+  group_by(reducer) %>% 
+  filter(time >= quantile(static$time, 0.95, na.rm=TRUE))
+perturb %>% 
+  group_by(reducer) %>% 
+  filter(time >= quantile(perturb$time, 0.95, na.rm=TRUE))
+```
+
+```{r}
+by_inst_alg %>% 
+  group_by(algorithm, reducer) %>% 
+  summarize(time = mean(time, na.rm=TRUE), polynomials = mean(polynomials, na.rm=TRUE)) %>% 
+  select(algorithm, reducer, time, polynomials)
 ```
 
 # Comparison between our implementation and Sage / Singular
