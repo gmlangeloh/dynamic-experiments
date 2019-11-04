@@ -665,7 +665,7 @@ cpdef tuple dynamic_gb \
           if algorithm == 'gritzmann-sturmfels':
             current_ordering, old_polyhedron, prev_hilbert_degree = \
               choose_ordering_unrestricted(G, old_polyhedron, heuristic, \
-                                           len(P), prev_hilbert_degree)
+                                           m, len(P), prev_hilbert_degree)
           elif algorithm == 'random':
             if iteration_count % dynamic_period == 0:
               current_ordering, prev_hilbert_degree = choose_random_ordering \

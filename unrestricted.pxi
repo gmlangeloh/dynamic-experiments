@@ -534,16 +534,20 @@ cpdef normal(v, P):
   return list(sum(rays))
 
 cpdef tuple choose_ordering_unrestricted(list G, old_polyhedron, str heuristic,\
-                                         int prev_betti, int prev_hilb):
+                                         int m, int prev_betti, int prev_hilb):
 
   cdef MPolynomialRing_libsingular R = G[0].value().parent() # current ring
   cdef MPolynomialRing_libsingular newR
   cdef MPolynomial_libsingular p = G[len(G)-1].value()
+  cdef clothed_polynomial g
   cdef int n = R.ngens()
 
-  new_polyhedron = p.newton_polytope() + Polyhedron(rays=(-identity_matrix(n)).rows())
+  new_polyhedron = Polyhedron(rays=(-identity_matrix(n)).rows())
+  for g in G[m:]:
+    p = g.value()
+    new_polyhedron += p.newton_polytope()
   if old_polyhedron is not None:
-      new_polyhedron += old_polyhedron
+    new_polyhedron += old_polyhedron
 
   cdef list CLTs = []
   cdef list LTs = []
