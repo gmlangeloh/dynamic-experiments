@@ -367,6 +367,8 @@ perturb %>% group_by(reducer) %>% summarize(mean=gmean(sreductions, na.rm=TRUE))
 ```
 
 
+I should add the number of timeouts here.
+
 ```{r}
 caption <- "Geometric means of the experiments over all instances (ignoring timeouts)."
 t <- by_inst_alg %>% 
