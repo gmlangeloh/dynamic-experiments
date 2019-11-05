@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = FALSE, eval = TRUE)
 library(tidyverse)
 
 dyn_results <- read.table("tiamat0-results5.out", header=T)
+rand_results <- read.table("tiamat0-random.out", header=T)
+dyn_results <- rbind(dyn_results, rand_results)
 ```
 
 # Introduction
@@ -372,13 +374,18 @@ I should add the number of timeouts here.
 ```{r}
 caption <- "Geometric means of the experiments over all instances (ignoring timeouts)."
 t <- by_inst_alg %>% 
-  group_by(algorithm, reducer) %>% 
+  group_by(algorithm, reducer) %>%
   summarize(
+    timeout=sum(is.na(time)),
     time=gmean(time, na.rm=TRUE),
     polynomials=gmean(polynomials, na.rm=TRUE),
     monomials=gmean(monomials, na.rm=TRUE),
     degree=gmean(degree, na.rm=TRUE),
     sreductions=gmean(sreductions, na.rm=TRUE)
+  ) %>%
+  select(
+    algorithm, reducer, time, polynomials, 
+    monomials, degree, sreductions,timeout
   ) %>%
     rename(
       "Algorithm" = algorithm,
@@ -393,4 +400,112 @@ t <- by_inst_alg %>%
         include.rownames=F, 
         sanitize.text.function=function(x){x},
         NA.string = "NA")
+```
+
+# Checking out Random results
+
+Every instance / reducer has been run at least 2 times.
+
+```{r}
+random <- read.table("tiamat0-random.out", header=T)
+random %>%
+  group_by(reducer, instance) %>%
+  summarize(n = n())
+```
+
+#Checking out GS
+
+```{r}
+gs <- read.table("tiamat0-gs.out", header=T)
+gs <- gs %>%
+  filter(!is.na(time)) %>%
+  select(-rep)
+cap1 <- "Experimental results for GS using Buchberger reducer"
+paper_format(gs, "gritzmann-sturmfels", cap1)
+```
+
+# Behavior in cyclics / homogeneous cyclics
+
+```{r}
+cyclics <- by_inst_alg %>%
+  filter(grepl("cyclicn", instance) & !grepl("h", instance)) %>%
+  filter(reducer == "classical")
+
+ggplot(cyclics, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
+  geom_line() + 
+  scale_y_log10()
+
+ggplot(cyclics, aes(x=instance, y=polynomials, color=algorithm, group=algorithm)) + 
+  geom_line()
+
+cyclicsh <- by_inst_alg %>%
+  filter(grepl("cyclicnh", instance)) %>%
+  filter(reducer == "classical")
+
+ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
+  geom_line() + 
+  scale_y_log10()
+
+ggplot(cyclicsh, aes(x=instance, y=polynomials, color=algorithm, group=algorithm)) + 
+  geom_line()
+
+cyclics <- by_inst_alg %>%
+  filter(grepl("cyclicn", instance) & !grepl("h", instance)) %>%
+  filter(reducer == "F4")
+
+ggplot(cyclics, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
+  geom_line() + 
+  scale_y_log10()
+
+
+cyclicsh <- by_inst_alg %>%
+  filter(grepl("cyclicnh", instance)) %>%
+  filter(reducer == "F4")
+
+ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
+  geom_line() +
+  scale_y_log10()
+
+```
+
+# Generating data on Gröbner fans
+
+```{r}
+
+explore_gf <- function(instance_name) {
+  
+  data <- by_inst_alg %>%
+    filter(instance == instance_name, reducer == "classical")
+  
+  gf_data <- read.table(paste0("./results/", instance_name, ".gf"), header=T)
+  ggplot() +
+    geom_count(data=gf_data, aes(x=polynomials, y=degree)) + 
+    geom_jitter(data=data, aes(x=polynomials, y=degree, color=algorithm), width=0.1, height=0.1)
+}
+
+explore_gf("cyclicn4")
+explore_gf("cyclicnh4")
+explore_gf("cyclicn5")
+explore_gf("katsuran4")
+explore_gf("katsuranh4")
+explore_gf("econ4")
+explore_gf("econh4")
+explore_gf("econ5")
+explore_gf("r4")
+explore_gf("r4h")
+```
+
+
+
+```{r}
+for (instance_name in unique(by_inst_alg$instance)) {
+  data <- by_inst_alg %>%
+    filter(instance == instance_name, reducer == "classical")
+ 
+  g <- ggplot(data=data, aes(x=polynomials, y=degree, color=algorithm)) +
+    geom_jitter() + 
+    ggtitle(instance_name)
+  
+  plot(g)
+}
 ```
