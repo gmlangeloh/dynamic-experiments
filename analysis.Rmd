@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = FALSE, eval = TRUE)
 library(tidyverse)
 
 dyn_results <- read.table("tiamat0-results5.out", header=T)
+rand_results <- read.table("tiamat0-random.out", header=T)
+dyn_results <- rbind(dyn_results, rand_results)
 ```
 
 # Introduction
@@ -372,13 +374,18 @@ I should add the number of timeouts here.
 ```{r}
 caption <- "Geometric means of the experiments over all instances (ignoring timeouts)."
 t <- by_inst_alg %>% 
-  group_by(algorithm, reducer) %>% 
+  group_by(algorithm, reducer) %>%
   summarize(
+    timeout=sum(is.na(time)),
     time=gmean(time, na.rm=TRUE),
     polynomials=gmean(polynomials, na.rm=TRUE),
     monomials=gmean(monomials, na.rm=TRUE),
     degree=gmean(degree, na.rm=TRUE),
     sreductions=gmean(sreductions, na.rm=TRUE)
+  ) %>%
+  select(
+    algorithm, reducer, time, polynomials, 
+    monomials, degree, sreductions,timeout
   ) %>%
     rename(
       "Algorithm" = algorithm,
@@ -393,4 +400,63 @@ t <- by_inst_alg %>%
         include.rownames=F, 
         sanitize.text.function=function(x){x},
         NA.string = "NA")
+```
+
+# Checking out Random results
+
+Every instance / reducer has been run at least 2 times.
+
+```{r}
+random <- read.table("tiamat0-random.out", header=T)
+random %>%
+  group_by(reducer, instance) %>%
+  summarize(n = n())
+```
+
+#Checking out GS
+
+```{r}
+gs <- read.table("tiamat0-gs.out", header=T)
+gs <- gs %>%
+  filter(!is.na(time)) %>%
+  select(-rep)
+cap1 <- "Experimental results for GS using Buchberger reducer"
+paper_format(gs, "gritzmann-sturmfels", cap1)
+```
+
+# Behavior in cyclics / homogeneous cyclics
+
+```{r}
+cyclics <- by_inst_alg %>%
+  filter(grepl("cyclicn", instance) & !grepl("h", instance)) %>%
+  filter(reducer == "classical")
+
+ggplot(cyclics, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
+  geom_line() + 
+  scale_y_log10()
+
+cyclicsh <- by_inst_alg %>%
+  filter(grepl("cyclicnh", instance)) %>%
+  filter(reducer == "classical")
+
+ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
+  geom_line() + 
+  scale_y_log10()
+
+cyclics <- by_inst_alg %>%
+  filter(grepl("cyclicn", instance) & !grepl("h", instance)) %>%
+  filter(reducer == "F4")
+
+ggplot(cyclics, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
+  geom_line() + 
+  scale_y_log10()
+
+cyclicsh <- by_inst_alg %>%
+  filter(grepl("cyclicnh", instance)) %>%
+  filter(reducer == "F4")
+
+ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
+  geom_line() +
+  scale_y_log10()
+
 ```
