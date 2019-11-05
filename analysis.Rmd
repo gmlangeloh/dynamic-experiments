@@ -435,6 +435,9 @@ ggplot(cyclics, aes(x=instance, y=time, color=algorithm, group=algorithm)) +
   geom_line() + 
   scale_y_log10()
 
+ggplot(cyclics, aes(x=instance, y=polynomials, color=algorithm, group=algorithm)) + 
+  geom_line()
+
 cyclicsh <- by_inst_alg %>%
   filter(grepl("cyclicnh", instance)) %>%
   filter(reducer == "classical")
@@ -443,6 +446,9 @@ ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) +
   geom_line() + 
   scale_y_log10()
 
+ggplot(cyclicsh, aes(x=instance, y=polynomials, color=algorithm, group=algorithm)) + 
+  geom_line()
+
 cyclics <- by_inst_alg %>%
   filter(grepl("cyclicn", instance) & !grepl("h", instance)) %>%
   filter(reducer == "F4")
@@ -450,6 +456,7 @@ cyclics <- by_inst_alg %>%
 ggplot(cyclics, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
   geom_line() + 
   scale_y_log10()
+
 
 cyclicsh <- by_inst_alg %>%
   filter(grepl("cyclicnh", instance)) %>%
