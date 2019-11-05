@@ -228,6 +228,14 @@ summary(f4)
 ```
 
 ```{r}
+gmean <- function(x, na.rm=FALSE) {
+  exp(mean(log(x), na.rm=na.rm))
+}
+gmean(c(2.0, 0.5))
+gmean(c(1.0, 1.0))
+```
+
+```{r}
 cp <- by_inst_alg %>% filter(algorithm == 'caboara-perry')
 static <- by_inst_alg %>% filter(algorithm == 'static')
 perturb <- by_inst_alg %>% filter(algorithm == 'perturbation')
@@ -248,23 +256,27 @@ ggplot(perturb, aes(x=instance, y=1 + time, fill=reducer)) +
   scale_y_log10()
 
 #Compare classical and F4 running times
-cp %>% group_by(reducer) %>% summarize(mean=mean(time, na.rm=TRUE))
-static %>% group_by(reducer) %>% summarize(mean=mean(time, na.rm=TRUE))
-perturb %>% group_by(reducer) %>% summarize(mean=mean(time, na.rm=TRUE))
+cp %>% group_by(reducer) %>% summarize(mean=gmean(time, na.rm=TRUE))
+static %>% group_by(reducer) %>% summarize(mean=gmean(time, na.rm=TRUE))
+perturb %>% group_by(reducer) %>% summarize(mean=gmean(time, na.rm=TRUE))
+
+cp %>%group_by(reducer) %>% mutate(time=replace_na(time, 3600)) %>% summarize(mean=gmean(time))
+static %>%group_by(reducer) %>% mutate(time=replace_na(time, 3600)) %>% summarize(mean=gmean(time))
+perturb %>%group_by(reducer) %>% mutate(time=replace_na(time, 3600)) %>% summarize(mean=gmean(time))
 
 #Remove "outliers" and compare again
 cp %>% 
   group_by(reducer) %>% 
   filter(time < quantile(cp$time, 0.95, na.rm=TRUE)) %>% 
-  summarize(mean=mean(time, na.rm=TRUE))
+  summarize(mean=gmean(time, na.rm=TRUE))
 static %>% 
   group_by(reducer) %>% 
   filter(time < quantile(static$time, 0.95, na.rm=TRUE)) %>% 
-  summarize(mean=mean(time, na.rm=TRUE))
+  summarize(mean=gmean(time, na.rm=TRUE))
 perturb %>% 
   group_by(reducer) %>% 
   filter(time < quantile(perturb$time, 0.95, na.rm=TRUE)) %>% 
-  summarize(mean=mean(time, na.rm=TRUE))
+  summarize(mean=gmean(time, na.rm=TRUE))
 #Now F4 doesn't look more efficient at all! Check which ones are those outlier instances
 cp %>% 
   group_by(reducer) %>% 
@@ -284,4 +296,101 @@ by_inst_alg %>%
   select(algorithm, reducer, time, polynomials)
 ```
 
-# Comparison between our implementation and Sage / Singular
+#Generating some tables for the paper
+
+```{r}
+library(xtable)
+paper_format <- function (table, alg, caption) {
+  t <-table %>%
+    filter(algorithm == alg) %>%
+    ungroup() %>%
+    select(-algorithm,-reducer,-queue,-heuristic,-reduction,-zeroreductions) %>%
+    mutate(
+      polynomials = as.integer(polynomials),
+      monomials = as.integer(monomials),
+      degree = as.integer(degree),
+      sreductions = as.integer(sreductions)
+    ) %>%
+    rename(
+      "$t$" = time,
+      "$O$" = dynamic,
+      "$|G|$" = polynomials,
+      "$|\\Supp(G)|$" = monomials,
+      "$\\deg$" = degree,
+      "sred" = sreductions
+    )
+  print(xtable(t,caption=caption), 
+        include.rownames=F, 
+        sanitize.text.function=function(x){x},
+        NA.string = "NA")
+}
+```
+
+```{r}
+algorithms <- unique(by_inst_alg$algorithm)
+for (alg in algorithms) {
+  cap1 <- paste("Experimental results for ", alg, " using Buchberger reducer")
+  cap2 <- paste("Experimental results for ", alg, " using F4 reducer")
+  paper_format(buchberger, alg, cap1)
+  paper_format(f4, alg, cap2)
+}
+```
+
+## Comparing running times, basis sizes, ...
+
+This is very interesting data, I should probably make a nice table showing THIS.
+
+```{r}
+cp %>% group_by(reducer) %>% summarize(mean=gmean(time, na.rm=TRUE))
+static %>% group_by(reducer) %>% summarize(mean=gmean(time, na.rm=TRUE))
+perturb %>% group_by(reducer) %>% summarize(mean=gmean(time, na.rm=TRUE))
+
+cp %>%group_by(reducer) %>% mutate(time=replace_na(time, 3600)) %>% summarize(mean=gmean(time))
+static %>%group_by(reducer) %>% mutate(time=replace_na(time, 3600)) %>% summarize(mean=gmean(time))
+perturb %>%group_by(reducer) %>% mutate(time=replace_na(time, 3600)) %>% summarize(mean=gmean(time))
+
+cp %>% group_by(reducer) %>% summarize(mean=gmean(polynomials, na.rm=TRUE))
+static %>% group_by(reducer) %>% summarize(mean=gmean(polynomials, na.rm=TRUE))
+perturb %>% group_by(reducer) %>% summarize(mean=gmean(polynomials, na.rm=TRUE))
+
+cp %>% group_by(reducer) %>% summarize(mean=gmean(monomials, na.rm=TRUE))
+static %>% group_by(reducer) %>% summarize(mean=gmean(monomials, na.rm=TRUE))
+perturb %>% group_by(reducer) %>% summarize(mean=gmean(monomials, na.rm=TRUE))
+
+cp %>% group_by(reducer) %>% summarize(mean=gmean(degree, na.rm=TRUE))
+static %>% group_by(reducer) %>% summarize(mean=gmean(degree, na.rm=TRUE))
+perturb %>% group_by(reducer) %>% summarize(mean=gmean(degree, na.rm=TRUE))
+
+cp %>% group_by(reducer) %>% summarize(mean=gmean(sreductions, na.rm=TRUE))
+static %>% group_by(reducer) %>% summarize(mean=gmean(sreductions, na.rm=TRUE))
+perturb %>% group_by(reducer) %>% summarize(mean=gmean(sreductions, na.rm=TRUE))
+```
+
+
+I should add the number of timeouts here.
+
+```{r}
+caption <- "Geometric means of the experiments over all instances (ignoring timeouts)."
+t <- by_inst_alg %>% 
+  group_by(algorithm, reducer) %>% 
+  summarize(
+    time=gmean(time, na.rm=TRUE),
+    polynomials=gmean(polynomials, na.rm=TRUE),
+    monomials=gmean(monomials, na.rm=TRUE),
+    degree=gmean(degree, na.rm=TRUE),
+    sreductions=gmean(sreductions, na.rm=TRUE)
+  ) %>%
+    rename(
+      "Algorithm" = algorithm,
+      "Reducer" = reducer,
+      "$t$" = time,
+      "$|G|$" = polynomials,
+      "$|\\Supp(G)|$" = monomials,
+      "$\\deg$" = degree,
+      "sred" = sreductions
+    )
+  print(xtable(t,caption=caption), 
+        include.rownames=F, 
+        sanitize.text.function=function(x){x},
+        NA.string = "NA")
+```
