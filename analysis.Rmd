@@ -460,3 +460,22 @@ ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) +
   scale_y_log10()
 
 ```
+
+# Generating data on Gröbner fans
+
+```{r}
+
+explore_gf <- function(instance_name) {
+  gf_data <- read.table(paste0("./results/", instance_name, ".gf"), header=T)
+  ggplot(gf_data, aes(x=polynomials, y=degree)) +
+    geom_point()
+}
+
+explore_gf("cyclicn4")
+explore_gf("cyclicnh4")
+explore_gf("katsuran4")
+explore_gf("katsuranh4")
+explore_gf("econ4")
+explore_gf("econh4")
+explore_gf("econ5")
+```
