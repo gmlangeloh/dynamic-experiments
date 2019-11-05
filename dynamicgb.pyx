@@ -719,7 +719,7 @@ cpdef tuple dynamic_gb \
             if algorithm in [ 'gritzmann-sturmfels', 'random', 'perturbation', \
                               'simplex', 'population' ]:
               queue_time = time.time()
-              if iteration_count % dynamic_period == 1:
+              if algorithm == 'gritzmann-sturmfels' or iteration_count % dynamic_period == 1:
                 P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, \
                                   sugar_type)
               statistics.inc_queue_time(time.time() - queue_time)

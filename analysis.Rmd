@@ -466,16 +466,39 @@ ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) +
 ```{r}
 
 explore_gf <- function(instance_name) {
+  
+  data <- by_inst_alg %>%
+    filter(instance == instance_name, reducer == "classical")
+  
   gf_data <- read.table(paste0("./results/", instance_name, ".gf"), header=T)
-  ggplot(gf_data, aes(x=polynomials, y=degree)) +
-    geom_point()
+  ggplot() +
+    geom_count(data=gf_data, aes(x=polynomials, y=degree)) + 
+    geom_jitter(data=data, aes(x=polynomials, y=degree, color=algorithm), width=0.1, height=0.1)
 }
 
 explore_gf("cyclicn4")
 explore_gf("cyclicnh4")
+explore_gf("cyclicn5")
 explore_gf("katsuran4")
 explore_gf("katsuranh4")
 explore_gf("econ4")
 explore_gf("econh4")
 explore_gf("econ5")
+explore_gf("r4")
+explore_gf("r4h")
+```
+
+
+
+```{r}
+for (instance_name in unique(by_inst_alg$instance)) {
+  data <- by_inst_alg %>%
+    filter(instance == instance_name, reducer == "classical")
+ 
+  g <- ggplot(data=data, aes(x=polynomials, y=degree, color=algorithm)) +
+    geom_jitter() + 
+    ggtitle(instance_name)
+  
+  plot(g)
+}
 ```
