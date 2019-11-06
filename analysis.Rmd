@@ -65,7 +65,7 @@ by_instance <- dyn_results %>% group_by(instance)
 by_algorithm <- dyn_results %>% group_by(algorithm)
 by_inst_alg <- dyn_results %>% 
   group_by(instance, algorithm, reducer) %>% 
-  summarize_all(mean) %>%
+  summarize_all(mean, na.rm=TRUE) %>%
   select(-rep)
 buchberger <- by_inst_alg %>% filter(reducer == 'classical')
 f4 <- by_inst_alg %>% filter(reducer == 'F4')
@@ -413,13 +413,28 @@ random %>%
   summarize(n = n())
 ```
 
-#Checking out GS
+#Checking out GS and GFans
 
 ```{r}
+
+
 gs <- read.table("tiamat0-gs.out", header=T)
 gs <- gs %>%
   filter(!is.na(time)) %>%
   select(-rep)
+
+instances <- unique(gs$instance)
+#Make a table with the relevant GFan data: min size, min deg, maybe size of the Pareto curve?
+rows <- lapply(instances, function(instance_name) {
+  gfan <- read.table(paste0("./results/", instance_name, ".gf"), header=T)
+  minpolys <- min(gfan$polynomials)
+  mindeg <- min(gfan$degree)
+  return(tibble(instance=instance_name, minG=minpolys, mindeg=mindeg))
+})
+df <- bind_rows(rows)
+print(df)
+gs <- full_join(gs, df, by="instance")
+
 cap1 <- "Experimental results for GS using Buchberger reducer"
 paper_format(gs, "gritzmann-sturmfels", cap1)
 ```

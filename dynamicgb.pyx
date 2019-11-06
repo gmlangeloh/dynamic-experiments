@@ -547,6 +547,8 @@ cpdef tuple dynamic_gb \
       current_ordering = [ randint(1, 10) for k in xrange(n) ]
   elif initial_ordering == 'grevlex':
       current_ordering = [1 for k in xrange(n)]
+  elif initial_ordering == 'caboara':
+      current_ordering = initial_ordering(F, sugar_type)
   else:
       current_ordering = initial_ordering
   PR = PolynomialRing(PR.base_ring(), PR.gens(), order=create_order(current_ordering))

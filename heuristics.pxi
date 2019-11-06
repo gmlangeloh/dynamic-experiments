@@ -306,3 +306,23 @@ cdef list best_orderings_hilbert (list orderings, list G):
 
   cdef tuple t
   return [ t[1] for t in candidates]
+
+cdef list hilbert_smaller (list w1, list w2, list G):
+  cdef MPolynomialRing_libsingular R = G[0].value().parent()
+  cdef clothed_polynomial g
+
+  cdef MPolynomialRing_libsingular R1, R2
+  R1 = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w1))
+  R2 = PolynomialRing(R.base_ring(), R.gens(), order=create_order(w2))
+
+  cdef list LMs1, LMs2
+  LMs1 = [ R1(g.value()).lm() for g in G ]
+  LMs2 = [ R2(g.value()).lm() for g in G ]
+
+  I1 = R1.ideal(LMs1)
+  I2 = R2.ideal(LMs2)
+
+  candidates = [ (I1, w1), (I2, w2) ]
+  candidates.sort(key = hilbert_key)
+
+  return candidates[0][1]
