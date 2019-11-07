@@ -533,7 +533,28 @@ cpdef list normal(v, P):
   cdef list rays = [ -inequalities[i].A() for i in indices ]
   return list(sum(rays))
 
-cpdef list initial_ordering(list F, int sugar_type):
+cpdef list gs_initial_ordering(list F, int sugar_type):
+
+  cdef MPolynomialRing_libsingular R = F[0].parent()
+  cdef MPolynomial_libsingular g
+  cdef int n = R.ngens()
+
+  cdef list G = [ clothed_polynomial(g, sugar_type) for g in F ]
+
+  #Consider only half of the input polynomials for computing the polyhedron
+  polyhedron = Polyhedron(rays=(-identity_matrix(n)).rows())
+  for g in F:
+    polyhedron += g.newton_polytope()
+
+  #Find minimal vertex according to the Hilbert heuristic
+  w1 = [ 1 ] * n
+  for v in polyhedron.vertex_generator():
+    w2 = normal(v, polyhedron)
+    w1 = hilbert_smaller(w1, w2, G)
+
+  return w1
+
+cpdef list caboara_initial_ordering(list F, int sugar_type):
   '''
   Currently a simplified version of the initial ordering algorithm given in
   Caboara (1993).
@@ -580,8 +601,9 @@ cpdef list initial_ordering(list F, int sugar_type):
     #Pick the first element from LTups that is actually compatible with w1
     j = 0
     can_work = []
+    found = False
     while not found:
-      can_work = feasible(j, LTups, lp, set(), G, current_Ts, set())
+      can_work = feasible(j, LTups, lp, set(), G, current_Ts, False)
       if len(can_work) > 0:
         found = True
       else:
