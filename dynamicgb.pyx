@@ -577,7 +577,7 @@ cpdef tuple dynamic_gb \
   cdef list constraints = []
   cdef list vertices = []
 
-  cdef int prev_hilbert_degree = -1
+  cdef int prev_hilbert_degree = n + 2 #Just an upper bound
 
   #F4 declarations
   cdef list pairs_to_reduce
@@ -722,7 +722,8 @@ cpdef tuple dynamic_gb \
           if len(oldLTs) > 0 and oldLTs != LTs[:len(LTs)-1]:
             if algorithm in [ 'gritzmann-sturmfels', 'random', 'perturbation', \
                               'simplex', 'population' ]:
-              print("changed ordering, rebuilding")
+              #print("changed ordering, rebuilding")
+              #print(current_ordering)
               queue_time = time.time()
               if algorithm == 'gritzmann-sturmfels' or iteration_count % dynamic_period == 0:
                 P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, \
