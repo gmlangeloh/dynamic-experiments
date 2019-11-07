@@ -230,8 +230,9 @@ summary(f4)
 ```
 
 ```{r}
+#We drop zeroes in the geometric mean, it is important in some cases with overhead 0
 gmean <- function(x, na.rm=FALSE) {
-  exp(mean(log(x), na.rm=na.rm))
+  exp(mean(log(x[which(x != 0)]), na.rm=na.rm))
 }
 gmean(c(2.0, 0.5))
 gmean(c(1.0, 1.0))
@@ -534,7 +535,16 @@ for (instance_name in unique(by_inst_alg$instance)) {
 }
 ```
 
+I noticed perturbation and random are measuring overhead 0 when the reducer is F4. Why? Is it a problem in the measurement or in the R code?
 
+```{r}
+by_inst_alg %>%
+  filter(algorithm == 'random' | algorithm == 'perturbation', reducer == 'F4') %>%
+  select(dynamic)
+```
+
+The problem is that in a few cases, the overhead is 0. Then, the geometric mean is 0. I can just drop zeroes from the
+gmean computation.
 
 ```{r}
 by_inst_alg %>%
