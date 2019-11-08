@@ -222,6 +222,7 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
   init_time = time.time()
   if heuristic == 'hilbert':
 
+    old_order = [ ((), (), CLTs[0]) ]
     if use_weights:
       L = [ (R.ideal(LTs[0]).hilbert_polynomial(algorithm='singular'),
              R.ideal(LTs[0]).hilbert_series(),
@@ -231,6 +232,9 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
              R.ideal(LTs).hilbert_series(),
              LTs) for LTs in CLTs ]
     L.sort(key=cmp_to_key(hs_heuristic))
+    #if prev_hilb <= L[0][0].degree():
+    #  statistics.inc_heuristic_overhead(time.time() - init_time)
+    #  return old_order
     statistics.inc_heuristic_overhead(time.time() - init_time)
     return L
 

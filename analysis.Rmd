@@ -230,8 +230,9 @@ summary(f4)
 ```
 
 ```{r}
+#We drop zeroes in the geometric mean, it is important in some cases with overhead 0
 gmean <- function(x, na.rm=FALSE) {
-  exp(mean(log(x), na.rm=na.rm))
+  exp(mean(log(x[which(x != 0)]), na.rm=na.rm))
 }
 gmean(c(2.0, 0.5))
 gmean(c(1.0, 1.0))
@@ -378,19 +379,21 @@ t <- by_inst_alg %>%
   summarize(
     timeout=sum(is.na(time)),
     time=gmean(time, na.rm=TRUE),
+    overhead=gmean(dynamic, na.rm=TRUE),
     polynomials=gmean(polynomials, na.rm=TRUE),
     monomials=gmean(monomials, na.rm=TRUE),
     degree=gmean(degree, na.rm=TRUE),
     sreductions=gmean(sreductions, na.rm=TRUE)
   ) %>%
   select(
-    algorithm, reducer, time, polynomials, 
+    algorithm, reducer, time, overhead, polynomials, 
     monomials, degree, sreductions,timeout
   ) %>%
     rename(
       "Algorithm" = algorithm,
       "Reducer" = reducer,
       "$t$" = time,
+      "$O$" = overhead,
       "$|G|$" = polynomials,
       "$|\\Supp(G)|$" = monomials,
       "$\\deg$" = degree,
@@ -459,10 +462,13 @@ cyclicsh <- by_inst_alg %>%
 
 ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
   geom_line() + 
-  scale_y_log10()
+  scale_y_log10() + 
+  ylab("log(time)")
+ggsave("./img/cyclich-time.png")
 
 ggplot(cyclicsh, aes(x=instance, y=polynomials, color=algorithm, group=algorithm)) + 
   geom_line()
+ggsave("./img/cyclich-polys.png")
 
 cyclics <- by_inst_alg %>%
   filter(grepl("cyclicn", instance) & !grepl("h", instance)) %>%
@@ -479,7 +485,8 @@ cyclicsh <- by_inst_alg %>%
 
 ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) + 
   geom_line() +
-  scale_y_log10()
+  scale_y_log10() +
+  ylab("log(time)")
 
 ```
 
@@ -493,9 +500,12 @@ explore_gf <- function(instance_name) {
     filter(instance == instance_name, reducer == "classical")
   
   gf_data <- read.table(paste0("./results/", instance_name, ".gf"), header=T)
-  ggplot() +
+  g <- ggplot() +
     geom_count(data=gf_data, aes(x=polynomials, y=degree)) + 
-    geom_jitter(data=data, aes(x=polynomials, y=degree, color=algorithm), width=0.1, height=0.1)
+    geom_jitter(data=data, aes(x=polynomials, y=degree, color=algorithm), width=0.1, height=0.1) +
+    ggtitle(instance_name)
+  ggsave(paste0("./img/", instance_name, "-gfan.eps"))
+  plot(g)
 }
 
 explore_gf("cyclicn4")
@@ -523,4 +533,25 @@ for (instance_name in unique(by_inst_alg$instance)) {
   
   plot(g)
 }
+```
+
+I noticed perturbation and random are measuring overhead 0 when the reducer is F4. Why? Is it a problem in the measurement or in the R code?
+
+```{r}
+by_inst_alg %>%
+  filter(algorithm == 'random' | algorithm == 'perturbation', reducer == 'F4') %>%
+  select(dynamic)
+```
+
+The problem is that in a few cases, the overhead is 0. Then, the geometric mean is 0. I can just drop zeroes from the
+gmean computation.
+
+```{r}
+by_inst_alg %>%
+  filter(instance == 'cyclicnh7') %>%
+  select(instance, algorithm, reducer, time, polynomials, monomials, degree, sreductions)
+
+by_inst_alg %>%
+  filter(instance == 'cyclicn5') %>%
+  select(instance, algorithm, reducer, time, dynamic, polynomials, monomials, degree, sreductions)
 ```
