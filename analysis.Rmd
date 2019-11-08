@@ -547,11 +547,29 @@ The problem is that in a few cases, the overhead is 0. Then, the geometric mean 
 gmean computation.
 
 ```{r}
-by_inst_alg %>%
-  filter(instance == 'cyclicnh7') %>%
-  select(instance, algorithm, reducer, time, polynomials, monomials, degree, sreductions)
+c67h <- by_inst_alg %>%
+  filter(instance == 'cyclicnh7' | instance == 'cyclicnh6') %>%
+  select(instance, algorithm, reducer, time, dynamic, polynomials, monomials, degree, sreductions) %>%
+  ungroup()
 
-by_inst_alg %>%
-  filter(instance == 'cyclicn5') %>%
+c8h <- read.table("tiamat0-cyclicnh8.out", header=T)
+c8h <- c8h %>%
   select(instance, algorithm, reducer, time, dynamic, polynomials, monomials, degree, sreductions)
+big_cyclics <- rbind(c67h, c8h)
+big_cyclics <- big_cyclics %>%
+    rename(
+      "Algorithm" = algorithm,
+      "Reducer" = reducer,
+      "$t$" = time,
+      "$O$" = dynamic,
+      "$|G|$" = polynomials,
+      "$|\\Supp(G)|$" = monomials,
+      "$\\deg$" = degree,
+      "sred" = sreductions
+    )
+cyclics_caption <- "Results for some homogeneous Cyclic ideals."
+print(xtable(big_cyclics,caption=cyclics_caption), 
+      include.rownames=F, 
+      sanitize.text.function=function(x){x},
+      NA.string = "NA")
 ```
