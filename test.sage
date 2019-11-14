@@ -67,7 +67,9 @@ else:
   #I am keeping here only the algorithms that seem promising
   algorithms = [ "static",
                  "caboara-perry",
-                 "perturbation" ]
+                 "perturbation",
+                 "random",
+                 "localsearch" ]
 
 prefix = "./instances/"
 suffix = ".ideal"

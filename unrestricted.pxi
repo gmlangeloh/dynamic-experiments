@@ -617,6 +617,12 @@ cpdef list caboara_initial_ordering(list F, int sugar_type):
 
   return w1
 
+cpdef negative_orthant(n):
+  '''
+  The negative orthant of R^n
+  '''
+  return Polyhedron(rays=(-identity_matrix(n)).rows())
+
 cpdef tuple choose_ordering_unrestricted(list G, old_polyhedron, str heuristic,\
                                          int m, int prev_betti, int prev_hilb):
 
@@ -626,7 +632,7 @@ cpdef tuple choose_ordering_unrestricted(list G, old_polyhedron, str heuristic,\
   cdef clothed_polynomial g
   cdef int n = R.ngens()
 
-  new_polyhedron = Polyhedron(rays=(-identity_matrix(n)).rows())
+  new_polyhedron = negative_orthant(n)
   for g in G[m:]:
     p = g.value()
     new_polyhedron += p.newton_polytope()
@@ -724,3 +730,210 @@ cpdef tuple choose_regrets_ordering\
 
   return result + (constraints, PR(G[k-1].value()).lm() != G[k-1].value().lm())
 
+
+cpdef affine_newton_polyhedron(clothed_polynomial g):
+  cdef int n = g.value().parent().ngens()
+  return g.value().newton_polytope() + negative_orthant(n)
+
+cpdef MPolynomial_libsingular poly_from_exponents (exponents, MPolynomialRing_libsingular R):
+  cdef int exponent
+  cdef int i = 0
+  cdef MPolynomial_libsingular f = R(1)
+  for exponent in exponents:
+    f *= R.gens()[i] ** exponent
+    i += 1
+  return f
+
+cdef class LocalSearchState:
+  '''
+  Class to store state for local search based algorithm.
+  '''
+  cdef str heuristic
+
+  #Structures updated at each call
+  cdef list newton_polyhedra
+  cdef list constraints
+  cdef list current_ordering
+  cdef MPolynomialRing_libsingular ring
+  cdef MixedIntegerLinearProgram lp
+
+  def __init__(self, int n, list initial_ordering, str heuristic,
+                MPolynomialRing_libsingular R):
+    self.heuristic = heuristic
+    self.newton_polyhedra = []
+    self.constraints = []
+    self.current_ordering = initial_ordering
+    self.lp = new_linear_program(n = n)
+    self.ring = R
+
+  cdef newton_polyhedron(self, int i):
+    return self.newton_polyhedra[i]
+
+  cdef tuple candidates(self, int i, list LTs):
+    '''
+    Returns the list of candidate LTs with better heuristic value than
+    the current one.
+    '''
+    cdef tuple all_candidates = self.newton_polyhedron(i).vertices()
+    cdef list CLTs = []
+    cdef int j
+    for j in range(len(all_candidates)):
+      CLTs.append(LTs.copy())
+      CLTs[j][i] = poly_from_exponents(all_candidates[j], self.ring)
+
+    CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
+
+    cdef int idx = 0
+    while idx < len(CLTs):
+      if CLTs[idx][2] == LTs[i]:
+        break
+      idx += 1
+
+    return CLTs, idx
+
+    ##Only pick the ones better than the current one
+    #cdef list improving_candidates = []
+    #j = 0
+    #while CLTs[j][2][i] != LTs[i]:
+    #  #TODO I should probably check for ties here somewhere
+    #  improving_candidates.append(CLTs[j][2][i].exponents()[0])
+    #  j += 1
+
+    #return improving_candidates
+
+  cdef void add_constraint(self, beginning, end):
+    self.constraints.append((beginning, end))
+
+  cdef void add_polynomial(self, list G):
+
+    #Pick the best LM for new polynomial according to Caboara's algorithm
+    cdef int i, k = len(G)
+    cdef int new_beginning = self.lp.number_of_constraints()
+    cdef tuple result = choose_ordering_restricted(G,[ G[i].value().lm() for i in xrange(k-1)], k-1, self.current_ordering, self.lp, set(), set(), False, False,False, self.heuristic, True)
+    cdef int new_end = self.lp.number_of_constraints()
+
+    #Update structures
+    self.add_constraint(new_beginning, new_end)
+    self.current_ordering = result[0]
+    self.lp = result[1]
+    self.newton_polyhedra.append(affine_newton_polyhedron(G[len(G)-1]))
+    self.ring = PolynomialRing(self.ring.base_ring(), self.ring.gens(),
+                               order=create_order(self.current_ordering))
+
+    for i in xrange(len(G)):
+      G[i].set_value(self.ring(G[i].value()))
+
+  cdef void readd_constraints(self, list constraints, int i):
+    '''
+    Add constraints that were removed before
+    '''
+    cdef tuple constraint
+    cdef list indices, coefs
+    cdef int new_beginning = self.lp.number_of_constraints()
+    for constraint in constraints:
+      lb = constraint[0]
+      up = constraint[2]
+      indices, coefs = constraint[1]
+      s = self.lp.sum(coefs[i] * self.lp[indices[i]]
+                      for i in range(len(indices)))
+      self.lp.add_constraint(s, max=up, min=lb)
+
+    cdef int new_end = self.lp.number_of_constraints()
+    self.constraints[i] = (new_beginning, new_end)
+
+  cdef list remove_constraints(self, int i):
+    '''
+    Remove from lp the constraints of polynomial i
+    Return these constraints
+    '''
+    cdef int start, end
+    start, end = self.constraints[i]
+    if start == end:
+      return []
+    cdef list constraints = self.lp.constraints(list(range(start, end)))
+
+    self.lp.remove_constraints(list(range(start, end)))
+
+    #Reindex constraints that appear after
+    cdef int j
+    for j in range(len(self.constraints)):
+      beg_i, end_i = self.constraints[j]
+      if beg_i >= end:
+        constraints[i] = (beg_i - (end - start), end_i - (end - start))
+
+    return constraints
+
+  cdef void update_ordering(self, list new_ordering):
+    self.current_ordering = new_ordering
+
+  cdef void update_lp_after_i(self, lp, int i):
+    cdef int start = self.lp.number_of_constraints()
+    self.lp = lp
+    cdef int end = self.lp.number_of_constraints()
+    self.constraints[i] = (start, end)
+
+cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
+  '''
+  Local search dynamic function.
+  Two orderings are neighbors iff they pick the same LM for all but one
+  polynomial of G.
+  So, in addition to finding a new ordering as in Caboara's algorithm,
+  we also have a chance of changing a single LM from a previous
+  polynomial.
+
+  We cannot use the optimizations of CP, because changing in an unrestricted
+  way breaks disjoint cones / boundary vectors.
+  '''
+
+  #STEP 1: Choose the new ordering the same as Caboara
+  for k in range(m, len(G)): #Iterate this to be compatible with F4 reducer
+    state.add_polynomial(G[:k+1])
+
+  #STEP 2: Walk through previous polynomials, decide whether to try to change
+  #their leading monomials or not.
+  #Check if the changes are possible using linear programming.
+  #Maybe we can keep a list of the ones that were feasible, but were not picked.
+  #They have a higher chance of being feasible again.
+
+  cdef clothed_polynomial g
+  cdef int i, j
+  cdef list candidates
+  cdef bool found = False
+  cdef list LTs = [ g.value().lm() for g in G ]
+  cdef tuple can_work
+  cdef MPolynomial_libsingular LTi
+  cdef int current_idx
+
+  for i in range(len(G) - 1):
+    #Anything returned by candidates has better heuristic value than current
+    candidates, current_idx = state.candidates(i, LTs)
+    j = 0
+    LTi = LTs[i]
+
+    if len(candidates) > 0: #If there are candidates, update lp
+      removed_constraints = state.remove_constraints(i)
+
+    candidate_exps = [ tuple(c[2][i].exponents()[0]) for c in candidates ]
+
+    #Need to update the lp somewhere
+    while not found and j < current_idx:
+
+      LTs[i] = candidates[j][2][i]#poly_from_exponents(candidates[j], state.ring)
+
+      can_work = feasible(j, candidate_exps, state.lp, set(), G, LTs, False)
+      if len(can_work) > 0: #Found a solution
+        state.update_ordering(can_work[1])
+        state.update_lp_after_i(can_work[2], i)
+        found = True
+      else:
+        j += 1
+
+    #Go back to original LT for i if we didn't find a better one
+    if not found:
+      LTs[i] = LTi
+      if len(candidates) > 0: #I have to reinsert constraints
+        state.readd_constraints(removed_constraints, i)
+    else: #Work with first improvement
+      break
+
+  return state.current_ordering

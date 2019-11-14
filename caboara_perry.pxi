@@ -354,6 +354,7 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
   cdef int m = len(CMs)
   #print m, "new constraints", CMs
 
+
   #loop through all exponent vectors of compatible monomials
   for j in xrange(m):
 
@@ -397,6 +398,7 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
   # we have a solution to the LP relaxation
   #print "have solution"
 
+
   # STEP 2: check if system is consistent with previous systems
 
   # first, solve the LP relaxation
@@ -419,6 +421,7 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
 
   # moving this inside the loop might make rejection-checking more efficient,
   # but slows the process greatly for large systems
+
   try:
 
     # a lot of debugging information for when I mess things up...
@@ -449,13 +452,13 @@ cpdef tuple feasible(int i, list CMs, MixedIntegerLinearProgram olp, \
 
   if not solve_integer(np, n): return False
 
+
   # make sure older LTs have not changed
   sol = np.get_values([np[k] for k in xrange(n)])
   lms_changed = 1
 
   while lms_changed != 0:
 
-    #print "checking lms"
     lms_changed, changed_lms = monitor_lts(G, LTs, sol)
     resolve = False
 

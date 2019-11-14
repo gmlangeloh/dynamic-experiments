@@ -560,6 +560,10 @@ cpdef tuple dynamic_gb \
   cdef set rejects = set()
   lp = new_linear_program(n = n)
 
+  #set up state for local search algorithm
+  cdef LocalSearchState state = LocalSearchState(n, current_ordering,
+                                                 heuristic, PR)
+
   #State for additional algorithms
   if algorithm == 'caboara':
     use_disjoint_cones = False
@@ -689,6 +693,8 @@ cpdef tuple dynamic_gb \
                                    heuristic)
           elif algorithm == 'population':
             current_ordering = population.next_ordering(G)
+          elif algorithm == 'localsearch':
+            current_ordering = choose_local_ordering(G, state, m)
           else:
             #We need to iterate this construction in the case of the F4 reducer
             #because in that case many polynomials are added at once
@@ -721,11 +727,11 @@ cpdef tuple dynamic_gb \
 
           if len(oldLTs) > 0 and oldLTs != LTs[:len(LTs)-1]:
             if algorithm in [ 'gritzmann-sturmfels', 'random', 'perturbation', \
-                              'simplex', 'population' ]:
+                              'simplex', 'population', 'localsearch' ]:
               #print("changed ordering, rebuilding")
               #print(current_ordering)
               queue_time = time.time()
-              if algorithm == 'gritzmann-sturmfels' or iteration_count % dynamic_period == 0:
+              if algorithm == 'gritzmann-sturmfels' or algorithm == 'localsearch' or iteration_count % dynamic_period == 0:
                 P = rebuild_queue(G[:len(G)-1], LTs[:len(LTs)-1], P, strategy, \
                                   sugar_type)
               statistics.inc_queue_time(time.time() - queue_time)
