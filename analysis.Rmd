@@ -86,6 +86,10 @@ knitr::kable(
   caboara_perry,
   caption='Results from Caboara and Perry, 2014'
 )
+by_inst_alg %>%
+  filter(algorithm=='caboara-perry', reducer=='classical') %>%
+  ungroup %>%
+  select(instance, polynomials, monomials)
 ```
 
 For completeness, we also show the results from [@Perry2017], that uses a slightly modified version of the 
@@ -493,7 +497,7 @@ ggplot(cyclicsh, aes(x=instance, y=time, color=algorithm, group=algorithm)) +
 # Generating data on Gröbner fans
 
 ```{r}
-
+library(ggrepel)
 explore_gf <- function(instance_name) {
   
   data <- by_inst_alg %>%
@@ -502,8 +506,10 @@ explore_gf <- function(instance_name) {
   gf_data <- read.table(paste0("./results/", instance_name, ".gf"), header=T)
   g <- ggplot() +
     geom_count(data=gf_data, aes(x=polynomials, y=degree)) + 
-    geom_jitter(data=data, aes(x=polynomials, y=degree, color=algorithm), width=0.1, height=0.1) +
-    ggtitle(instance_name)
+    geom_point(data=data, aes(x=polynomials, y=degree, color=algorithm), size=3, show.legend=FALSE) +
+    ggtitle(instance_name) +
+    geom_text_repel(data=data, aes(x=polynomials, y=degree, color=algorithm, label=algorithm), nudge_y=-1.0, show.legend=FALSE) + 
+    scale_alpha(guide = 'none')
   ggsave(paste0("./img/", instance_name, "-gfan.eps"))
   plot(g)
 }
@@ -552,10 +558,19 @@ c67h <- by_inst_alg %>%
   select(instance, algorithm, reducer, time, dynamic, polynomials, monomials, degree, sreductions) %>%
   ungroup()
 
+c8h_random <- read.table("tiamat0-random-c8h.out", header=T)
+c8h_random <- c8h_random %>%
+  group_by(instance, algorithm, reducer) %>%
+  summarize_all(mean, na.rm=TRUE) %>%
+  select(instance, algorithm, reducer, time, dynamic, polynomials, monomials, degree, sreductions) %>%
+  ungroup()
+
 c8h <- read.table("tiamat0-cyclicnh8.out", header=T)
 c8h <- c8h %>%
+  filter(algorithm != "random") %>%
   select(instance, algorithm, reducer, time, dynamic, polynomials, monomials, degree, sreductions)
-big_cyclics <- rbind(c67h, c8h)
+
+big_cyclics <- rbind(c67h, c8h, c8h_random)
 big_cyclics <- big_cyclics %>%
     rename(
       "Algorithm" = algorithm,
@@ -572,4 +587,64 @@ print(xtable(big_cyclics,caption=cyclics_caption),
       include.rownames=F, 
       sanitize.text.function=function(x){x},
       NA.string = "NA")
+```
+
+#Graphs for the paper
+
+```{r}
+paper_gf <- function(instance_name) {
+  
+  if (instance_name == "cyclicn5") {
+    nx = 0.0
+    ny = -0.5
+    t = "Cyclic 5"
+  } else {
+    nx = 0.0
+    ny = 0.5
+    t = "Katsura 4"
+  }
+  
+  data <- by_inst_alg %>%
+    filter(instance == instance_name, reducer == "classical")
+  
+  gf_data <- read.table(paste0("./results/", instance_name, ".gf"), header=T)
+  g <- ggplot() +
+    geom_count(data=gf_data, aes(x=polynomials, y=degree, alpha=0.6)) + 
+    geom_point(data=data, aes(x=polynomials, y=degree, color=algorithm), size=3, show.legend=FALSE) +
+    ggtitle(t) +
+    geom_text_repel(data=data, aes(x=polynomials, y=degree, color=algorithm, label=algorithm), nudge_y=ny, show.legend=FALSE) + 
+    theme(legend.position=c(0.93, 0.81)) + 
+    scale_alpha(guide = 'none') + 
+    guides(size=guide_legend("Bases"))
+  ggsave(paste0("./img/", instance_name, "-gfan.pdf"), height=4.5)
+  plot(g)
+}
+
+paper_gf("cyclicn5")
+paper_gf("katsuran4")
+```
+
+Scatter plot of polynomials by basis size - this doesn't say much at all. All it shows is that smaller bases tend to be faster to compute, and that for a given basis size, Static is faster, which is obvious. Any performance benefits of dynamic algorithms come from computing smaller bases anyway. The most interesting part is maybe that CP and Random sometimes take much longer, while the worst case of Perturbation is much closer to Static.
+
+I don't see any interesting relationships in the degree graph, apart from the fact CP leads to higher degrees, which I had already noted anyway.
+
+```{r}
+p <- ggplot(data=by_inst_alg, aes(x=polynomials, y=time, color=algorithm, shape=reducer)) +
+  geom_point() +
+  scale_y_log10() +
+  scale_x_log10() +
+  xlab("log(polynomials)") +
+  ylab("log(time)") +
+  theme(legend.position=c(0.87, 0.32))
+ggsave(paste0("./img/scatterpolytime.pdf"), height=4.5)
+plot(p)
+
+p <- ggplot(data=by_inst_alg, aes(x=degree, y=time, color=algorithm, shape=reducer)) +
+  geom_point() +
+  scale_y_log10() +
+  scale_x_log10() +
+  xlab("log(degree)") +
+  ylab("log(time)") +
+  theme(legend.position=c(0.87, 0.32))
+plot(p)
 ```
