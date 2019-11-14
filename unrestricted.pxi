@@ -769,7 +769,7 @@ cdef class LocalSearchState:
   cdef newton_polyhedron(self, int i):
     return self.newton_polyhedra[i]
 
-  cdef tuple candidates(self, int i, list LTs):
+  cdef list candidates(self, int i, list LTs):
     '''
     Returns the list of candidate LTs with better heuristic value than
     the current one.
@@ -783,23 +783,7 @@ cdef class LocalSearchState:
 
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
 
-    cdef int idx = 0
-    while idx < len(CLTs):
-      if CLTs[idx][2] == LTs[i]:
-        break
-      idx += 1
-
-    return CLTs, idx
-
-    ##Only pick the ones better than the current one
-    #cdef list improving_candidates = []
-    #j = 0
-    #while CLTs[j][2][i] != LTs[i]:
-    #  #TODO I should probably check for ties here somewhere
-    #  improving_candidates.append(CLTs[j][2][i].exponents()[0])
-    #  j += 1
-
-    #return improving_candidates
+    return CLTs
 
   cdef void add_constraint(self, beginning, end):
     self.constraints.append((beginning, end))
@@ -857,9 +841,9 @@ cdef class LocalSearchState:
     #Reindex constraints that appear after
     cdef int j
     for j in range(len(self.constraints)):
-      beg_i, end_i = self.constraints[j]
-      if beg_i >= end:
-        constraints[i] = (beg_i - (end - start), end_i - (end - start))
+      beg_j, end_j = self.constraints[j]
+      if beg_j >= end:
+        self.constraints[j] = (beg_j - (end - start), end_j - (end - start))
 
     return constraints
 
@@ -902,11 +886,10 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   cdef list LTs = [ g.value().lm() for g in G ]
   cdef tuple can_work
   cdef MPolynomial_libsingular LTi
-  cdef int current_idx
 
   for i in range(len(G) - 1):
     #Anything returned by candidates has better heuristic value than current
-    candidates, current_idx = state.candidates(i, LTs)
+    candidates = state.candidates(i, LTs)
     j = 0
     LTi = LTs[i]
 
@@ -916,7 +899,7 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
     candidate_exps = [ tuple(c[2][i].exponents()[0]) for c in candidates ]
 
     #Need to update the lp somewhere
-    while not found and j < current_idx:
+    while not found and j < len(candidates):
 
       LTs[i] = candidates[j][2][i]#poly_from_exponents(candidates[j], state.ring)
 

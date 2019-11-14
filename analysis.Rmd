@@ -12,7 +12,8 @@ library(tidyverse)
 
 dyn_results <- read.table("tiamat0-results5.out", header=T)
 rand_results <- read.table("tiamat0-random.out", header=T)
-dyn_results <- rbind(dyn_results, rand_results)
+ls_results <- read.table("tiamat2-ls.out", header=T)
+dyn_results <- rbind(dyn_results, rand_results, ls_results)
 ```
 
 # Introduction
@@ -605,7 +606,7 @@ paper_gf <- function(instance_name) {
   }
   
   data <- by_inst_alg %>%
-    filter(instance == instance_name, reducer == "classical")
+    filter(instance == instance_name, reducer == "classical") 
   
   gf_data <- read.table(paste0("./results/", instance_name, ".gf"), header=T)
   g <- ggplot() +
@@ -615,7 +616,9 @@ paper_gf <- function(instance_name) {
     geom_text_repel(data=data, aes(x=polynomials, y=degree, color=algorithm, label=algorithm), nudge_y=ny, show.legend=FALSE) + 
     theme(legend.position=c(0.93, 0.81)) + 
     scale_alpha(guide = 'none') + 
-    guides(size=guide_legend("Bases"))
+    guides(size=guide_legend("Bases")) + 
+    xlab("Polynomials") + 
+    ylab("Degree")
   ggsave(paste0("./img/", instance_name, "-gfan.pdf"), height=4.5)
   plot(g)
 }
@@ -629,22 +632,61 @@ Scatter plot of polynomials by basis size - this doesn't say much at all. All it
 I don't see any interesting relationships in the degree graph, apart from the fact CP leads to higher degrees, which I had already noted anyway.
 
 ```{r}
-p <- ggplot(data=by_inst_alg, aes(x=polynomials, y=time, color=algorithm, shape=reducer)) +
+p <- ggplot(data=by_inst_alg, aes(x=polynomials, y=time, color=algorithm)) +
   geom_point() +
   scale_y_log10() +
   scale_x_log10() +
-  xlab("log(polynomials)") +
-  ylab("log(time)") +
-  theme(legend.position=c(0.87, 0.32))
+  xlab("log(Polynomials)") +
+  ylab("log(Time)") +
+  guides(color=guide_legend("Algorithm")) +
+  theme(legend.position=c(0.87, 0.23))
 ggsave(paste0("./img/scatterpolytime.pdf"), height=4.5)
 plot(p)
 
-p <- ggplot(data=by_inst_alg, aes(x=degree, y=time, color=algorithm, shape=reducer)) +
+p <- ggplot(data=by_inst_alg, aes(x=degree, y=time, color=algorithm)) +
   geom_point() +
   scale_y_log10() +
   scale_x_log10() +
-  xlab("log(degree)") +
-  ylab("log(time)") +
-  theme(legend.position=c(0.87, 0.32))
+  xlab("log(Degree)") +
+  ylab("log(Time)") +
+  guides(color=guide_legend("Algorithm")) +
+  theme(legend.position=c(0.87, 0.23))
 plot(p)
+```
+
+```{r}
+by_inst_alg %>%
+  filter(degree >= quantile(by_inst_alg$degree, 0.97, na.rm=TRUE)) %>%
+  arrange(degree) %>%
+  select(algorithm, reducer, instance, time, polynomials, degree)
+
+by_inst_alg %>%
+  filter(instance == "cyclicn7") %>%
+  select(algorithm, reducer, instance, time, polynomials, degree)
+```
+
+
+Checking out which algorithms are the best in terms of basis size.
+
+```{r}
+by_inst_alg %>%
+  group_by(instance, reducer) %>%
+  filter(dense_rank(time) == 1) %>%
+  select(instance, reducer, algorithm, time, dynamic, polynomials, monomials, degree, sreductions) %>%
+  group_by(algorithm, reducer) %>%
+  summarize(n=n())
+
+by_inst_alg %>%
+  group_by(instance, reducer) %>%
+  filter(dense_rank(polynomials) == 1) %>%
+  select(instance, reducer, algorithm, time, dynamic, polynomials, monomials, degree, sreductions) %>%
+  group_by(algorithm, reducer) %>%
+  summarize(n=n())
+
+by_inst_alg %>%
+  group_by(instance, reducer) %>%
+  filter(dense_rank(degree) == 1) %>%
+  select(instance, reducer, algorithm, time, dynamic, polynomials, monomials, degree, sreductions) %>%
+  group_by(algorithm, reducer) %>%
+  summarize(n=n())
 ```
