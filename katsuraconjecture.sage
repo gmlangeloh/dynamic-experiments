@@ -23,9 +23,9 @@ def katsura(n):
 if len(sys.argv) >= 2:
     max_n = int(sys.argv[1])
 else:
-    max_n = 8
+    max_n = 7
 
-for n in range(3, max_n):
+for n in range(3, max_n + 1):
     kat = katsura(n)
     w = katsura_order(n)
     kat.change_order(w)

@@ -670,23 +670,32 @@ Checking out which algorithms are the best in terms of basis size.
 
 ```{r}
 by_inst_alg %>%
-  group_by(instance, reducer) %>%
+  group_by(instance) %>%
   filter(dense_rank(time) == 1) %>%
   select(instance, reducer, algorithm, time, dynamic, polynomials, monomials, degree, sreductions) %>%
-  group_by(algorithm, reducer) %>%
+  group_by(algorithm) %>%
   summarize(n=n())
 
 by_inst_alg %>%
-  group_by(instance, reducer) %>%
+  group_by(instance) %>%
   filter(dense_rank(polynomials) == 1) %>%
   select(instance, reducer, algorithm, time, dynamic, polynomials, monomials, degree, sreductions) %>%
-  group_by(algorithm, reducer) %>%
+  group_by(algorithm) %>%
   summarize(n=n())
 
 by_inst_alg %>%
-  group_by(instance, reducer) %>%
+  group_by(instance) %>%
   filter(dense_rank(degree) == 1) %>%
   select(instance, reducer, algorithm, time, dynamic, polynomials, monomials, degree, sreductions) %>%
-  group_by(algorithm, reducer) %>%
+  group_by(algorithm) %>%
   summarize(n=n())
+
+by_inst_alg %>%
+  filter(instance == "butcher8")  %>%
+  select(instance, reducer, algorithm, time, dynamic, polynomials, monomials, degree, sreductions)
+
+
+by_inst_alg %>%
+  filter(instance == "f633h")  %>%
+  select(instance, reducer, algorithm, time, dynamic, polynomials, monomials, degree, sreductions)
 ```
