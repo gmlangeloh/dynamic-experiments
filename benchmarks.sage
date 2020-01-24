@@ -86,11 +86,11 @@ def _change_ring_order(w, L):
     M = matrix(w)
     if M.nrows() == 1 and all([ wi > 0 for wi in w ]):
         newR = oldR.change_ring(order=TermOrder("wdegrevlex", w))
-        return map(lambda p: newR(p), L)
+        return list(map(lambda p: newR(p), L))
     elif M.nrows() == 1:
         M = _makegrevlex(M[0])
     newR = oldR.change_ring(order=TermOrder(M))
-    return map(lambda p: newR(p), L)
+    return list(map(lambda p: newR(p), L))
 
 def _term_data(G):
 
