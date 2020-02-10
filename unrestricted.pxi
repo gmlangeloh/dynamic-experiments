@@ -749,6 +749,7 @@ cdef class LocalSearchState:
   Class to store state for local search based algorithm.
   '''
   cdef str heuristic
+  cdef str criterion
 
   #Structures updated at each call
   cdef list newton_polyhedra
@@ -757,7 +758,7 @@ cdef class LocalSearchState:
   cdef MPolynomialRing_libsingular ring
   cdef MixedIntegerLinearProgram lp
 
-  def __init__(self, int n, list initial_ordering, str heuristic,
+  def __init__(self, int n, list initial_ordering, str lscriterion, str heuristic,
                 MPolynomialRing_libsingular R):
     self.heuristic = heuristic
     self.newton_polyhedra = []
@@ -765,11 +766,12 @@ cdef class LocalSearchState:
     self.current_ordering = initial_ordering
     self.lp = new_linear_program(n = n)
     self.ring = R
+    self.criterion = lscriterion
 
   cdef newton_polyhedron(self, int i):
     return self.newton_polyhedra[i]
 
-  cdef list candidates(self, int i, list LTs):
+  cdef list candidates_newton(self, int i, list LTs):
     '''
     Returns the list of candidate LTs with better heuristic value than
     the current one.
@@ -778,12 +780,81 @@ cdef class LocalSearchState:
     cdef list CLTs = []
     cdef int j
     for j in range(len(all_candidates)):
-      CLTs.append(LTs.copy())
-      CLTs[j][i] = poly_from_exponents(all_candidates[j], self.ring)
+        CLTs.append(LTs.copy())
+        CLTs[j][i] = poly_from_exponents(all_candidates[j], self.ring)
 
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
 
     return CLTs
+
+  cdef int max_difference(self, MPolynomial_libsingular u, int j, \
+                          MPolynomial_libsingular prodT):
+    """
+    Corresponds to step 2(c)i from Perry's criterion.
+    If there are multiple variables with the same difference, picks the first one.
+    """
+    cdef int current_max = -10000000
+    cdef int current_idx = -1
+    cdef int n = self.ring().ngens()
+    cdef int i, deg
+    for i in range(n):
+      deg = j * u.degree(i) - prodT.degree(i)
+      if deg > current_max:
+        current_max = deg
+        current_idx = i
+
+    return i
+
+  cdef int min_degree(self, int i, list T):
+    """
+    Corresponds to step 2(c)ii from Perry's criterion.
+    If there are still ties after the gcd tiebreaker, picks the first one.
+    """
+    pass
+
+  cdef list candidates_perry(self, int i, list LTs, list G, bool step_c)
+    cdef MPolynomial_libsingular f = G[i].value()
+    cdef list P = f.monomials()
+    cdef list T = []
+    cdef MPolynomial_libsingular prodT = self.ring(1)
+    cdef MPolynomial_libsingular u
+    cdef list candidates = []
+    cdef int k
+
+    for u in P:
+      T = []
+      prodT = self.ring(1)
+      for t in P:
+        if u == t:
+          continue
+        if monomial_divides(u, t):
+          candidates.append(u)
+          break
+        elif not gcd_is_one(u, t):
+          T.append(t)
+          prodT *= t
+          k = len(T)
+          if monomial_divides(u^k, prodT):
+            candidates.append(u)
+            break
+      if step_c:
+        while T:
+          i = self.max_difference(u, len(T), prodT)
+          j = pass
+          if monomial_divides(u^k, prodT):
+            candidates.append(u)
+            break
+
+    return CLTs
+
+  cdef list candidates(self, int i, list LTs, list G):
+    if criterion == 'newton':
+        return self.candidates_newton(i, LTs)
+    elif criterion == 'perry1':
+        return self.candidates_perry(i, LTs, G, False)
+    elif criterion == 'perry2':
+        return self.candidates_perry(i, LTs, G, True)
+    return []
 
   cdef void add_constraint(self, beginning, end):
     self.constraints.append((beginning, end))
@@ -889,7 +960,7 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
 
   for i in range(len(G) - 1):
     #Anything returned by candidates has better heuristic value than current
-    candidates = state.candidates(i, LTs)
+    candidates = state.candidates(i, LTs, G)
     j = 0
     LTi = LTs[i]
 

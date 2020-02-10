@@ -81,3 +81,18 @@ cpdef int indivisible(tuple t, tuple u):
     if t[i] < u[i]: divisible = 0
     i += 1
   return not divisible
+
+cpdef bool gcd_is_one(MPolynomial_libsingular u, MPolynomial_libsingular t)
+  """
+  Checks whether the gcd of monomials u and t is 1.
+  """
+  cdef tuple exps_u = u.exponents()[0]
+  cdef tuple exps_t = t.exponents()[0]
+  cdef int n = len(exps_u)
+  cdef int i
+
+  for i in range(n):
+    if exps_u[i] != 0 and exps_t[i] != 0:
+      return False
+
+  return True
