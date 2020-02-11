@@ -805,14 +805,32 @@ cdef class LocalSearchState:
 
     return i
 
-  cdef int min_degree(self, int i, list T):
+  cdef int min_degree(self, int i, list T, MPolynomial_libsingular u):
     """
     Corresponds to step 2(c)ii from Perry's criterion.
     If there are still ties after the gcd tiebreaker, picks the first one.
     """
-    pass
+    cdef int j = -1
+    cdef int min_deg = 10000000
+    cdef int min_deg_gcd = 10000000
+    cdef int k, dgcd
+    cdef MPolynomial_libsingular t
+
+    for k in range(len(T)):
+      t = T[k]
+      dgcd = gcd(t, u).degree()
+      if t.degree(i) < min_deg or (t.degree(i) == min_deg and dgcd < min_deg_gcd):
+        j = k
+        min_deg = t.degree(i)
+        min_deg_gcd = dgcd
+
+    return j
 
   cdef list candidates_perry(self, int i, list LTs, list G, bool step_c)
+    '''
+    Algorithm 1 from "A new divisibility criterion to identify non-leading terms"
+    by Mitchell and Perry.
+    '''
     cdef MPolynomial_libsingular f = G[i].value()
     cdef list P = f.monomials()
     cdef list T = []
@@ -840,7 +858,9 @@ cdef class LocalSearchState:
       if step_c:
         while T:
           i = self.max_difference(u, len(T), prodT)
-          j = pass
+          j = self.min_degree(i, T, u)
+          t = T.pop(j)
+          prodT = self.ring.monomial_quotient(prodT, t)
           if monomial_divides(u^k, prodT):
             candidates.append(u)
             break
