@@ -82,12 +82,12 @@ cpdef int indivisible(tuple t, tuple u):
     i += 1
   return not divisible
 
-cpdef bool gcd_is_one(MPolynomial_libsingular u, MPolynomial_libsingular t)
+cpdef bool gcd_is_one(MPolynomial_libsingular u, MPolynomial_libsingular t):
   """
   Checks whether the gcd of monomials u and t is 1.
   """
-  cdef tuple exps_u = u.exponents()[0]
-  cdef tuple exps_t = t.exponents()[0]
+  exps_u = u.exponents()[0]
+  exps_t = t.exponents()[0]
   cdef int n = len(exps_u)
   cdef int i
 
@@ -96,3 +96,17 @@ cpdef bool gcd_is_one(MPolynomial_libsingular u, MPolynomial_libsingular t)
       return False
 
   return True
+
+cpdef int gcd_deg(MPolynomial_libsingular u, MPolynomial_libsingular t):
+  """
+  Computes the degree of the gcd of monomials u and t.
+  """
+  exps_u = u.exponents()[0]
+  exps_t = t.exponents()[0]
+  cdef int n = len(exps_u)
+  cdef int i, d = 0
+
+  for i in range(n):
+    d += min(exps_u[i], exps_t[i])
+
+  return d

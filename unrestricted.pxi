@@ -818,7 +818,7 @@ cdef class LocalSearchState:
 
     for k in range(len(T)):
       t = T[k]
-      dgcd = gcd(t, u).degree()
+      dgcd = gcd_deg(t, u)
       if t.degree(i) < min_deg or (t.degree(i) == min_deg and dgcd < min_deg_gcd):
         j = k
         min_deg = t.degree(i)
@@ -826,7 +826,7 @@ cdef class LocalSearchState:
 
     return j
 
-  cdef list candidates_perry(self, int i, list LTs, list G, bool step_c)
+  cdef list candidates_perry(self, int i, list LTs, list G, bool step_c):
     '''
     Algorithm 1 from "A new divisibility criterion to identify non-leading terms"
     by Mitchell and Perry.
@@ -835,10 +835,11 @@ cdef class LocalSearchState:
     cdef list P = f.monomials()
     cdef list T = []
     cdef MPolynomial_libsingular prodT = self.ring(1)
-    cdef MPolynomial_libsingular u
+    cdef MPolynomial_libsingular u, t
     cdef list candidates = []
-    cdef int k
+    cdef int j, k
 
+    print(P)
     for u in P:
       T = []
       prodT = self.ring(1)
@@ -852,7 +853,7 @@ cdef class LocalSearchState:
           T.append(t)
           prodT *= t
           k = len(T)
-          if monomial_divides(u^k, prodT):
+          if monomial_divides(u**k, prodT):
             candidates.append(u)
             break
       if step_c:
@@ -861,18 +862,26 @@ cdef class LocalSearchState:
           j = self.min_degree(i, T, u)
           t = T.pop(j)
           prodT = self.ring.monomial_quotient(prodT, t)
-          if monomial_divides(u^k, prodT):
+          if monomial_divides(u**k, prodT):
             candidates.append(u)
             break
+
+    cdef list CLTs = []
+    for j in range(len(candidates)):
+        CLTs.append(LTs.copy())
+        CLTs[j][i] = poly_from_exponents(candidates[j], self.ring)
+
+    print(CLTs)
+    CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
 
     return CLTs
 
   cdef list candidates(self, int i, list LTs, list G):
-    if criterion == 'newton':
+    if self.criterion == 'newton':
         return self.candidates_newton(i, LTs)
-    elif criterion == 'perry1':
+    elif self.criterion == 'perry1':
         return self.candidates_perry(i, LTs, G, False)
-    elif criterion == 'perry2':
+    elif self.criterion == 'perry2':
         return self.candidates_perry(i, LTs, G, True)
     return []
 
