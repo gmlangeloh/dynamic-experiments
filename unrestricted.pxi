@@ -777,6 +777,9 @@ cdef class LocalSearchState:
     the current one.
     '''
     cdef tuple all_candidates = self.newton_polyhedron(i).vertices()
+
+    statistics.update_candidates(len(all_candidates))
+
     cdef list CLTs = []
     cdef int j
     for j in range(len(all_candidates)):
@@ -836,10 +839,9 @@ cdef class LocalSearchState:
     cdef list T = []
     cdef MPolynomial_libsingular prodT = self.ring(1)
     cdef MPolynomial_libsingular u, t
-    cdef list candidates = []
+    cdef list candidates = f.monomials()
     cdef int j, k
 
-    print(P)
     for u in P:
       T = []
       prodT = self.ring(1)
@@ -847,14 +849,14 @@ cdef class LocalSearchState:
         if u == t:
           continue
         if monomial_divides(u, t):
-          candidates.append(u)
+          candidates.remove(u)
           break
         elif not gcd_is_one(u, t):
           T.append(t)
           prodT *= t
           k = len(T)
           if monomial_divides(u**k, prodT):
-            candidates.append(u)
+            candidates.remove(u)
             break
       if step_c:
         while T:
@@ -863,15 +865,16 @@ cdef class LocalSearchState:
           t = T.pop(j)
           prodT = self.ring.monomial_quotient(prodT, t)
           if monomial_divides(u**k, prodT):
-            candidates.append(u)
+            candidates.remove(u)
             break
+
+    statistics.update_candidates(len(candidates))
 
     cdef list CLTs = []
     for j in range(len(candidates)):
         CLTs.append(LTs.copy())
-        CLTs[j][i] = poly_from_exponents(candidates[j], self.ring)
+        CLTs[j][i] = candidates[j]
 
-    print(CLTs)
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
 
     return CLTs

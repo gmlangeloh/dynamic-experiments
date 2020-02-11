@@ -32,7 +32,9 @@ for instance in instances:
     fullname = directory + instance + extension
     benchmark = Benchmark(fullname)
     for criterion in criteria:
-        result = dynamic_gb(benchmark.ideal.gens(), algorithm="localsearch", return_stats = True, seed = 0, reducer = "classical", lscriterion = criterion)
+        result = dynamic_gb(benchmark.ideal.gens(), algorithm="localsearch", return_stats = True, seed = 0, reducer = "classical", lscriterion = criterion, print_criterion=True)
         out = result[-1]
+        print(instance, end=" ")
+        print(criterion, end=" ")
         print(out)
         sys.stdout.flush()
