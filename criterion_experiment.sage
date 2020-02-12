@@ -17,7 +17,16 @@ instances = [
     "cyclicn5",
     "cyclicnh5",
     "cyclicn6",
-    "cyclicnh6"
+    "cyclicnh6",
+    "katsuran4",
+    "katsuranh4",
+    "katsuran5",
+    "katsuranh5",
+    "trinks",
+    "econ4",
+    "econh4",
+    "econ5",
+    "econh5"
 ]
 extension = ".ideal"
 directory = "./instances/"

@@ -779,6 +779,9 @@ cpdef tuple dynamic_gb \
   statistics.update_basis_data(gb)
   statstring = statistics.brief_report()
 
+  #Uncomment this to keep profiling the new criterion for LS
+  #state.profile_report()
+
   #Uncomment this if profiling F4
   #if reducer == 'F4':
   #  statistics.report_f4()

@@ -758,6 +758,13 @@ cdef class LocalSearchState:
   cdef MPolynomialRing_libsingular ring
   cdef MixedIntegerLinearProgram lp
 
+  cdef float time2bi
+  cdef float time2bii
+  cdef float time2ci
+  cdef float time2cii
+  cdef float time2ciii
+  cdef float total_criterion_time
+
   def __init__(self, int n, list initial_ordering, str lscriterion, str heuristic,
                 MPolynomialRing_libsingular R):
     self.heuristic = heuristic
@@ -768,6 +775,14 @@ cdef class LocalSearchState:
     self.ring = R
     self.criterion = lscriterion
 
+    #For profiling the new Perry criterion
+    self.time2bi = 0.0
+    self.time2bii = 0.0
+    self.time2ci = 0.0
+    self.time2cii = 0.0
+    self.time2ciii = 0.0
+    self.total_criterion_time = 0.0
+
   cdef newton_polyhedron(self, int i):
     return self.newton_polyhedra[i]
 
@@ -776,9 +791,11 @@ cdef class LocalSearchState:
     Returns the list of candidate LTs with better heuristic value than
     the current one.
     '''
+    init_tot_time = time.time()
     cdef tuple all_candidates = self.newton_polyhedron(i).vertices()
 
     statistics.update_candidates(len(all_candidates))
+    self.total_criterion_time += time.time() - init_tot_time
 
     cdef list CLTs = []
     cdef int j
@@ -829,6 +846,9 @@ cdef class LocalSearchState:
 
     return j
 
+  cdef void profile_report(self):
+    print(self.total_criterion_time, self.time2bi, self.time2bii, self.time2ci, self.time2cii, self.time2ciii)
+
   cdef list candidates_perry(self, int i, list LTs, list G, bool step_c):
     '''
     Algorithm 1 from "A new divisibility criterion to identify non-leading terms"
@@ -842,33 +862,59 @@ cdef class LocalSearchState:
     cdef list candidates = f.monomials()
     cdef int j, k
 
+    init_tot_time = time.time()
     for u in P:
       T = []
       prodT = self.ring(1)
       for t in P:
         if u == t:
           continue
-        if monomial_divides(u, t):
+
+        #Step 2(b)i
+        init_time = time.time()
+        old_criterion = monomial_divides(u, t)
+        if old_criterion:
           candidates.remove(u)
+          self.time2bi += time.time() - init_time
           break
-        elif not gcd_is_one(u, t):
+        self.time2bi += time.time() - init_time
+
+        init_time = time.time()
+        if not gcd_is_one(u, t):
           T.append(t)
           prodT *= t
           k = len(T)
           if monomial_divides(u**k, prodT):
             candidates.remove(u)
+            self.time2bii += time.time() - init_time
             break
+        self.time2bii += time.time() - init_time
+
       if step_c:
         while T:
+
+          #Step 2(c)i
+          init_time = time.time()
           i = self.max_difference(u, len(T), prodT)
+          self.time2ci += time.time() - init_time
+
+          #Step 2(c)ii
+          init_time = time.time()
           j = self.min_degree(i, T, u)
           t = T.pop(j)
           prodT = self.ring.monomial_quotient(prodT, t)
+          self.time2cii += time.time() - init_time
+
+          #Step 2(c)iii
+          init_time = time.time()
           if monomial_divides(u**k, prodT):
             candidates.remove(u)
+            self.time2ciii += time.time() - init_time
             break
+          self.time2ciii += time.time() - init_time
 
     statistics.update_candidates(len(candidates))
+    self.total_criterion_time += time.time() - init_tot_time
 
     cdef list CLTs = []
     for j in range(len(candidates)):
