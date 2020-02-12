@@ -749,6 +749,7 @@ cdef class LocalSearchState:
   Class to store state for local search based algorithm.
   '''
   cdef str heuristic
+  cdef str criterion
 
   #Structures updated at each call
   cdef list newton_polyhedra
@@ -757,7 +758,14 @@ cdef class LocalSearchState:
   cdef MPolynomialRing_libsingular ring
   cdef MixedIntegerLinearProgram lp
 
-  def __init__(self, int n, list initial_ordering, str heuristic,
+  cdef float time2bi
+  cdef float time2bii
+  cdef float time2ci
+  cdef float time2cii
+  cdef float time2ciii
+  cdef float total_criterion_time
+
+  def __init__(self, int n, list initial_ordering, str lscriterion, str heuristic,
                 MPolynomialRing_libsingular R):
     self.heuristic = heuristic
     self.newton_polyhedra = []
@@ -765,25 +773,166 @@ cdef class LocalSearchState:
     self.current_ordering = initial_ordering
     self.lp = new_linear_program(n = n)
     self.ring = R
+    self.criterion = lscriterion
+
+    #For profiling the new Perry criterion
+    self.time2bi = 0.0
+    self.time2bii = 0.0
+    self.time2ci = 0.0
+    self.time2cii = 0.0
+    self.time2ciii = 0.0
+    self.total_criterion_time = 0.0
 
   cdef newton_polyhedron(self, int i):
     return self.newton_polyhedra[i]
 
-  cdef list candidates(self, int i, list LTs):
+  cdef list candidates_newton(self, int i, list LTs):
     '''
     Returns the list of candidate LTs with better heuristic value than
     the current one.
     '''
+    init_tot_time = time.time()
     cdef tuple all_candidates = self.newton_polyhedron(i).vertices()
+
+    statistics.update_candidates(len(all_candidates))
+    self.total_criterion_time += time.time() - init_tot_time
+
     cdef list CLTs = []
     cdef int j
     for j in range(len(all_candidates)):
-      CLTs.append(LTs.copy())
-      CLTs[j][i] = poly_from_exponents(all_candidates[j], self.ring)
+        CLTs.append(LTs.copy())
+        CLTs[j][i] = poly_from_exponents(all_candidates[j], self.ring)
 
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
 
     return CLTs
+
+  cdef int max_difference(self, MPolynomial_libsingular u, int j, \
+                          MPolynomial_libsingular prodT):
+    """
+    Corresponds to step 2(c)i from Perry's criterion.
+    If there are multiple variables with the same difference, picks the first one.
+    """
+    cdef int current_max = -10000000
+    cdef int current_idx = -1
+    cdef int n = self.ring().ngens()
+    cdef int i, deg
+    for i in range(n):
+      deg = j * u.degree(i) - prodT.degree(i)
+      if deg > current_max:
+        current_max = deg
+        current_idx = i
+
+    return i
+
+  cdef int min_degree(self, int i, list T, MPolynomial_libsingular u):
+    """
+    Corresponds to step 2(c)ii from Perry's criterion.
+    If there are still ties after the gcd tiebreaker, picks the first one.
+    """
+    cdef int j = -1
+    cdef int min_deg = 10000000
+    cdef int min_deg_gcd = 10000000
+    cdef int k, dgcd
+    cdef MPolynomial_libsingular t
+
+    for k in range(len(T)):
+      t = T[k]
+      dgcd = gcd_deg(t, u)
+      if t.degree(i) < min_deg or (t.degree(i) == min_deg and dgcd < min_deg_gcd):
+        j = k
+        min_deg = t.degree(i)
+        min_deg_gcd = dgcd
+
+    return j
+
+  cdef void profile_report(self):
+    print(self.total_criterion_time, self.time2bi, self.time2bii, self.time2ci, self.time2cii, self.time2ciii)
+
+  cdef list candidates_perry(self, int i, list LTs, list G, bool step_c):
+    '''
+    Algorithm 1 from "A new divisibility criterion to identify non-leading terms"
+    by Mitchell and Perry.
+    '''
+    cdef MPolynomial_libsingular f = G[i].value()
+    cdef list P = f.monomials()
+    cdef list T = []
+    cdef MPolynomial_libsingular prodT = self.ring(1)
+    cdef MPolynomial_libsingular u, t
+    cdef list candidates = f.monomials()
+    cdef int j, k
+
+    init_tot_time = time.time()
+    for u in P:
+      T = []
+      prodT = self.ring(1)
+      for t in P:
+        if u == t:
+          continue
+
+        #Step 2(b)i
+        init_time = time.time()
+        old_criterion = monomial_divides(u, t)
+        if old_criterion:
+          candidates.remove(u)
+          self.time2bi += time.time() - init_time
+          break
+        self.time2bi += time.time() - init_time
+
+        init_time = time.time()
+        if not gcd_is_one(u, t):
+          T.append(t)
+          prodT *= t
+          k = len(T)
+          if monomial_divides(u**k, prodT):
+            candidates.remove(u)
+            self.time2bii += time.time() - init_time
+            break
+        self.time2bii += time.time() - init_time
+
+      if step_c:
+        while T:
+
+          #Step 2(c)i
+          init_time = time.time()
+          i = self.max_difference(u, len(T), prodT)
+          self.time2ci += time.time() - init_time
+
+          #Step 2(c)ii
+          init_time = time.time()
+          j = self.min_degree(i, T, u)
+          t = T.pop(j)
+          prodT = self.ring.monomial_quotient(prodT, t)
+          self.time2cii += time.time() - init_time
+
+          #Step 2(c)iii
+          init_time = time.time()
+          if monomial_divides(u**k, prodT):
+            candidates.remove(u)
+            self.time2ciii += time.time() - init_time
+            break
+          self.time2ciii += time.time() - init_time
+
+    statistics.update_candidates(len(candidates))
+    self.total_criterion_time += time.time() - init_tot_time
+
+    cdef list CLTs = []
+    for j in range(len(candidates)):
+        CLTs.append(LTs.copy())
+        CLTs[j][i] = candidates[j]
+
+    CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
+
+    return CLTs
+
+  cdef list candidates(self, int i, list LTs, list G):
+    if self.criterion == 'newton':
+        return self.candidates_newton(i, LTs)
+    elif self.criterion == 'perry1':
+        return self.candidates_perry(i, LTs, G, False)
+    elif self.criterion == 'perry2':
+        return self.candidates_perry(i, LTs, G, True)
+    return []
 
   cdef void add_constraint(self, beginning, end):
     self.constraints.append((beginning, end))
@@ -889,7 +1038,7 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
 
   for i in range(len(G) - 1):
     #Anything returned by candidates has better heuristic value than current
-    candidates = state.candidates(i, LTs)
+    candidates = state.candidates(i, LTs, G)
     j = 0
     LTi = LTs[i]
 

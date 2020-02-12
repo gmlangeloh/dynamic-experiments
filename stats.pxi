@@ -4,6 +4,7 @@ cdef class Stats:
 
   cdef bool print_results
   cdef bool return_stats
+  cdef bool print_criterion
   cdef str algorithm
 
   #Statistics
@@ -16,6 +17,8 @@ cdef class Stats:
   cdef int number_of_spolynomials
   cdef int number_of_rejects
   cdef int number_of_constraints
+
+  cdef int number_of_candidates
 
   cdef float reduction_time
   cdef float dynamic_overhead
@@ -40,15 +43,17 @@ cdef class Stats:
     self.print_results = True
     self.return_stats = False
     self.algorithm = 'unknown'
+    self.print_criterion = False
 
   def __init__(self):
 
     self.reset_all_stats()
 
-  cpdef void set_options(self, bool prnt, bool ret):
+  cpdef void set_options(self, bool prnt, bool ret, bool criterion):
 
     self.print_results = prnt
     self.return_stats = ret
+    self.print_criterion = criterion
 
   cpdef void set_algorithm(self, str algorithm):
 
@@ -80,6 +85,8 @@ cdef class Stats:
     self.basis_size = 0
     self.basis_monomials = 0
     self.basis_max_degree = 0
+
+    self.number_of_candidates = 0
 
   cpdef void inc_preprocessing_time(self, float val):
     self.preprocessing_time += val
@@ -129,6 +136,9 @@ cdef class Stats:
   cpdef void set_number_of_rejects(self, int value):
     self.number_of_rejects = value
 
+  cpdef void update_candidates(self, int value):
+    self.number_of_candidates += value
+
   cpdef void set_number_of_constraints(self, int value):
     self.number_of_constraints = value
 
@@ -166,6 +176,8 @@ cdef class Stats:
             self.number_of_spolynomials,
             self.zero_reductions
         ))
+    if self.print_criterion:
+        results += " " + str(self.number_of_candidates)
     if self.print_results:
       print(results)
     if self.return_stats:
