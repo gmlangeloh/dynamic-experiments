@@ -786,13 +786,15 @@ cdef class LocalSearchState:
   cdef newton_polyhedron(self, int i):
     return self.newton_polyhedra[i]
 
-  cdef list candidates_newton(self, int i, list LTs):
+  cdef list candidates_newton(self, int i, list LTs, list G):
     '''
     Returns the list of candidate LTs with better heuristic value than
     the current one.
     '''
     init_tot_time = time.time()
     cdef tuple all_candidates = self.newton_polyhedron(i).vertices()
+
+    print(len(all_candidates), len(G[i].value().monomials()))
 
     statistics.update_candidates(len(all_candidates))
     self.total_criterion_time += time.time() - init_tot_time
@@ -802,6 +804,8 @@ cdef class LocalSearchState:
     for j in range(len(all_candidates)):
         CLTs.append(LTs.copy())
         CLTs[j][i] = poly_from_exponents(all_candidates[j], self.ring)
+
+    CLTs.sort()
 
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
 
@@ -876,6 +880,7 @@ cdef class LocalSearchState:
         if old_criterion:
           candidates.remove(u)
           self.time2bi += time.time() - init_time
+          statistics.inc_old_criterion()
           break
         self.time2bi += time.time() - init_time
 
@@ -886,6 +891,7 @@ cdef class LocalSearchState:
           k = len(T)
           if monomial_divides(u**k, prodT):
             candidates.remove(u)
+            statistics.inc_new_criterion()
             self.time2bii += time.time() - init_time
             break
         self.time2bii += time.time() - init_time
@@ -909,6 +915,7 @@ cdef class LocalSearchState:
           init_time = time.time()
           if monomial_divides(u**k, prodT):
             candidates.remove(u)
+            statistics.inc_new_criterion_stepc()
             self.time2ciii += time.time() - init_time
             break
           self.time2ciii += time.time() - init_time
@@ -921,13 +928,15 @@ cdef class LocalSearchState:
         CLTs.append(LTs.copy())
         CLTs[j][i] = candidates[j]
 
+    CLTs.sort()
+
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
 
     return CLTs
 
   cdef list candidates(self, int i, list LTs, list G):
     if self.criterion == 'newton':
-        return self.candidates_newton(i, LTs)
+        return self.candidates_newton(i, LTs, G)
     elif self.criterion == 'perry1':
         return self.candidates_perry(i, LTs, G, False)
     elif self.criterion == 'perry2':
@@ -949,7 +958,8 @@ cdef class LocalSearchState:
     self.add_constraint(new_beginning, new_end)
     self.current_ordering = result[0]
     self.lp = result[1]
-    self.newton_polyhedra.append(affine_newton_polyhedron(G[len(G)-1]))
+    if self.criterion == "newton":
+      self.newton_polyhedra.append(affine_newton_polyhedron(G[len(G)-1]))
     self.ring = PolynomialRing(self.ring.base_ring(), self.ring.gens(),
                                order=create_order(self.current_ordering))
 

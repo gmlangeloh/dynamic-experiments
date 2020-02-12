@@ -1,45 +1,45 @@
-cyclicn4 newton localsearch 0.58 0.19 0.13 0.00 0.00 5 21 5 8 3 16
-cyclicn4 perry1 localsearch 0.18 0.16 0.11 0.00 0.01 5 21 5 8 3 16
-cyclicn4 perry2 localsearch 0.22 0.20 0.15 0.00 0.00 5 21 5 8 3 16
-cyclicnh4 newton localsearch 0.20 0.18 0.12 0.00 0.01 5 21 5 8 3 16
-cyclicnh4 perry1 localsearch 0.20 0.17 0.12 0.00 0.01 5 21 5 8 3 16
-cyclicnh4 perry2 localsearch 0.18 0.17 0.12 0.00 0.00 5 21 5 8 3 16
-cyclicn5 newton localsearch 4.11 3.80 2.52 0.08 0.19 10 89 15 105 65 195
-cyclicn5 perry1 localsearch 3.84 3.55 2.25 0.08 0.18 10 87 15 105 65 195
-cyclicn5 perry2 localsearch 3.91 3.63 2.32 0.07 0.17 10 87 15 105 65 195
-cyclicnh5 newton localsearch 2.47 2.36 1.45 0.02 0.06 21 293 12 49 28 100
-cyclicnh5 perry1 localsearch 2.53 2.40 1.46 0.02 0.08 21 296 12 49 28 100
-cyclicnh5 perry2 localsearch 2.44 2.36 1.43 0.01 0.05 21 296 12 49 28 100
-cyclicn6 newton localsearch 80.42 69.81 25.27 1.21 9.17 17 351 48 346 188 942
-cyclicn6 perry1 localsearch 91.25 80.86 25.80 1.12 9.03 20 446 43 541 383 942
-cyclicn6 perry2 localsearch 90.44 80.64 25.70 1.10 8.49 20 446 43 541 383 942
-cyclicnh6 newton localsearch 22.59 21.47 9.76 0.21 0.85 48 1706 13 150 102 282
-cyclicnh6 perry1 localsearch 29.61 28.48 11.49 0.16 0.90 47 2127 13 148 101 276
-cyclicnh6 perry2 localsearch 29.72 28.73 11.68 0.15 0.78 47 2127 13 148 101 276
-katsuran4 newton localsearch 0.34 0.30 0.22 0.00 0.02 7 49 4 12 5 24
-katsuran4 perry1 localsearch 0.32 0.30 0.22 0.00 0.00 7 49 4 12 5 24
-katsuran4 perry2 localsearch 0.32 0.30 0.21 0.00 0.00 7 49 4 12 5 24
-katsuranh4 newton localsearch 0.52 0.39 0.26 0.00 0.11 7 55 4 12 5 30
-katsuranh4 perry1 localsearch 0.43 0.35 0.24 0.00 0.06 7 49 4 12 5 30
-katsuranh4 perry2 localsearch 0.38 0.36 0.25 0.00 0.00 7 49 4 12 5 30
-katsuran5 newton localsearch 1.68 1.43 0.97 0.02 0.21 12 182 6 32 16 75
-katsuran5 perry1 localsearch 1.49 1.41 0.96 0.02 0.04 12 182 6 32 16 75
-katsuran5 perry2 localsearch 1.44 1.37 0.93 0.02 0.04 12 182 6 32 16 75
-katsuranh5 newton localsearch 1.69 1.54 0.94 0.02 0.12 14 194 5 34 20 78
-katsuranh5 perry1 localsearch 1.64 1.46 0.90 0.02 0.14 14 187 5 34 20 78
-katsuranh5 perry2 localsearch 1.53 1.46 0.91 0.02 0.04 14 187 5 34 20 78
-trinks newton localsearch 2.28 1.99 1.16 0.04 0.22 21 225 7 59 38 100
-trinks perry1 localsearch 1.45 1.28 0.72 0.01 0.14 14 157 6 33 19 65
-trinks perry2 localsearch 1.35 1.28 0.72 0.01 0.04 14 157 6 33 19 65
-econ4 newton localsearch 0.21 0.19 0.14 0.00 0.00 5 22 3 11 3 21
-econ4 perry1 localsearch 0.20 0.18 0.13 0.00 0.00 5 22 3 11 3 21
-econ4 perry2 localsearch 0.20 0.19 0.13 0.00 0.00 5 22 3 11 3 21
-econh4 newton localsearch 0.53 0.50 0.34 0.00 0.02 8 83 6 15 7 28
-econh4 perry1 localsearch 0.39 0.36 0.22 0.00 0.01 9 39 7 19 10 32
-econh4 perry2 localsearch 0.38 0.35 0.22 0.00 0.00 9 39 7 19 10 32
-econ5 newton localsearch 0.49 0.45 0.31 0.01 0.02 6 48 6 15 4 40
-econ5 perry1 localsearch 0.47 0.44 0.31 0.01 0.01 6 48 6 15 4 40
-econ5 perry2 localsearch 0.51 0.48 0.34 0.01 0.01 6 48 6 15 4 40
-econh5 newton localsearch 3.06 2.87 1.49 0.01 0.15 14 358 7 35 21 65
-econh5 perry1 localsearch 1.57 1.34 0.79 0.02 0.19 18 138 10 52 34 85
-econh5 perry2 localsearch 1.40 1.32 0.80 0.02 0.03 18 138 10 52 34 85
+cyclicn4 newton localsearch 0.18 0.10 0.07 0.00 0.00 5 21 5 8 3 16 0 0 0
+cyclicn4 perry1 localsearch 0.10 0.09 0.06 0.00 0.00 5 21 5 8 3 16 0 0 0
+cyclicn4 perry2 localsearch 0.09 0.08 0.06 0.00 0.00 5 21 5 8 3 16 0 0 0
+cyclicnh4 newton localsearch 0.11 0.10 0.07 0.00 0.00 5 21 5 8 3 16 0 0 0
+cyclicnh4 perry1 localsearch 0.10 0.09 0.07 0.00 0.00 5 21 5 8 3 16 0 0 0
+cyclicnh4 perry2 localsearch 0.10 0.09 0.06 0.00 0.00 5 21 5 8 3 16 0 0 0
+cyclicn5 newton localsearch 2.29 2.14 1.28 0.04 0.09 10 89 15 105 65 195 0 0 0
+cyclicn5 perry1 localsearch 2.12 1.99 1.27 0.04 0.08 10 89 15 105 65 195 0 0 0
+cyclicn5 perry2 localsearch 2.13 1.99 1.28 0.04 0.08 10 89 15 105 65 195 0 0 0
+cyclicnh5 newton localsearch 1.39 1.33 0.82 0.01 0.03 21 293 12 49 28 100 0 0 0
+cyclicnh5 perry1 localsearch 1.36 1.32 0.81 0.01 0.02 21 293 12 49 28 100 0 0 0
+cyclicnh5 perry2 localsearch 1.36 1.32 0.82 0.01 0.02 21 293 12 49 28 100 0 0 0
+cyclicn6 newton localsearch 43.86 38.95 13.42 0.53 4.26 17 351 48 346 188 942 0 0 0
+cyclicn6 perry1 localsearch 43.99 39.11 13.55 0.53 4.23 17 351 48 346 188 942 0 0 0
+cyclicn6 perry2 localsearch 44.04 39.16 13.59 0.53 4.23 17 351 48 346 188 942 0 0 0
+cyclicnh6 newton localsearch 12.81 12.24 5.41 0.10 0.43 48 1706 13 150 102 282 0 0 0
+cyclicnh6 perry1 localsearch 12.88 12.34 5.55 0.10 0.41 48 1706 13 150 102 282 0 0 0
+cyclicnh6 perry2 localsearch 12.85 12.31 5.46 0.10 0.41 48 1706 13 150 102 282 0 0 0
+katsuran4 newton localsearch 0.20 0.18 0.13 0.00 0.01 7 55 4 12 5 24 0 0 0
+katsuran4 perry1 localsearch 0.18 0.17 0.13 0.00 0.00 7 55 4 12 5 24 6 0 0
+katsuran4 perry2 localsearch 0.18 0.17 0.12 0.00 0.00 7 55 4 12 5 24 6 0 0
+katsuranh4 newton localsearch 0.26 0.22 0.15 0.00 0.02 7 55 4 12 5 30 0 0 0
+katsuranh4 perry1 localsearch 0.23 0.22 0.15 0.00 0.00 7 55 4 12 5 30 0 0 0
+katsuranh4 perry2 localsearch 0.23 0.22 0.15 0.00 0.00 7 55 4 12 5 30 0 0 0
+katsuran5 newton localsearch 0.86 0.79 0.54 0.01 0.05 12 193 6 32 16 75 0 0 0
+katsuran5 perry1 localsearch 0.82 0.78 0.54 0.01 0.02 12 193 6 32 16 75 15 0 0
+katsuran5 perry2 localsearch 0.82 0.78 0.54 0.01 0.02 12 193 6 32 16 75 15 0 0
+katsuranh5 newton localsearch 0.93 0.87 0.54 0.01 0.04 14 194 5 34 20 78 0 0 0
+katsuranh5 perry1 localsearch 0.91 0.87 0.54 0.01 0.02 14 194 5 34 20 78 0 0 0
+katsuranh5 perry2 localsearch 0.90 0.87 0.54 0.01 0.02 14 194 5 34 20 78 0 0 0
+trinks newton localsearch 1.26 1.15 0.67 0.02 0.07 21 225 7 59 38 100 0 0 0
+trinks perry1 localsearch 1.21 1.14 0.67 0.02 0.03 21 225 7 59 38 100 0 0 0
+trinks perry2 localsearch 1.33 1.26 0.79 0.02 0.03 21 225 7 59 38 100 0 0 0
+econ4 newton localsearch 0.12 0.10 0.07 0.00 0.00 7 29 2 13 6 18 0 0 0
+econ4 perry1 localsearch 0.11 0.10 0.07 0.00 0.00 7 29 2 13 6 18 6 0 0
+econ4 perry2 localsearch 0.11 0.10 0.07 0.00 0.00 7 29 2 13 6 18 6 0 0
+econh4 newton localsearch 0.30 0.28 0.19 0.00 0.01 8 83 6 15 7 28 0 0 0
+econh4 perry1 localsearch 0.29 0.28 0.19 0.00 0.00 8 83 6 15 7 28 0 0 0
+econh4 perry2 localsearch 0.29 0.28 0.19 0.00 0.00 8 83 6 15 7 28 0 0 0
+econ5 newton localsearch 0.38 0.34 0.24 0.01 0.03 8 62 5 31 17 52 0 0 0
+econ5 perry1 localsearch 0.35 0.33 0.24 0.01 0.01 8 62 5 31 17 52 13 0 0
+econ5 perry2 localsearch 0.36 0.33 0.24 0.01 0.01 8 62 5 31 17 52 13 0 0
+econh5 newton localsearch 1.59 1.52 0.81 0.01 0.06 14 358 7 35 21 65 0 0 0
+econh5 perry1 localsearch 1.55 1.51 0.81 0.01 0.03 14 358 7 35 21 65 0 0 0
+econh5 perry2 localsearch 1.56 1.51 0.81 0.01 0.03 14 358 7 35 21 65 0 0 0

@@ -18,14 +18,18 @@ cdef class Stats:
   cdef int number_of_rejects
   cdef int number_of_constraints
 
-  cdef int number_of_candidates
-
   cdef float reduction_time
   cdef float dynamic_overhead
   cdef float running_time
   cdef float queue_overhead
   cdef float heuristic_overhead
   cdef object initial_time
+
+  #LS criterion data
+  cdef int number_of_candidates
+  cdef int old_criterion
+  cdef int new_criterion
+  cdef int new_criterion_stepc
 
   #Solution data
   cdef list ordering
@@ -87,6 +91,9 @@ cdef class Stats:
     self.basis_max_degree = 0
 
     self.number_of_candidates = 0
+    self.old_criterion = 0
+    self.new_criterion = 0
+    self.new_criterion_stepc = 0
 
   cpdef void inc_preprocessing_time(self, float val):
     self.preprocessing_time += val
@@ -139,6 +146,12 @@ cdef class Stats:
   cpdef void update_candidates(self, int value):
     self.number_of_candidates += value
 
+  cpdef void inc_old_criterion(self): self.old_criterion += 1
+
+  cpdef void inc_new_criterion(self): self.new_criterion += 1
+
+  cpdef void inc_new_criterion_stepc(self): self.new_criterion_stepc += 1
+
   cpdef void set_number_of_constraints(self, int value):
     self.number_of_constraints = value
 
@@ -177,7 +190,7 @@ cdef class Stats:
             self.zero_reductions
         ))
     if self.print_criterion:
-        results += " " + str(self.number_of_candidates)
+      results += " %d %d %d %d" % (self.number_of_candidates, self.old_criterion, self.new_criterion, self.new_criterion_stepc)
     if self.print_results:
       print(results)
     if self.return_stats:
