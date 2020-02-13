@@ -751,6 +751,11 @@ cdef class LocalSearchState:
   cdef str heuristic
   cdef str criterion
 
+  #Useful for a Taboo Search
+  cdef int iteration_count
+  cdef list taboo_list
+  cdef bool taboo_tenure
+
   #Structures updated at each call
   cdef list newton_polyhedra
   cdef list constraints
@@ -766,7 +771,7 @@ cdef class LocalSearchState:
   cdef float total_criterion_time
 
   def __init__(self, int n, list initial_ordering, str lscriterion, str heuristic,
-                MPolynomialRing_libsingular R):
+                MPolynomialRing_libsingular R, int taboo_tenure):
     self.heuristic = heuristic
     self.newton_polyhedra = []
     self.constraints = []
@@ -774,6 +779,10 @@ cdef class LocalSearchState:
     self.lp = new_linear_program(n = n)
     self.ring = R
     self.criterion = lscriterion
+
+    self.iteration_count = 0
+    self.taboo_list = []
+    self.taboo_tenure = taboo_tenure
 
     #For profiling the new Perry criterion
     self.time2bi = 0.0
@@ -958,6 +967,8 @@ cdef class LocalSearchState:
     cdef int new_end = self.lp.number_of_constraints()
 
     #Update structures
+    if self.taboo_tenure > 1:
+      self.taboo_list.append(self.iteration_count)
     self.add_constraint(new_beginning, new_end)
     self.current_ordering = result[0]
     self.lp = result[1]
@@ -1018,6 +1029,22 @@ cdef class LocalSearchState:
     cdef int end = self.lp.number_of_constraints()
     self.constraints[i] = (start, end)
 
+  cdef bool is_taboo(self, int i):
+    '''
+    An element of index i of the partial GB is taboo if the LS algorithm
+    already checked it during the last few iterations (given by the taboo tenure)
+    '''
+    return self.iteration_count - self.taboo_list[i] >= self.taboo_tenure
+
+  cdef void inc_iteration_count(self):
+    self.iteration_count += 1
+
+  cdef void update_taboo(self, int i):
+    '''
+    Updates the taboo list entry of i to the current iteration count.
+    '''
+    self.taboo_list[i] = self.iteration_count
+
 cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   '''
   Local search dynamic function.
@@ -1035,6 +1062,8 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   for k in range(m, len(G)): #Iterate this to be compatible with F4 reducer
     state.add_polynomial(G[:k+1])
 
+  state.inc_iteration_count()
+
   #STEP 2: Walk through previous polynomials, decide whether to try to change
   #their leading monomials or not.
   #Check if the changes are possible using linear programming.
@@ -1050,6 +1079,10 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   cdef MPolynomial_libsingular LTi
 
   for i in range(len(G) - 1):
+
+    if state.is_taboo(i):
+      continue
+
     #Anything returned by candidates has better heuristic value than current
     candidates = state.candidates(i, LTs, G)
     j = 0
@@ -1072,6 +1105,8 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
         found = True
       else:
         j += 1
+
+    state.update_taboo(i)
 
     #Go back to original LT for i if we didn't find a better one
     if not found or LTi == LTs[i]:
