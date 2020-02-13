@@ -28,7 +28,7 @@ instances = [
     "econ5",
     "econh5"
 ]
-instances = [ "cyclicn5" ]
+
 extension = ".ideal"
 directory = "./instances/"
 

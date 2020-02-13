@@ -828,7 +828,7 @@ cdef class LocalSearchState:
         current_max = deg
         current_idx = i
 
-    return i
+    return current_idx
 
   cdef int min_degree(self, int i, list T, MPolynomial_libsingular u):
     """
@@ -866,7 +866,7 @@ cdef class LocalSearchState:
     cdef MPolynomial_libsingular prodT = self.ring(1)
     cdef MPolynomial_libsingular u, t
     cdef list candidates = f.monomials()
-    cdef int j, k
+    cdef int j, k, l
 
     init_tot_time = time.time()
     for u in P:
@@ -898,24 +898,25 @@ cdef class LocalSearchState:
             break
         self.time2bii += time.time() - init_time
 
-      if step_c:
+      if step_c and u in candidates:
         while T:
 
           #Step 2(c)i
           init_time = time.time()
-          k = self.max_difference(u, len(T), prodT)
+          l = self.max_difference(u, len(T), prodT)
           self.time2ci += time.time() - init_time
 
           #Step 2(c)ii
           init_time = time.time()
-          j = self.min_degree(k, T, u)
+          j = self.min_degree(l, T, u)
           t = T.pop(j)
           prodT = self.ring.monomial_quotient(prodT, t)
           self.time2cii += time.time() - init_time
 
           #Step 2(c)iii
           init_time = time.time()
-          if monomial_divides(u**k, prodT):
+          k = len(T)
+          if len(T) > 0 and monomial_divides(u**k, prodT):
             candidates.remove(u)
             statistics.inc_new_criterion_stepc()
             self.time2ciii += time.time() - init_time
@@ -1047,9 +1048,6 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   cdef list LTs = [ g.value().lm() for g in G ]
   cdef tuple can_work
   cdef MPolynomial_libsingular LTi
-
-  print(len(G))
-  print(state.current_ordering)
 
   for i in range(len(G) - 1):
     #Anything returned by candidates has better heuristic value than current
