@@ -754,7 +754,7 @@ cdef class LocalSearchState:
   #Useful for a Taboo Search
   cdef int iteration_count
   cdef list taboo_list
-  cdef bool taboo_tenure
+  cdef int taboo_tenure
 
   #Structures updated at each call
   cdef list newton_polyhedra
@@ -1034,7 +1034,9 @@ cdef class LocalSearchState:
     An element of index i of the partial GB is taboo if the LS algorithm
     already checked it during the last few iterations (given by the taboo tenure)
     '''
-    return self.iteration_count - self.taboo_list[i] >= self.taboo_tenure
+    if self.taboo_tenure <= 1:
+      return False
+    return self.iteration_count - self.taboo_list[i] < self.taboo_tenure
 
   cdef void inc_iteration_count(self):
     self.iteration_count += 1
@@ -1043,6 +1045,8 @@ cdef class LocalSearchState:
     '''
     Updates the taboo list entry of i to the current iteration count.
     '''
+    if self.taboo_tenure <= 1:
+      return
     self.taboo_list[i] = self.iteration_count
 
 cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
