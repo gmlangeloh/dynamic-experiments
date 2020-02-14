@@ -979,9 +979,9 @@ cdef class LocalSearchState:
     self.add_constraint(new_beginning, new_end)
     self.current_ordering = result[0]
     self.lp = result[1]
-    if self.criterion == "newton":
-      self.newton_polyhedra.append(affine_newton_polyhedron(G[len(G)-1]))
-      statistics.update_candidates(len(self.newton_polyhedra[len(G)-1].vertices()))
+    if self.criterion == "newton" and len(G) >= 2:
+      self.newton_polyhedra.append(affine_newton_polyhedron(G[len(G)-2]))
+      statistics.update_candidates(len(self.newton_polyhedra[len(G)-2].vertices()))
     else:
       self.candidate_list_perry.append([])
     self.ring = PolynomialRing(self.ring.base_ring(), self.ring.gens(),
