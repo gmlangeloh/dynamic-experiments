@@ -751,12 +751,18 @@ cdef class LocalSearchState:
   cdef str heuristic
   cdef str criterion
 
+  #Useful for a Taboo Search
+  cdef int iteration_count
+  cdef list taboo_list
+  cdef int taboo_tenure
+
   #Structures updated at each call
   cdef list newton_polyhedra
   cdef list constraints
   cdef list current_ordering
   cdef MPolynomialRing_libsingular ring
   cdef MixedIntegerLinearProgram lp
+  cdef list candidate_list_perry
 
   cdef float time2bi
   cdef float time2bii
@@ -766,7 +772,7 @@ cdef class LocalSearchState:
   cdef float total_criterion_time
 
   def __init__(self, int n, list initial_ordering, str lscriterion, str heuristic,
-                MPolynomialRing_libsingular R):
+                MPolynomialRing_libsingular R, int taboo_tenure):
     self.heuristic = heuristic
     self.newton_polyhedra = []
     self.constraints = []
@@ -774,6 +780,11 @@ cdef class LocalSearchState:
     self.lp = new_linear_program(n = n)
     self.ring = R
     self.criterion = lscriterion
+    self.candidate_list_perry = []
+
+    self.iteration_count = 0
+    self.taboo_list = []
+    self.taboo_tenure = taboo_tenure
 
     #For profiling the new Perry criterion
     self.time2bi = 0.0
@@ -786,7 +797,7 @@ cdef class LocalSearchState:
   cdef newton_polyhedron(self, int i):
     return self.newton_polyhedra[i]
 
-  cdef list candidates_newton(self, int i, list LTs):
+  cdef list candidates_newton(self, int i, list LTs, list G):
     '''
     Returns the list of candidate LTs with better heuristic value than
     the current one.
@@ -794,7 +805,6 @@ cdef class LocalSearchState:
     init_tot_time = time.time()
     cdef tuple all_candidates = self.newton_polyhedron(i).vertices()
 
-    statistics.update_candidates(len(all_candidates))
     self.total_criterion_time += time.time() - init_tot_time
 
     cdef list CLTs = []
@@ -802,6 +812,8 @@ cdef class LocalSearchState:
     for j in range(len(all_candidates)):
         CLTs.append(LTs.copy())
         CLTs[j][i] = poly_from_exponents(all_candidates[j], self.ring)
+
+    CLTs.sort()
 
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
 
@@ -815,15 +827,16 @@ cdef class LocalSearchState:
     """
     cdef int current_max = -10000000
     cdef int current_idx = -1
-    cdef int n = self.ring().ngens()
+    cdef int n = self.ring.ngens()
     cdef int i, deg
+    variables = self.ring.gens()
     for i in range(n):
-      deg = j * u.degree(i) - prodT.degree(i)
+      deg = j * u.degree(variables[i]) - prodT.degree(variables[i])
       if deg > current_max:
         current_max = deg
         current_idx = i
 
-    return i
+    return current_idx
 
   cdef int min_degree(self, int i, list T, MPolynomial_libsingular u):
     """
@@ -835,13 +848,14 @@ cdef class LocalSearchState:
     cdef int min_deg_gcd = 10000000
     cdef int k, dgcd
     cdef MPolynomial_libsingular t
+    variables = self.ring.gens()
 
     for k in range(len(T)):
       t = T[k]
       dgcd = gcd_deg(t, u)
-      if t.degree(i) < min_deg or (t.degree(i) == min_deg and dgcd < min_deg_gcd):
+      if t.degree(variables[i]) < min_deg or (t.degree(variables[i]) == min_deg and dgcd < min_deg_gcd):
         j = k
-        min_deg = t.degree(i)
+        min_deg = t.degree(variables[i])
         min_deg_gcd = dgcd
 
     return j
@@ -860,60 +874,72 @@ cdef class LocalSearchState:
     cdef MPolynomial_libsingular prodT = self.ring(1)
     cdef MPolynomial_libsingular u, t
     cdef list candidates = f.monomials()
-    cdef int j, k
+    cdef int j, k, l
 
     init_tot_time = time.time()
-    for u in P:
-      T = []
-      prodT = self.ring(1)
-      for t in P:
-        if u == t:
-          continue
+    if len(self.candidate_list_perry[i]) == 0: #Haven't computed this list yet
 
-        #Step 2(b)i
-        init_time = time.time()
-        old_criterion = monomial_divides(u, t)
-        if old_criterion:
-          candidates.remove(u)
+      for u in P:
+        T = []
+        prodT = self.ring(1)
+        for t in P:
+          if u == t:
+            continue
+
+          #Step 2(b)i
+          init_time = time.time()
+          old_criterion = monomial_divides(u, t)
+          if old_criterion:
+            candidates.remove(u)
+            self.time2bi += time.time() - init_time
+            statistics.inc_old_criterion()
+            break
           self.time2bi += time.time() - init_time
-          break
-        self.time2bi += time.time() - init_time
 
-        init_time = time.time()
-        if not gcd_is_one(u, t):
-          T.append(t)
-          prodT *= t
-          k = len(T)
-          if monomial_divides(u**k, prodT):
-            candidates.remove(u)
-            self.time2bii += time.time() - init_time
-            break
-        self.time2bii += time.time() - init_time
-
-      if step_c:
-        while T:
-
-          #Step 2(c)i
           init_time = time.time()
-          i = self.max_difference(u, len(T), prodT)
-          self.time2ci += time.time() - init_time
+          if not gcd_is_one(u, t):
+            T.append(t)
+            prodT *= t
+            k = len(T)
+            if monomial_divides(u**k, prodT):
+              candidates.remove(u)
+              statistics.inc_new_criterion()
+              self.time2bii += time.time() - init_time
+              break
+          self.time2bii += time.time() - init_time
 
-          #Step 2(c)ii
-          init_time = time.time()
-          j = self.min_degree(i, T, u)
-          t = T.pop(j)
-          prodT = self.ring.monomial_quotient(prodT, t)
-          self.time2cii += time.time() - init_time
+        if step_c and u in candidates:
+          while T:
 
-          #Step 2(c)iii
-          init_time = time.time()
-          if monomial_divides(u**k, prodT):
-            candidates.remove(u)
+            #Step 2(c)i
+            init_time = time.time()
+            l = self.max_difference(u, len(T), prodT)
+            self.time2ci += time.time() - init_time
+
+            #Step 2(c)ii
+            init_time = time.time()
+            j = self.min_degree(l, T, u)
+            t = T.pop(j)
+            prodT = self.ring.monomial_quotient(prodT, t)
+            self.time2cii += time.time() - init_time
+
+            #Step 2(c)iii
+            init_time = time.time()
+            k = len(T)
+            if len(T) > 0 and monomial_divides(u**k, prodT):
+              candidates.remove(u)
+              statistics.inc_new_criterion_stepc()
+              self.time2ciii += time.time() - init_time
+              break
             self.time2ciii += time.time() - init_time
-            break
-          self.time2ciii += time.time() - init_time
 
-    statistics.update_candidates(len(candidates))
+    if len(self.candidate_list_perry[i]) == 0: #Applied the criterion here, will update stats
+      #and update the data structure storing the previous candidate lists
+      statistics.update_candidates(len(candidates))
+      self.candidate_list_perry[i] = candidates
+    else:
+      candidates = self.candidate_list_perry[i]
+
     self.total_criterion_time += time.time() - init_tot_time
 
     cdef list CLTs = []
@@ -921,13 +947,15 @@ cdef class LocalSearchState:
         CLTs.append(LTs.copy())
         CLTs[j][i] = candidates[j]
 
+    CLTs.sort()
+
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
 
     return CLTs
 
   cdef list candidates(self, int i, list LTs, list G):
     if self.criterion == 'newton':
-        return self.candidates_newton(i, LTs)
+        return self.candidates_newton(i, LTs, G)
     elif self.criterion == 'perry1':
         return self.candidates_perry(i, LTs, G, False)
     elif self.criterion == 'perry2':
@@ -946,10 +974,16 @@ cdef class LocalSearchState:
     cdef int new_end = self.lp.number_of_constraints()
 
     #Update structures
+    if self.taboo_tenure > 1:
+      self.taboo_list.append(self.iteration_count)
     self.add_constraint(new_beginning, new_end)
     self.current_ordering = result[0]
     self.lp = result[1]
-    self.newton_polyhedra.append(affine_newton_polyhedron(G[len(G)-1]))
+    if self.criterion == "newton":
+      self.newton_polyhedra.append(affine_newton_polyhedron(G[len(G)-1]))
+      statistics.update_candidates(len(self.newton_polyhedra[len(G)-1].vertices()))
+    else:
+      self.candidate_list_perry.append([])
     self.ring = PolynomialRing(self.ring.base_ring(), self.ring.gens(),
                                order=create_order(self.current_ordering))
 
@@ -1005,6 +1039,26 @@ cdef class LocalSearchState:
     cdef int end = self.lp.number_of_constraints()
     self.constraints[i] = (start, end)
 
+  cdef bool is_taboo(self, int i):
+    '''
+    An element of index i of the partial GB is taboo if the LS algorithm
+    already checked it during the last few iterations (given by the taboo tenure)
+    '''
+    if self.taboo_tenure <= 1:
+      return False
+    return self.iteration_count - self.taboo_list[i] < self.taboo_tenure
+
+  cdef void inc_iteration_count(self):
+    self.iteration_count += 1
+
+  cdef void update_taboo(self, int i):
+    '''
+    Updates the taboo list entry of i to the current iteration count.
+    '''
+    if self.taboo_tenure <= 1:
+      return
+    self.taboo_list[i] = self.iteration_count
+
 cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   '''
   Local search dynamic function.
@@ -1022,6 +1076,8 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   for k in range(m, len(G)): #Iterate this to be compatible with F4 reducer
     state.add_polynomial(G[:k+1])
 
+  state.inc_iteration_count()
+
   #STEP 2: Walk through previous polynomials, decide whether to try to change
   #their leading monomials or not.
   #Check if the changes are possible using linear programming.
@@ -1037,6 +1093,10 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   cdef MPolynomial_libsingular LTi
 
   for i in range(len(G) - 1):
+
+    if state.is_taboo(i):
+      continue
+
     #Anything returned by candidates has better heuristic value than current
     candidates = state.candidates(i, LTs, G)
     j = 0
@@ -1060,12 +1120,14 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
       else:
         j += 1
 
+    state.update_taboo(i)
+
     #Go back to original LT for i if we didn't find a better one
-    if not found:
+    if not found or LTi == LTs[i]:
       LTs[i] = LTi
       if len(candidates) > 0: #I have to reinsert constraints
         state.readd_constraints(removed_constraints, i)
-    else: #Work with first improvement
+    elif LTi != LTs[i]: #Work with first improvement, but we already found a new LT
       break
 
   return state.current_ordering

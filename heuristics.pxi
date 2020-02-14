@@ -1,6 +1,9 @@
 import time
 from functools import cmp_to_key
 
+cpdef int cmp(a, b):
+  return (a > b) - (a < b)
+
 cpdef int hs_heuristic(tuple f, tuple g):
   r"""
     Implements the Hilbert heuristic recommended by Caboara in his 1993 paper.
@@ -18,7 +21,9 @@ cpdef int hs_heuristic(tuple f, tuple g):
     if f[1] == g[1]: return 0
     else:
       C = (f[1]-g[1]).numerator().coefficients()
-      return C[len(C)-1]
+      if C[len(C)-1] == 0:
+        return cmp(f[2], g[2])
+      else: return C[len(C)-1]
 
   else: return f[0].degree() - g[0].degree()
 

@@ -28,6 +28,7 @@ instances = [
     "econ5",
     "econh5"
 ]
+
 extension = ".ideal"
 directory = "./instances/"
 
@@ -37,11 +38,16 @@ criteria = [
     "perry2"
 ]
 
+if len(sys.argv) > 1:
+    tenure = int(sys.argv[1])
+else:
+    tenure = 0
+
 for instance in instances:
     fullname = directory + instance + extension
     benchmark = Benchmark(fullname)
     for criterion in criteria:
-        result = dynamic_gb(benchmark.ideal.gens(), algorithm="localsearch", return_stats = True, seed = 0, reducer = "classical", lscriterion = criterion, print_criterion=True)
+        result = dynamic_gb(benchmark.ideal.gens(), algorithm="localsearch", return_stats = True, seed = 0, reducer = "classical", lscriterion = criterion, print_criterion=True, taboo_tenure = tenure)
         out = result[-1]
         print(instance, end=" ")
         print(criterion, end=" ")
