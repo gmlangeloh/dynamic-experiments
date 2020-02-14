@@ -762,6 +762,7 @@ cdef class LocalSearchState:
   cdef list current_ordering
   cdef MPolynomialRing_libsingular ring
   cdef MixedIntegerLinearProgram lp
+  cdef list candidate_list_perry
 
   cdef float time2bi
   cdef float time2bii
@@ -779,6 +780,7 @@ cdef class LocalSearchState:
     self.lp = new_linear_program(n = n)
     self.ring = R
     self.criterion = lscriterion
+    self.candidate_list_perry = []
 
     self.iteration_count = 0
     self.taboo_list = []
@@ -803,9 +805,6 @@ cdef class LocalSearchState:
     init_tot_time = time.time()
     cdef tuple all_candidates = self.newton_polyhedron(i).vertices()
 
-    #print(len(all_candidates), len(G[i].value().monomials()))
-
-    statistics.update_candidates(len(all_candidates))
     self.total_criterion_time += time.time() - init_tot_time
 
     cdef list CLTs = []
@@ -878,61 +877,69 @@ cdef class LocalSearchState:
     cdef int j, k, l
 
     init_tot_time = time.time()
-    for u in P:
-      T = []
-      prodT = self.ring(1)
-      for t in P:
-        if u == t:
-          continue
+    if len(self.candidate_list_perry[i]) == 0: #Haven't computed this list yet
 
-        #Step 2(b)i
-        init_time = time.time()
-        old_criterion = monomial_divides(u, t)
-        if old_criterion:
-          candidates.remove(u)
+      for u in P:
+        T = []
+        prodT = self.ring(1)
+        for t in P:
+          if u == t:
+            continue
+
+          #Step 2(b)i
+          init_time = time.time()
+          old_criterion = monomial_divides(u, t)
+          if old_criterion:
+            candidates.remove(u)
+            self.time2bi += time.time() - init_time
+            statistics.inc_old_criterion()
+            break
           self.time2bi += time.time() - init_time
-          statistics.inc_old_criterion()
-          break
-        self.time2bi += time.time() - init_time
 
-        init_time = time.time()
-        if not gcd_is_one(u, t):
-          T.append(t)
-          prodT *= t
-          k = len(T)
-          if monomial_divides(u**k, prodT):
-            candidates.remove(u)
-            statistics.inc_new_criterion()
-            self.time2bii += time.time() - init_time
-            break
-        self.time2bii += time.time() - init_time
-
-      if step_c and u in candidates:
-        while T:
-
-          #Step 2(c)i
           init_time = time.time()
-          l = self.max_difference(u, len(T), prodT)
-          self.time2ci += time.time() - init_time
+          if not gcd_is_one(u, t):
+            T.append(t)
+            prodT *= t
+            k = len(T)
+            if monomial_divides(u**k, prodT):
+              candidates.remove(u)
+              statistics.inc_new_criterion()
+              self.time2bii += time.time() - init_time
+              break
+          self.time2bii += time.time() - init_time
 
-          #Step 2(c)ii
-          init_time = time.time()
-          j = self.min_degree(l, T, u)
-          t = T.pop(j)
-          prodT = self.ring.monomial_quotient(prodT, t)
-          self.time2cii += time.time() - init_time
+        if step_c and u in candidates:
+          while T:
 
-          #Step 2(c)iii
-          init_time = time.time()
-          k = len(T)
-          if len(T) > 0 and monomial_divides(u**k, prodT):
-            candidates.remove(u)
-            statistics.inc_new_criterion_stepc()
+            #Step 2(c)i
+            init_time = time.time()
+            l = self.max_difference(u, len(T), prodT)
+            self.time2ci += time.time() - init_time
+
+            #Step 2(c)ii
+            init_time = time.time()
+            j = self.min_degree(l, T, u)
+            t = T.pop(j)
+            prodT = self.ring.monomial_quotient(prodT, t)
+            self.time2cii += time.time() - init_time
+
+            #Step 2(c)iii
+            init_time = time.time()
+            k = len(T)
+            if len(T) > 0 and monomial_divides(u**k, prodT):
+              candidates.remove(u)
+              statistics.inc_new_criterion_stepc()
+              self.time2ciii += time.time() - init_time
+              break
             self.time2ciii += time.time() - init_time
-            break
-          self.time2ciii += time.time() - init_time
 
-    statistics.update_candidates(len(candidates))
+    if len(self.candidate_list_perry[i]) == 0: #Applied the criterion here, will update stats
+      #and update the data structure storing the previous candidate lists
+      statistics.update_candidates(len(candidates))
+      self.candidate_list_perry[i] = candidates
+    else:
+      candidates = self.candidate_list_perry[i]
+
     self.total_criterion_time += time.time() - init_tot_time
 
     cdef list CLTs = []
@@ -974,6 +981,9 @@ cdef class LocalSearchState:
     self.lp = result[1]
     if self.criterion == "newton":
       self.newton_polyhedra.append(affine_newton_polyhedron(G[len(G)-1]))
+      statistics.update_candidates(len(self.newton_polyhedra[len(G)-1].vertices()))
+    else:
+      self.candidate_list_perry.append([])
     self.ring = PolynomialRing(self.ring.base_ring(), self.ring.gens(),
                                order=create_order(self.current_ordering))
 
