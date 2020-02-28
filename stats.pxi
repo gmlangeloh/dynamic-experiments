@@ -175,7 +175,7 @@ cdef class Stats:
       print(self.failed_systems, "failed systems and ", self.number_of_rejects, "rejections stored")
       print(self.number_of_constraints, "constraints are in the linear program")
 
-  cpdef str brief_report(self):
+  cpdef str brief_report(self, state = None):
     cdef str results = self.algorithm + \
         (' %.2f %.2f %.2f %.2f %.2f %d %d %d %d %d' % (
             self.running_time,
@@ -191,6 +191,8 @@ cdef class Stats:
         ))
     if self.print_criterion:
       results += " %d %d %d %d" % (self.number_of_candidates, self.old_criterion, self.new_criterion, self.new_criterion_stepc)
+      if state is not None:
+        results += " " + state.profile_report()
     if self.print_results:
       print(results)
     if self.return_stats:

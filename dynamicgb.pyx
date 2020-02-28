@@ -780,10 +780,9 @@ cpdef tuple dynamic_gb \
   statistics.set_number_of_rejects(len(rejects))
   statistics.set_number_of_constraints(lp.number_of_constraints())
   statistics.update_basis_data(gb)
-  statstring = statistics.brief_report()
+  statstring = statistics.brief_report(state)
 
   #Uncomment this to keep profiling the new criterion for LS
-  #state.profile_report()
 
   #Uncomment this if profiling F4
   #if reducer == 'F4':
