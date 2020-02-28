@@ -770,6 +770,8 @@ cdef class LocalSearchState:
   cdef float time2cii
   cdef float time2ciii
   cdef float total_criterion_time
+  cdef float heuristic_time
+  cdef float lp_time
 
   def __init__(self, int n, list initial_ordering, str lscriterion, str heuristic,
                 MPolynomialRing_libsingular R, int taboo_tenure):
@@ -793,6 +795,8 @@ cdef class LocalSearchState:
     self.time2cii = 0.0
     self.time2ciii = 0.0
     self.total_criterion_time = 0.0
+    self.heuristic_time = 0.0
+    self.lp_time = 0.0
 
   cdef newton_polyhedron(self, int i):
     return self.newton_polyhedra[i]
@@ -813,9 +817,11 @@ cdef class LocalSearchState:
         CLTs.append(LTs.copy())
         CLTs[j][i] = poly_from_exponents(all_candidates[j], self.ring)
 
+    init_time = time.time()
     CLTs.sort()
 
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
+    self.heuristic_time += time.time() - init_time
 
     return CLTs
 
@@ -860,8 +866,9 @@ cdef class LocalSearchState:
 
     return j
 
-  cdef void profile_report(self):
-    print(self.total_criterion_time, self.time2bi, self.time2bii, self.time2ci, self.time2cii, self.time2ciii)
+  cpdef str profile_report(self):
+    result = "%.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f" % (self.total_criterion_time, self.heuristic_time, self.lp_time, self.time2bi, self.time2bii, self.time2ci, self.time2cii, self.time2ciii)
+    return result
 
   cdef list candidates_perry(self, int i, list LTs, list G, bool step_c):
     '''
@@ -947,9 +954,12 @@ cdef class LocalSearchState:
         CLTs.append(LTs.copy())
         CLTs[j][i] = candidates[j]
 
+    init_time = time.time()
     CLTs.sort()
 
     CLTs = sort_CLTs_by_heuristic(CLTs, self.heuristic, False)
+
+    self.heuristic_time += time.time() - init_time
 
     return CLTs
 
@@ -1112,6 +1122,7 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
 
       LTs[i] = candidates[j][2][i]#poly_from_exponents(candidates[j], state.ring)
 
+      t = time.time()
       can_work = feasible(j, candidate_exps, state.lp, set(), G, LTs, False)
       if len(can_work) > 0: #Found a solution
         state.update_ordering(can_work[1])
@@ -1119,6 +1130,8 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
         found = True
       else:
         j += 1
+
+      state.lp_time += time.time() - t
 
     state.update_taboo(i)
 
