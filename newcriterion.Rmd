@@ -1,0 +1,50 @@
+---
+title: "Analyzing the new criterion"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+data <- read.table("criterion_results_profiling.out", header=F)
+
+column_names <- c(
+  "instance",
+  "criterion",
+  "algorithm",
+  "time",
+  "dynamic",
+  "heuristic",
+  "queue",
+  "reduction",
+  "polynomials",
+  "monomials",
+  "degree",
+  "spolynomials",
+  "zeroreductions",
+  "lts_considered",
+  "eliminated_dc",
+  "eliminated_2b",
+  "eliminated_2c",
+  "criterion_time",
+  "criterion_heuristic_time",
+  "criterion_lp_time",
+  "criterion_2bi_time",
+  "criterion_2bii_time",
+  "criterion_2ci_time",
+  "criterion_2cii_time",
+  "criterion_2ciii_time"
+)
+
+names(data) <- column_names
+```
+
+```{r}
+summary(data)
+larger_cyclics <- data %>% filter(instance == "cyclicn6" | instance == "cyclicnh6")
+larger_cyclics
+```
+
+It's easy to see in the data that the longer running times are mainly due to the heuristic. That's because eliminating fewer LTs means more candidates must be evaluated using the heuristic. I had thought it was due to additional LPs - while it may be the case that more LPs are solved, this doesn't really impact the running time, as solving them is very fast when compared to computing the Hilbert heuristic. In my implementation, the new criterion is slower than computing the Newton polytope as well. Its running time is still much smaller than the heuristic time, however. 
