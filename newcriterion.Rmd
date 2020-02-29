@@ -45,6 +45,7 @@ names(data) <- column_names
 summary(data)
 larger_cyclics <- data %>% filter(instance == "cyclicn6" | instance == "cyclicnh6")
 larger_cyclics
+larger_cyclics %>% select(instance, criterion, time, criterion_time, criterion_heuristic_time)
 ```
 
 It's easy to see in the data that the longer running times are mainly due to the heuristic. That's because eliminating fewer LTs means more candidates must be evaluated using the heuristic. I had thought it was due to additional LPs - while it may be the case that more LPs are solved, this doesn't really impact the running time, as solving them is very fast when compared to computing the Hilbert heuristic. In my implementation, the new criterion is slower than computing the Newton polytope as well. Its running time is still much smaller than the heuristic time, however. 
