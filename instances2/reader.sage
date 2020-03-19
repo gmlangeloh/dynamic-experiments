@@ -4,19 +4,35 @@ def read_polynomial(line, variables, R):
     words = line.split()
     polynomial = R(0)
     monomial = R(1)
+    last_variable = ""
+    is_exponent = False
     for word in words:
         if word in variables:
             monomial *= R(word)
+            last_variable = word
+            is_exponent = False
         elif word == "+":
             polynomial += monomial
             monomial = R(1)
+            is_exponent = False
         elif word == "-":
             polynomial += monomial
             monomial = R(-1)
+            is_exponent = False
+        elif word == "^":
+            is_exponent = True
+        elif "^" in word:
+            parts = word.split("^")
+            variable = parts[0]
+            exponent = parts[1]
+            monomial *= R(variable) ** int(exponent)
         else:
             try:
                 coef = int(word)
-                monomial *= coef
+                if is_exponent:
+                    monomial *= last_variable ** (coef - 1)
+                else:
+                    monomial *= coef
             except:
                 pass
     polynomial += monomial
