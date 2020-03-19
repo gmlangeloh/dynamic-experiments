@@ -56,7 +56,7 @@ for option in [1, 2]:
     extension = extensions[option]
     directory = directories[option]
     instance_list = instances[option]
-    for instance in instances:
+    for instance in instance_list:
         fullname = directory + instance + extension
         if option == 1:
             benchmark = Benchmark(fullname)
