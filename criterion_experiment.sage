@@ -52,7 +52,7 @@ if len(sys.argv) > 1:
 else:
     tenure = 0
 
-for option in [1, 2]:
+for option in [0, 1]:
     extension = extensions[option]
     directory = directories[option]
     instance_list = instances[option]
