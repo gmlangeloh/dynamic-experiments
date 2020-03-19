@@ -58,10 +58,10 @@ for option in [0, 1]:
     instance_list = instances[option]
     for instance in instance_list:
         fullname = directory + instance + extension
-        if option == 1:
+        if option == 0:
             benchmark = Benchmark(fullname)
             generators = benchmark.ideal.gens()
-        elif option == 2:
+        elif option == 1:
             generators = read_ideal(fullname)
         for criterion in criteria:
             result = dynamic_gb(generators, algorithm="localsearch",
