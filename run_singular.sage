@@ -1,5 +1,6 @@
 from time import time
 import glob
+import sys
 
 load("benchmarks.sage")
 
@@ -22,3 +23,4 @@ for f in filenames:
         G = I.ideal.groebner_basis()
         t = time() - t
         print(f, t, totalpolys(G), totalmonoms(G), maxdeg(G))
+        sys.stdout.flush()
