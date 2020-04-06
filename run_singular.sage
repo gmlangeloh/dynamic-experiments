@@ -1,4 +1,4 @@
-import time
+from time import time
 import glob
 
 load("benchmarks.sage")
@@ -18,7 +18,7 @@ def totalmonoms(G):
 for f in filenames:
     if f not in exceptions:
         I = Benchmark(f)
-        t = time.time()
+        t = time()
         G = I.ideal.groebner_basis()
-        t = time.time() - t
-        print(f, t, totalpolys, totalmonoms, maxdeg)
+        t = time() - t
+        print(f, t, totalpolys(G), totalmonoms(G), maxdeg(G))
