@@ -14,10 +14,13 @@ load("dynamicgb.pyx")
 
 #Run the instance named sys.argv[1], if available. Else run a list of instances
 basic_instances_only = False
+char0_only = False
 single_instance = False
 if len(sys.argv) > 1:
   if sys.argv[1] == "basic":
     basic_instances_only = True
+  elif sys.argv[1] == "0":
+    char0_only = True
   else:
     single_instance = True
     instances = [ sys.argv[1] ]
@@ -56,10 +59,51 @@ if not single_instance:
                            "fateman",
                            "fatemanh",
                            "noon7"]
-  if not basic_instances_only:
-    instances = basic_instances + additional_instances
-  else:
+  even_more_instances = [ "buch85.txt",
+                          "butcher8.txt",
+                          "eco8.txt",
+                          "kotsireas.txt",
+                          "noon3.txt",
+                          "noon5.txt",
+                          "s9_1.txt"]
+  char0_instances = [
+    "cyclicn4",
+    "cyclicnh4",
+    "cyclicn5",
+    "cyclicnh5",
+    "cyclicn6",
+    "cyclicnh6",
+    "katsuran4",
+    "katsuranh4",
+    "katsuran5",
+    "katsuranh5",
+    "katsuran6",
+    "katsuranh6",
+    "cyclicn7",
+    "cyclicnh7",
+    "katsuran7",
+    "katsuranh7",
+    "econ4",
+    "econh4",
+    "econ5",
+    "econh5",
+    "econ6",
+    "econh6",
+    "econ7",
+    "econh7",
+    "f633",
+    "f633h",
+    "butcher8",
+    "fateman",
+    "fatemanh",
+    "noon7"
+  ]
+  if char0_only:
+    instances = char0_instances
+  elif basic_instances_only:
     instances = basic_instances
+  else:
+    instances = basic_instances + additional_instances
 
 if len(sys.argv) > 2:
   algorithms = [ sys.argv[2] ]
@@ -74,18 +118,20 @@ else:
 prefix = "./instances/"
 suffix = ".ideal"
 
-def instance_path(instance):
+def instance_path(instance, coefs = False):
+  if coefs:
+    return "./instances-char0/" + instance + suffix
   return prefix + instance + suffix
 
 def run_algorithm(experiment):
 
-  algorithm, instance, reducer, repetition = experiment
+  algorithm, instance, reducer, repetition, coefs = experiment
   #Run the experiment
   timeout = 3600 #Use 1 hour timeout
-  benchmark = Benchmark(instance_path(instance))
+  benchmark = Benchmark(instance_path(instance, coefs))
   result = dynamic_gb(benchmark.ideal.gens(), algorithm=algorithm, \
                       return_stats=True, seed=repetition, reducer=reducer, \
-                      timeout=timeout)
+                      timeout=timeout, print_coefficients=coefs)
   #out = f.getvalue()
   out = result[-1]
 
@@ -104,21 +150,25 @@ def init(l):
   global lock
   lock = l
 
-print("instance reducer rep algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions")
+def print_header(coefs = False):
+  print("instance reducer rep algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions", end="")
+  if coefs:
+    print(" totalcoefs avgcoefs maxcoefs")
+  else:
+    print()
 
-#Prepare (shuffled) list of experiments
+print_header()
+#prepare list of experiments
 lock = Lock()
 experiments = []
 for algorithm in algorithms:
   for instance in instances:
     for reducer in ['classical', 'F4']:
-      for repetition in range(30):
-        experiments.append((algorithm, instance, reducer, repetition))
-random.shuffle(experiments)
+      if algorithm in ["random", "perturbation"]:
+        for repetition in range(30):
+          experiments.append((algorithm, instance, reducer, repetition, char0_only))
+      else:
+        experiments.append((algorithm, instance, reducer, 0, char0_only))
 
 with Pool(initializer=init, initargs=(lock,), processes=4) as pool:
   pool.map(run_algorithm, experiments)
-  #for experiment in experiments:
-  #  pool.apply_async(run_algorithm, args = experiment)
-  #pool.close()
-  #pool.join()

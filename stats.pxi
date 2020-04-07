@@ -12,6 +12,8 @@ cpdef int bitlength(MPolynomial_libsingular f):
   return s
 
 cpdef tuple bitlength_stats(list G):
+  if len(G) == 0 or G[0].parent().characteristic() != 0:
+    return (0, 0, 0)
   lengths = [ bitlength(g) for g in G ]
   max_len = max(lengths)
   total_len = sum(lengths)
@@ -241,7 +243,12 @@ cdef class Stats:
             (self.preprocessing_time, self.matrix_time, self.addpolys_time))
 
   cpdef str report_timeout(self):
-    return self.algorithm + (' NA' * 10)
+    results = 10 #Number of fields that would be printed
+    if self.print_coefficients:
+        results += 3
+    if self.print_criterion:
+        results += 4
+    return self.algorithm + (' NA' * results)
 
 #I will use this stats instance everywhere
 statistics = Stats()

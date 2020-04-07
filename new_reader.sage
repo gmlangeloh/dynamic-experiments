@@ -46,7 +46,10 @@ def read_ideal(filename):
         variables = lines[4].split()
         num_polys = int(lines[5])
         polynomials = []
-        R = PolynomialRing(GF(characteristic), names = variables)
+        if characteristic == 0:
+            R = PolynomialRing(QQ, names = variables)
+        else:
+            R = PolynomialRing(GF(characteristic), names = variables)
         for i in range(6, 6 + num_polys):
             p = read_polynomial(lines[i], variables, R)
             polynomials.append(p)
