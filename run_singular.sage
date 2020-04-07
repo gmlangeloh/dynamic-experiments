@@ -6,7 +6,7 @@ import multiprocessing
 load("benchmarks.sage")
 
 filenames = glob.glob("./instances/*.ideal")
-exceptions = [ "cyclicnh9" ]
+exceptions = [ "./instances/cyclicnh9.ideal" ]
 
 def maxdeg(G):
     return max([g.degree() for g in G])
