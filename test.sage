@@ -9,18 +9,28 @@ from contextlib import redirect_stdout
 from multiprocessing import Pool, Lock
 from threading import Thread
 
+import select_instances
 load("benchmarks.sage")
 load("dynamicgb.pyx")
 
 #Run the instance named sys.argv[1], if available. Else run a list of instances
 basic_instances_only = False
 char0_only = False
+easy = False
+medium = False
+full = False
 single_instance = False
 if len(sys.argv) > 1:
   if sys.argv[1] == "basic":
     basic_instances_only = True
   elif sys.argv[1] == "0":
     char0_only = True
+  elif sys.argv[1] == "easy":
+    easy = True
+  elif sys.argv[1] == "medium":
+    medium = True
+  elif sys.argv[1] == "full":
+    full = True
   else:
     single_instance = True
     instances = [ sys.argv[1] ]
@@ -104,6 +114,15 @@ if not single_instance:
     instances = basic_instances
   else:
     instances = basic_instances + additional_instances
+
+if easy or medium or full:
+  easy, medium, toohard = select_instances.instance_selection()
+  if easy:
+    instances = easy
+  elif medium:
+    instances = medium
+  elif full:
+    instances = easy + medium
 
 if len(sys.argv) > 2:
   algorithms = [ sys.argv[2] ]
