@@ -131,8 +131,8 @@ else:
   algorithms = [ "static",
                  "caboara-perry",
                  "perturbation",
-                 "random",
-                 "localsearch" ]
+                 "random" ]
+                 #"localsearch" ]
 
 prefix = "./instances/"
 suffix = ".ideal"
