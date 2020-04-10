@@ -180,10 +180,11 @@ print_header()
 #prepare list of experiments
 lock = Lock()
 experiments = []
+reducers = char0_only ? [ 'classical '] : [ 'classical', 'F4' ]
 
 for instance in instances:
   for algorithm in algorithms:
-    for reducer in ['classical', 'F4']:
+    for reducer in reducers:
       if algorithm in ["random", "perturbation"]:
         for repetition in range(30):
           experiments.append((algorithm, instance, reducer, repetition, char0_only))
