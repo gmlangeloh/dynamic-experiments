@@ -180,7 +180,7 @@ print_header()
 #prepare list of experiments
 lock = Lock()
 experiments = []
-reducers = [ 'classical '] if char0_only else [ 'classical', 'F4' ]
+reducers = [ 'classical'] if char0_only else [ 'classical', 'F4' ]
 
 for instance in instances:
   for algorithm in algorithms:
