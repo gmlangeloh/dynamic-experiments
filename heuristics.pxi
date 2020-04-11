@@ -1,6 +1,34 @@
 import time
 from functools import cmp_to_key
 
+cpdef hilbert_series(I):
+  r"""
+  Computes the Hilbert series with less overhead than Sage.
+  """
+  pass
+
+cpdef hilbert_poly(HS):
+  r"""
+  Computes a Hilbert polynomial from a Hilbert series.
+  """
+  pass
+
+cpdef tuple hilbert(I):
+  r"""
+  Computes the Hilbert polynomial and series more efficiently, while also
+  trying to avoid Singular overflow issues.
+  """
+  n = I.ring().ngens()
+  if n >= 34: #Singular overflow is basically guaranteed
+    HS = I.hilbert_series(algorithm="sage")
+  else:
+    try: #Try computing it in Singular, use Sage only when Singular overflows
+      HS = I.hilbert_series(algorithm="singular")
+    except:
+      HS = I.hilbert_series(algorithm="sage")
+  #TODO continue, compute Hilbert polynomial
+  return ()
+
 cpdef int cmp(a, b):
   return (a > b) - (a < b)
 
@@ -230,11 +258,11 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
     old_order = [ ((), (), CLTs[0]) ]
     if use_weights:
       L = [ (R.ideal(LTs[0]).hilbert_polynomial(algorithm='singular'),
-             R.ideal(LTs[0]).hilbert_series(),
+             R.ideal(LTs[0]).hilbert_series(algorithm='singular'),
              LTs) for LTs in CLTs ]
     else:
       L = [ (R.ideal(LTs).hilbert_polynomial(algorithm='singular'),
-             R.ideal(LTs).hilbert_series(),
+             R.ideal(LTs).hilbert_series(algorithm='singular'),
              LTs) for LTs in CLTs ]
     L.sort(key=cmp_to_key(hs_heuristic))
     #if prev_hilb <= L[0][0].degree():
@@ -298,7 +326,7 @@ cdef tuple hilbert_key (tuple t):
   '''
   I = t[0]
   return (I.hilbert_polynomial(algorithm='singular').degree(),
-          I.hilbert_series().numerator().coefficients())
+          I.hilbert_series(algorithm='singular').numerator().coefficients())
 
 cdef list best_orderings_hilbert (list orderings, list G):
 

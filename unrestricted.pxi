@@ -773,6 +773,8 @@ cdef class LocalSearchState:
   cdef float heuristic_time
   cdef float lp_time
 
+  cdef bool first_call
+
   def __init__(self, int n, list initial_ordering, str lscriterion, str heuristic,
                 MPolynomialRing_libsingular R, int taboo_tenure):
     self.heuristic = heuristic
@@ -787,6 +789,8 @@ cdef class LocalSearchState:
     self.iteration_count = 0
     self.taboo_list = []
     self.taboo_tenure = taboo_tenure
+
+    self.first_call = True #It is the first call to local search
 
     #For profiling the new Perry criterion
     self.time2bi = 0.0
@@ -1083,6 +1087,10 @@ cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   '''
 
   #STEP 1: Choose the new ordering the same as Caboara
+  if state.first_call: #Set m to 0 in case this is the first call
+    #Necessary for F4, which already starts with a non-empty G
+    state.first_call = False
+    m = 0
   for k in range(m, len(G)): #Iterate this to be compatible with F4 reducer
     state.add_polynomial(G[:k+1])
 
