@@ -34,6 +34,7 @@ cpdef hilbert_poly(HS):
   denom = HS.denominator().factor()
   second_hilbert = HS.numerator()
   t = second_hilbert.parent().gen()
+  #TODO degree is apparently always s - 1. Check/prove and use it if possible
   if denom:
     s = denom[0][1] # this is the pole order of the Hilbert-Poincaré series at t=1
   else:
@@ -111,13 +112,18 @@ cpdef list sort_CLTs_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
   # the first entry is the tentative Hilbert polynomial
   # the second is the tentative Hilbert series
   # the third is tup itself (the compatible leading term)
-  CLTs = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(algorithm='singular'),
-           R.ideal(current_Ts + [tup[1]]).hilbert_series(),
-           tup) for tup in CLTs]
-  CLTs.sort(key=cmp_to_key(hs_heuristic)) # sort according to hilbert heuristic
+  L = []
+  for tup in CLTs:
+    HS, HP = hilbert(R.ideal(current_Ts + [tup[1]]))
+    L.append((HP, HS, tup))
+  #CLTs = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(algorithm='singular'),
+  #         R.ideal(current_Ts + [tup[1]]).hilbert_series(),
+  #         tup) for tup in CLTs]
+  L.sort(key=cmp_to_key(hs_heuristic)) # sort according to hilbert heuristic
   #print CLTs
 
-  return CLTs
+  #return CLTs
+  return L
 
 cpdef list min_CLT_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
                                         list CLTs):
