@@ -1073,6 +1073,7 @@ cdef class LocalSearchState:
       return
     self.taboo_list[i] = self.iteration_count
 
+@cython.profile(True)
 cpdef list choose_local_ordering (list G, LocalSearchState state, int m):
   '''
   Local search dynamic function.
