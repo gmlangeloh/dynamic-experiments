@@ -1,4 +1,4 @@
-polynomials degree
+polynomials degreetotcoef avgcoef maxcoef
 13 82431 187.0 603
 13 81906 146.6153846153846 575
 12 71331 110.91666666666667 439
