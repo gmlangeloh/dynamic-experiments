@@ -1,2 +1,2 @@
-polynomials degreetotcoef avgcoef maxcoef
-1 02 2.0 2
+polynomials degree totcoef avgcoef maxcoef
+1 0 2 2.0 2
