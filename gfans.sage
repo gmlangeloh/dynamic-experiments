@@ -8,7 +8,7 @@ load("dynamicgb.pyx") #I can use the bitlength evaluation tools in stats.pxi
 #These were selected because the GS algorithm finishes in less than 1 hour
 instances = [ "cyclicn4",
               "cyclicnh4",
-              "cyclicn5",
+              #"cyclicn5",
               "katsuran4",
               "katsuranh4",
               "econ4",
@@ -33,12 +33,16 @@ def gfan_data(I, outfile, char0):
   #minlen = min([ basis_len(G) for G in bases ])
   #mindeg = min([ basis_deg(G) for G in bases ])
 
-  f.write("polynomials degree\n")
+  f.write("polynomials degree")
+  if char0:
+    f.write(" totcoef avgcoef maxcoef\n")
+  else:
+    f.write("\n")
   for G in bases:
     f.write(str(basis_len(G)) + " " + str(basis_deg(G)))
     if char0:
       tot, avg, mx = bitlength_stats(list(G))
-      f.write(str(tot) + " " + str(avg) + " " + str(mx) + "\n")
+      f.write(" " + str(tot) + " " + str(avg) + " " + str(mx) + "\n")
     else:
       f.write("\n")
 
