@@ -11,6 +11,7 @@ from threading import Thread
 
 import select_instances
 load("benchmarks.sage")
+load("new_reader.sage")
 load("dynamicgb.pyx")
 
 #Run the instance named sys.argv[1], if available. Else run a list of instances
@@ -19,6 +20,7 @@ char0_only = False
 easy = False
 medium = False
 full = False
+extra = False
 single_instance = False
 if len(sys.argv) > 1:
   if sys.argv[1] == "basic":
@@ -31,6 +33,8 @@ if len(sys.argv) > 1:
     medium = True
   elif sys.argv[1] == "full":
     full = True
+  elif sys.argv[1] == "extra":
+    extra = True
   else:
     single_instance = True
     instances = [ sys.argv[1] ]
@@ -69,13 +73,12 @@ if not single_instance:
                            "fateman",
                            "fatemanh",
                            "noon7"]
-  even_more_instances = [ "buch85.txt",
-                          "butcher8.txt",
-                          "eco8.txt",
-                          "kotsireas.txt",
-                          "noon3.txt",
-                          "noon5.txt",
-                          "s9_1.txt"]
+  even_more_instances = [ "buch85",
+                          "eco8",
+                          "kotsireas",
+                          "noon3",
+                          "noon5",
+                          "s9_1"]
   char0_instances = [
     "cyclicn4",
     "cyclicnh4",
@@ -112,17 +115,19 @@ if not single_instance:
     instances = char0_instances
   elif basic_instances_only:
     instances = basic_instances
+  elif extra:
+    instances = even_more_instances
   else:
     instances = basic_instances + additional_instances
 
 if easy or medium or full:
   easy, medium, toohard = select_instances.instance_selection()
   if easy:
-    instances = easy
+    instances = [ i for i in easy if i not in instances ]
   elif medium:
-    instances = medium
+    instances = [ i for i in medium if i not in instances ]
   elif full:
-    instances = easy + medium
+    instances = [i for i in easy + medium if i not in instances ]
 
 if len(sys.argv) > 2:
   algorithms = [ sys.argv[2] ]
@@ -137,21 +142,26 @@ else:
 prefix = "./instances/"
 suffix = ".ideal"
 
-def instance_path(instance, coefs = False):
+def instance_path(instance, coefs = False, extra = False):
   if coefs:
     return "./instances-char0/" + instance + suffix
+  if extra:
+    return "./instances2/" + instance + ".txt"
   return prefix + instance + suffix
 
 def run_algorithm(experiment):
 
-  algorithm, instance, reducer, repetition, coefs = experiment
+  algorithm, instance, reducer, repetition, coefs, extra = experiment
   #Run the experiment
   timeout = 3600 #Use 1 hour timeout
-  benchmark = Benchmark(instance_path(instance, coefs))
-  result = dynamic_gb(benchmark.ideal.gens(), algorithm=algorithm, \
+  if extra: #Running extra instances which are written in a different format
+    generators = read_ideal(instance_path(instance, coefs, extra))
+  else:
+    benchmark = Benchmark(instance_path(instance, coefs, extra))
+    generators = benchmark.ideal.gens()
+  result = dynamic_gb(generators, algorithm=algorithm, \
                       return_stats=True, seed=repetition, reducer=reducer, \
                       timeout=timeout, print_coefficients=coefs)
-  #out = f.getvalue()
   out = result[-1]
 
   #Print correctly in stdout
@@ -187,9 +197,9 @@ for instance in instances:
     for reducer in reducers:
       if algorithm in ["random", "perturbation"]:
         for repetition in range(30):
-          experiments.append((algorithm, instance, reducer, repetition, char0_only))
+          experiments.append((algorithm, instance, reducer, repetition, char0_only, extra))
       else:
-        experiments.append((algorithm, instance, reducer, 0, char0_only))
+        experiments.append((algorithm, instance, reducer, 0, char0_only, extra))
 
 with Pool(initializer=init, initargs=(lock,), processes=4) as pool:
   pool.map(run_algorithm, experiments)

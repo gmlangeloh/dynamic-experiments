@@ -1,18 +1,53 @@
 import time
 from functools import cmp_to_key
 
-cpdef hilbert_series(I):
-  r"""
-  Computes the Hilbert series with less overhead than Sage.
-  """
-  pass
+from sage.misc.misc_c import prod
+from sage.rings.polynomial.hilbert import hilbert_poincare_series
+import sage.libs.singular.function_factory
 
+@cython.profile(True)
+cpdef hilbert_numerator_singular(I):
+  hilb = sage.libs.singular.function_factory.ff.hilb
+  hn = hilb(I, 1, attributes={I: {'isSB': 0}})
+  t = IntegerRing()['t'].gen()
+  return sum([IntegerRing()(hn[i]) * t**i for i in range(len(hn)-1)])
+
+@cython.profile(True)
+cpdef hilbert_series(I, algorithm="singular"):
+  if algorithm == "singular":
+    hn = hilbert_numerator_singular(I)
+    t = IntegerRing()['t'].gen()
+    n = I.ring().ngens()
+    return hn / (1 - t) ** n
+  elif algorithm == "sage":
+    return hilbert_poincare_series(I)
+
+@cython.profile(True)
 cpdef hilbert_poly(HS):
   r"""
   Computes a Hilbert polynomial from a Hilbert series.
-  """
-  pass
+  This is straight from the Sage implementation, using the Hilbert Series
+  to compute the Hilbert polynomial, but without recomputing the HS.
 
+  This should be more efficient than calling Singular hilbPoly...
+  """
+  denom = HS.denominator().factor()
+  second_hilbert = HS.numerator()
+  t = second_hilbert.parent().gen()
+  #TODO degree is apparently always s - 1. Check/prove and use it if possible
+  if denom:
+    s = denom[0][1] # this is the pole order of the Hilbert-Poincaré series at t=1
+  else:
+    return t.parent().zero()
+  # we assume the denominator of the Hilbert series is of the form (1-t)^s, scale if needed
+  if HS.denominator().leading_coefficient() == 1:
+    second_hilbert = second_hilbert*(-1)**s
+  denom = IntegerRing()(s-1).factorial()
+  out = sum([c / denom * prod([s - 1 - n - nu + t for nu in range(s-1)])
+             for n,c in enumerate(second_hilbert)]) + t.parent().zero()
+  return out
+
+@cython.profile(True)
 cpdef tuple hilbert(I):
   r"""
   Computes the Hilbert polynomial and series more efficiently, while also
@@ -20,14 +55,14 @@ cpdef tuple hilbert(I):
   """
   n = I.ring().ngens()
   if n >= 34: #Singular overflow is basically guaranteed
-    HS = I.hilbert_series(algorithm="sage")
+    HS = hilbert_series(I, algorithm="sage")
   else:
     try: #Try computing it in Singular, use Sage only when Singular overflows
-      HS = I.hilbert_series(algorithm="singular")
+      HS = hilbert_series(I, algorithm="singular")
     except:
-      HS = I.hilbert_series(algorithm="sage")
-  #TODO continue, compute Hilbert polynomial
-  return ()
+      HS = hilbert_series(I, algorithm="sage")
+  HP = hilbert_poly(HS)
+  return (HS, HP)
 
 cpdef int cmp(a, b):
   return (a > b) - (a < b)
@@ -77,13 +112,18 @@ cpdef list sort_CLTs_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
   # the first entry is the tentative Hilbert polynomial
   # the second is the tentative Hilbert series
   # the third is tup itself (the compatible leading term)
-  CLTs = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(algorithm='singular'),
-           R.ideal(current_Ts + [tup[1]]).hilbert_series(),
-           tup) for tup in CLTs]
-  CLTs.sort(key=cmp_to_key(hs_heuristic)) # sort according to hilbert heuristic
+  L = []
+  for tup in CLTs:
+    HS, HP = hilbert(R.ideal(current_Ts + [tup[1]]))
+    L.append((HP, HS, tup))
+  #CLTs = [(R.ideal(current_Ts + [tup[1]]).hilbert_polynomial(algorithm='singular'),
+  #         R.ideal(current_Ts + [tup[1]]).hilbert_series(),
+  #         tup) for tup in CLTs]
+  L.sort(key=cmp_to_key(hs_heuristic)) # sort according to hilbert heuristic
   #print CLTs
 
-  return CLTs
+  #return CLTs
+  return L
 
 cpdef list min_CLT_by_Hilbert_heuristic(MPolynomialRing_libsingular R, \
                                         list CLTs):
@@ -257,13 +297,21 @@ cpdef list sort_CLTs_by_heuristic(list CLTs, str heuristic, bool use_weights, \
 
     old_order = [ ((), (), CLTs[0]) ]
     if use_weights:
-      L = [ (R.ideal(LTs[0]).hilbert_polynomial(algorithm='singular'),
-             R.ideal(LTs[0]).hilbert_series(algorithm='singular'),
-             LTs) for LTs in CLTs ]
+      L = []
+      for LTs in CLTs:
+        HS, HP = hilbert(R.ideal(LTs[0]))
+        L.append((HP, HS, LTs))
+      #L = [ (R.ideal(LTs[0]).hilbert_polynomial(algorithm='singular'),
+      #       R.ideal(LTs[0]).hilbert_series(algorithm='singular'),
+      #       LTs) for LTs in CLTs ]
     else:
-      L = [ (R.ideal(LTs).hilbert_polynomial(algorithm='singular'),
-             R.ideal(LTs).hilbert_series(algorithm='singular'),
-             LTs) for LTs in CLTs ]
+      L = []
+      for LTs in CLTs:
+          HS, HP = hilbert(R.ideal(LTs))
+          L.append((HP, HS, LTs))
+      #L = [ (R.ideal(LTs).hilbert_polynomial(algorithm='singular'),
+      #       R.ideal(LTs).hilbert_series(algorithm='singular'),
+      #       LTs) for LTs in CLTs ]
     L.sort(key=cmp_to_key(hs_heuristic))
     #if prev_hilb <= L[0][0].degree():
     #  statistics.inc_heuristic_overhead(time.time() - init_time)
