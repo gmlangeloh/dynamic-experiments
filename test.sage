@@ -200,6 +200,7 @@ for instance in instances:
           experiments.append((algorithm, instance, reducer, repetition, char0_only, extra))
       else:
         experiments.append((algorithm, instance, reducer, 0, char0_only, extra))
+random.shuffle(experiments) #This is useful for better load balancing in the pool
 
-with Pool(initializer=init, initargs=(lock,), processes=4) as pool:
+with Pool(initializer=init, initargs=(lock,)) as pool:
   pool.map(run_algorithm, experiments)
