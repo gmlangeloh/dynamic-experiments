@@ -14,6 +14,21 @@ load("benchmarks.sage")
 load("new_reader.sage")
 load("dynamicgb.pyx")
 
+def previous_experiments(filename):
+  """
+  Produces a set of experiments that are already in the given file.
+  """
+  experiments = []
+  with open(filename, "r") as f:
+    firstline = True
+    for line in f:
+      if firstline:
+        firstline = False
+        continue
+      L = line.split()[:4]
+      experiments.append((L[3], L[0], L[1], int(L[2])))
+  return experiments
+
 #Run the instance named sys.argv[1], if available. Else run a list of instances
 basic_instances_only = False
 char0_only = False
@@ -129,8 +144,18 @@ if easy or medium or full:
   elif full:
     instances = [i for i in easy + medium if i not in instances ]
 
+skip_previous = False
+prev_experiments = []
 if len(sys.argv) > 2:
-  algorithms = [ sys.argv[2] ]
+  if sys.argv[2] in [ "static", "caboara-perry", "perturbation", "random", "localsearch" ]:
+    algorithms = [ sys.argv[2] ]
+  else:
+    prev_experiments = previous_experiments(sys.argv[2])
+    skip_previous = True
+    algorithms = [ "static",
+                   "caboara-perry",
+                   "perturbation",
+                   "random" ]
 else:
   #I am keeping here only the algorithms that seem promising
   algorithms = [ "static",
@@ -197,9 +222,15 @@ for instance in instances:
     for reducer in reducers:
       if algorithm in ["random", "perturbation"]:
         for repetition in range(30):
-          experiments.append((algorithm, instance, reducer, repetition, char0_only, extra))
+          if skip_previous and (algorithm, instance, reducer, repetition) in prev_experiments:
+            continue
+          else:
+            experiments.append((algorithm, instance, reducer, repetition, char0_only, extra))
       else:
-        experiments.append((algorithm, instance, reducer, 0, char0_only, extra))
+        if skip_previous and (algorithm, instance, reducer, 0) in prev_experiments:
+          continue
+        else:
+          experiments.append((algorithm, instance, reducer, 0, char0_only, extra))
 random.shuffle(experiments) #This is useful for better load balancing in the pool
 
 with Pool(initializer=init, initargs=(lock,)) as pool:
