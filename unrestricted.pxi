@@ -503,8 +503,8 @@ cpdef tuple choose_perturbation_ordering \
   for i in xrange(n):
 
     w = curr_w[:]
-    perturbation_plus = randint(1, max_deg)
-    perturbation_minus = -min(randint(1, max_deg), w[i] - 1)
+    perturbation_plus = randint(1, max(max_deg, 1))
+    perturbation_minus = -min(randint(1, max(max_deg, 1)), w[i] - 1)
     for perturbation in [perturbation_plus, perturbation_minus]:
 
       #Find LTs w.r.t current order w

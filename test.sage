@@ -155,14 +155,15 @@ if len(sys.argv) > 2:
     algorithms = [ "static",
                    "caboara-perry",
                    "perturbation",
-                   "random" ]
+                   "random",
+		   "localsearch" ]
 else:
   #I am keeping here only the algorithms that seem promising
   algorithms = [ "static",
                  "caboara-perry",
                  "perturbation",
-                 "random" ]
-                 #"localsearch" ]
+                 "random",
+                 "localsearch" ]
 
 prefix = "./instances/"
 suffix = ".ideal"
