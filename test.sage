@@ -136,13 +136,13 @@ if not single_instance:
     instances = basic_instances + additional_instances
 
 if easy or medium or full:
-  easy, medium, toohard = select_instances.instance_selection()
+  easy_insts, medium_insts, toohard = select_instances.instance_selection()
   if easy:
-    instances = [ i for i in easy if i not in instances ]
+    instances = [ i for i in easy_insts if i not in instances ]
   elif medium:
-    instances = [ i for i in medium if i not in instances ]
+    instances = [ i for i in medium_insts if i not in instances ]
   elif full:
-    instances = [i for i in easy + medium if i not in instances ]
+    instances = [i for i in easy_insts + medium_insts if i not in instances ]
 
 skip_previous = False
 prev_experiments = []
