@@ -1,5 +1,4 @@
-Compiling ./dynamicgb.pyx...
-instance reducer rep algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions
+instance reducer rep algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions totalcoefs avgcoefs maxcoefs
 cyclicn4 classical 0 static 0.10 0.00 0.00 0.00 0.00 7 30 6 12 5 15 2.00 3
 katsuran4 classical 28 perturbation 0.20 0.09 0.08 0.00 0.01 7 50 4 12 5 480 68.00 259
 cyclicnh4 classical 3 perturbation 0.22 0.09 0.08 0.00 0.00 7 30 6 12 5 15 2.00 3
@@ -683,7 +682,6 @@ katsuran4 classical 24 perturbation 0.07 0.05 0.04 0.00 0.01 7 50 4 12 5 480 68.
 katsuran4 classical 25 perturbation 0.07 0.05 0.04 0.00 0.01 7 50 4 12 5 480 68.00 259
 katsuran4 classical 26 perturbation 0.07 0.05 0.04 0.00 0.01 7 50 4 12 5 480 68.00 259
 katsuran4 classical 27 perturbation 0.07 0.05 0.04 0.00 0.01 7 50 4 12 5 480 68.00 259
-   skipping text from `parameter`
 econh4 classical 16 perturbation 0.07 0.05 0.05 0.00 0.00 8 34 5 14 6 34 4.00 6
 econh4 classical 17 perturbation 0.07 0.05 0.04 0.00 0.00 8 34 5 14 6 34 4.00 6
 econh4 classical 18 perturbation 0.07 0.05 0.05 0.00 0.00 8 34 5 14 6 34 4.00 6
@@ -729,7 +727,6 @@ econh4 classical 27 random 0.07 0.05 0.04 0.00 0.00 8 34 5 14 6 34 4.00 6
 econh4 classical 28 random 0.07 0.05 0.04 0.00 0.00 8 34 5 14 6 34 4.00 6
 econh4 classical 29 random 0.07 0.05 0.04 0.00 0.00 8 34 5 14 6 34 4.00 6
 econ5 classical 0 static 0.05 0.00 0.00 0.01 0.03 1 1 0 25 8 2 2.00 2
-   skipping text from `parameter`
 econ5 classical 21 perturbation 0.16 0.11 0.10 0.01 0.03 1 1 0 25 8 2 2.00 2
 econ5 classical 22 perturbation 0.16 0.11 0.10 0.01 0.03 1 1 0 25 8 2 2.00 2
 econ5 classical 23 perturbation 0.16 0.11 0.10 0.01 0.03 1 1 0 25 8 2 2.00 2
@@ -832,8 +829,6 @@ econh5 classical 27 random 0.17 0.11 0.08 0.01 0.04 15 104 7 37 22 81 5.00 11
 econh5 classical 28 random 0.17 0.11 0.09 0.01 0.04 15 104 7 37 22 81 5.00 11
 econh5 classical 29 random 0.17 0.11 0.08 0.01 0.04 15 104 7 37 22 81 5.00 11
 econ6 classical 0 static 0.17 0.00 0.00 0.04 0.11 1 1 0 54 26 2 2.00 2
-   skipping text from `parameter`
-   skipping text from `parameter`
 econh6 classical 6 random 1.71 0.28 0.23 0.18 1.18 30 356 9 210 146 280 9.00 47
 cyclicn6 classical 6 perturbation 38.64 1.22 0.88 0.35 36.39 46 1168 10 425 312 12769 277.00 674
 katsuran7 classical 4 perturbation 157.43 0.44 0.36 0.07 156.18 39 1932 7 159 120 91582 2348.00 9390
@@ -863,7 +858,6 @@ cyclicn6 classical 8 perturbation 38.62 1.22 0.87 0.35 36.37 46 1168 10 425 312 
 econh6 classical 28 random 1.26 0.28 0.23 0.06 0.87 22 316 7 124 86 550 25.00 63
 econh6 classical 29 random 0.50 0.14 0.12 0.02 0.30 28 346 9 94 66 257 9.00 25
 econ7 classical 0 static 0.53 0.00 0.00 0.11 0.40 1 1 0 89 45 2 2.00 2
-   skipping text from `parameter`
 katsuranh7 classical 9 perturbation 152.58 0.50 0.41 0.07 151.29 39 1932 7 159 120 91582 2348.00 9390
 econ7 classical 11 random 0.81 0.26 0.22 0.11 0.40 1 1 0 89 45 2 2.00 2
 econ7 classical 12 random 0.79 0.24 0.21 0.11 0.40 1 1 0 89 45 2 2.00 2
@@ -1317,7 +1311,6 @@ katsuran7 classical 23 random 154.18 0.27 0.18 0.07 153.12 39 1932 7 159 120 915
 noon7 classical 0 caboara-perry NA NA NA NA NA NA NA NA NA NA NA NA NA
 katsuranh7 classical 29 random 152.83 0.28 0.19 0.07 151.76 39 1932 7 159 120 91582 2348.00 9390
 econ4 classical 0 static 0.02 0.00 0.00 0.00 0.00 1 1 0 12 1 2 2.00 2
-   skipping text from `parameter`
 katsuran7 classical 24 random 155.61 0.27 0.19 0.08 154.53 39 1932 7 159 120 91582 2348.00 9390
 katsuran7 classical 25 random 152.31 0.26 0.18 0.07 151.26 39 1932 7 159 120 91582 2348.00 9390
 katsuran7 classical 26 random 152.57 0.26 0.18 0.07 151.53 39 1932 7 159 120 91582 2348.00 9390
@@ -1596,4 +1589,3 @@ cyclicn7 classical 17 random NA NA NA NA NA NA NA NA NA NA NA NA NA
 butcher8 classical 14 random NA NA NA NA NA NA NA NA NA NA NA NA NA
 noon7 classical 26 random NA NA NA NA NA NA NA NA NA NA NA NA NA
 cyclicn7 classical 18 random NA NA NA NA NA NA NA NA NA NA NA NA NA
-/home/gmlangeloh/SageMath/src/bin/sage-python: line 2: 27536 Terminated              sage -python "$@"
