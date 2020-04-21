@@ -36,6 +36,7 @@ easy = False
 medium = False
 full = False
 extra = False
+selected = False
 single_instance = False
 if len(sys.argv) > 1:
   if sys.argv[1] == "basic":
@@ -50,6 +51,8 @@ if len(sys.argv) > 1:
     full = True
   elif sys.argv[1] == "extra":
     extra = True
+  elif sys.argv[1] == "selected":
+    selected = True
   else:
     single_instance = True
     instances = [ sys.argv[1] ]
@@ -94,6 +97,11 @@ if not single_instance:
                           "noon3",
                           "noon5",
                           "s9_1"]
+  selected_instances = [ "discrc2", #These are not so small, and may give interesting results
+                         "discrc2h",
+                         "ahml",
+                         "ahmlh",
+                         "aubry2" ]
   char0_instances = [
     "cyclicn4",
     "cyclicnh4",
@@ -132,6 +140,8 @@ if not single_instance:
     instances = basic_instances
   elif extra:
     instances = even_more_instances
+  elif selected:
+    instances = selected_instances
   else:
     instances = basic_instances + additional_instances
 
@@ -156,7 +166,7 @@ if len(sys.argv) > 2:
                    "caboara-perry",
                    "perturbation",
                    "random",
-		   "localsearch" ]
+                   "localsearch" ]
 else:
   #I am keeping here only the algorithms that seem promising
   algorithms = [ "static",
@@ -234,5 +244,7 @@ for instance in instances:
           experiments.append((algorithm, instance, reducer, 0, char0_only, extra))
 random.shuffle(experiments) #This is useful for better load balancing in the pool
 
-with Pool(initializer=init, initargs=(lock,)) as pool:
-  pool.map(run_algorithm, experiments)
+print(len(experiments))
+
+#with Pool(initializer=init, initargs=(lock,)) as pool:
+#  pool.map(run_algorithm, experiments)
