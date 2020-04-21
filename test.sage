@@ -38,6 +38,7 @@ full = False
 extra = False
 selected = False
 single_instance = False
+cyclics = False
 if len(sys.argv) > 1:
   if sys.argv[1] == "basic":
     basic_instances_only = True
@@ -53,6 +54,8 @@ if len(sys.argv) > 1:
     extra = True
   elif sys.argv[1] == "selected":
     selected = True
+  elif sys.argv[1] == "cyclich":
+    cyclics = True
   else:
     single_instance = True
     instances = [ sys.argv[1] ]
@@ -142,6 +145,8 @@ if not single_instance:
     instances = even_more_instances
   elif selected:
     instances = selected_instances
+  elif cyclics:
+    instances = [ "cyclicnh6", "cyclicnh7", "cyclicnh8" ]
   else:
     instances = basic_instances + additional_instances
 
