@@ -1,4 +1,3 @@
-Compiling ./dynamicgb.pyx...
 instance reducer rep algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions
 assur44h F4 0 perturbation 8.33 0.08 0.05 1.19 6.18 179 11895 7 4428 1276
 hairer2 F4 0 random 14.89 0.21 0.09 2.47 11.74 64 3704 5 8023 586
@@ -709,3 +708,20 @@ jason210h classical 1 perturbation NA NA NA NA NA NA NA NA NA NA
 cohn3 F4 2 perturbation 89.38 0.54 0.13 7.69 77.42 74 13699 11 11009 1037
 hairer2 classical 3 random 114.32 2.12 0.77 9.06 102.32 56 1989 6 650 390
 redcyc7 classical 1 perturbation 460.38 15.00 2.85 6.72 435.03 78 9763 7 1428 1003
+f744h classical 0 caboara-perry 3205.02 246.49 0.87 17.78 2938.49 235 97952 10 1785 1550
+rabmoh F4 0 caboara-perry 173.99 39.14 2.50 6.24 126.83 349 24310 13 30075 1907
+ducos7_3 F4 0 random 75.74 0.47 0.09 8.58 63.14 80 8634 6 8498 1496
+virasoroh classical 0 static 67.35 0.00 0.00 1.04 65.90 128 18425 9 780 652
+rabmoh classical 2 random 993.24 9.51 2.35 15.40 965.94 201 9890 11 3266 2732
+gonnet83 F4 2 random 332.16 0.08 0.04 131.53 197.15 901 7672 11 133518 12167
+f855 F4 3 perturbation 60.82 0.14 0.08 35.82 21.26 148 9213 4 10739 2320
+ahmlh F4 3 perturbation NA NA NA NA NA NA NA NA NA NA
+r5_2_6_h classical 0 static 52.01 0.00 0.00 1.34 50.36 225 21205 19 845 620
+ilias_k_2 F4 2 perturbation 141.02 0.84 0.21 17.16 118.51 132 17734 5 25090 2794
+redeco10 classical 2 perturbation 292.69 8.19 2.82 5.03 278.38 257 30776 9 1548 1291
+assur44h classical 4 random NA NA NA NA NA NA NA NA NA NA
+schrans_troost classical 0 random 74.58 1.05 0.35 1.08 71.95 128 18425 9 780 652
+katsuranh9 classical 0 caboara-perry NA NA NA NA NA NA NA NA NA NA
+econh10 classical 0 perturbation 1058.64 15.30 5.00 9.94 1031.49 392 47003 11 2757 2364
+jason210 classical 4 perturbation NA NA NA NA NA NA NA NA NA NA
+schrans_troosth F4 3 random 22.41 0.03 0.02 0.83 20.36 128 18425 9 5408 1057
