@@ -702,3 +702,10 @@ discrc2 classical 0 perturbation 0.48 0.27 0.17 0.03 0.14 7 122 6 68 44
 dl classical 0 random NA NA NA NA NA NA NA NA NA NA
 bench1h F4 0 perturbation 58.95 0.10 0.07 2.38 55.40 237 12131 12 27178 1911
 econ9 F4 3 perturbation 23.45 0.24 0.10 3.29 18.92 106 8423 6 10412 1457
+r9_2_2_h F4 0 localsearch NA NA NA NA NA NA NA NA NA NA
+katsuranh9 F4 1 perturbation 43.37 0.09 0.05 0.90 40.70 143 26135 9 7968 1087
+virasoroh classical 4 random 75.00 1.10 0.37 1.07 72.29 128 18425 9 780 652
+jason210h classical 1 perturbation NA NA NA NA NA NA NA NA NA NA
+cohn3 F4 2 perturbation 89.38 0.54 0.13 7.69 77.42 74 13699 11 11009 1037
+hairer2 classical 3 random 114.32 2.12 0.77 9.06 102.32 56 1989 6 650 390
+redcyc7 classical 1 perturbation 460.38 15.00 2.85 6.72 435.03 78 9763 7 1428 1003

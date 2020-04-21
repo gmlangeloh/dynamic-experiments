@@ -244,7 +244,5 @@ for instance in instances:
           experiments.append((algorithm, instance, reducer, 0, char0_only, extra))
 random.shuffle(experiments) #This is useful for better load balancing in the pool
 
-print(len(experiments))
-
-#with Pool(initializer=init, initargs=(lock,)) as pool:
-#  pool.map(run_algorithm, experiments)
+with Pool(initializer=init, initargs=(lock,)) as pool:
+  pool.map(run_algorithm, experiments)
