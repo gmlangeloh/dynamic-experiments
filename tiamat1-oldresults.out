@@ -1,4 +1,3 @@
-Compiling ./dynamicgb.pyx...
 instance reducer rep algorithm time dynamic heuristic queue reduction polynomials monomials degree sreductions zeroreductions
 cyclicn4 classical 0 static 0.09 0.00 0.00 0.00 0.00 7 30 6 12 5
 cyclicnh4 F4 15 random 0.10 0.00 0.00 0.00 0.01 7 30 6 29 5
