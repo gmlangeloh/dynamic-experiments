@@ -1,0 +1,50 @@
+---
+title: "gfan_analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library("tidyverse")
+
+c4 <- read.table("results/cyclicn4.gf", header=T)
+c4h <- read.table("results/cyclicnh4.gf", header=T)
+k4 <- read.table("results/katsuran4.gf", header=T)
+k4h <- read.table("results/katsuranh4.gf", header=T)
+e4 <- read.table("results/econ4.gf", header=T)
+e4h <- read.table("results/econh4.gf", header=T)
+e5 <- read.table("results/econ5.gf", header=T)
+```
+
+```{r}
+summary(c4)
+summary(c4h)
+summary(k4)
+summary(k4h)
+summary(e4)
+summary(e4h)
+summary(e5)
+```
+
+Grevlex result in red!
+
+```{r}
+k4_plot <- ggplot(aes(x=polynomials, y=totcoef), data=k4) + geom_point() +
+  geom_point(x=7,y=480,color="red") + ylab("total coefficient bitsize") + xlab("basis size") + ggtitle("Katsura 4")
+ggsave("img/kat4-gf.png")
+k4h_plot <- ggplot(aes(x=polynomials, y=totcoef), data=k4h) + geom_point() + 
+  geom_point(x=7, y=480, color="red") + ylab("total coefficient bitsize") + xlab("basis size") + ggtitle("Katsura 4 Homogeneous")
+ggsave("img/kat4h-gf.png")
+```
+
+```{r}
+k4_plot <- ggplot(aes(x=polynomials, y=avgcoef), data=k4) + geom_point() +
+  geom_point(x=7,y=68.57,color="red") + ylab("average coefficient bitsize") + xlab("basis size") + ggtitle("Katsura 4")
+k4_plot
+#ggsave("img/kat4-gf.png")
+k4h_plot <- ggplot(aes(x=polynomials, y=avgcoef), data=k4h) + geom_point() + 
+  geom_point(x=7, y=68.57, color="red") + ylab("average coefficient bitsize") + xlab("basis size") + ggtitle("Katsura 4 Homogeneous")
+k4h_plot
+#ggsave("img/kat4h-gf.png")
+```
