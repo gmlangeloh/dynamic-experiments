@@ -7,6 +7,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
+library(xtable)
 
 full_raw <- read.table("tiamat1-full.out", header=T)
 extra_raw <- read.table("tiamat1-extra.out", header=T)
@@ -14,6 +15,7 @@ coefs_raw <- read.table("tiamat1-coefs2.out", header=T)
 singular <- read.table("singular_results.out")
 old_raw <- read.table("tiamat1-oldresults.out", header=T)
 medium_raw <- read.table("tiamat1-medium.out", header=T)
+selected_raw <- read.table("tiamat1-selected.out", header=T)
 ```
 
 ```{r}
@@ -42,9 +44,15 @@ medium <- medium_raw %>%
   summarize_all(mean, na.rm=T) %>%
   select(-rep)
 
+selected <- selected_raw %>%
+  group_by(instance, algorithm, reducer) %>%
+  summarize_all(mean, na.rm=T) %>%
+  select(-rep)
+
 full
 extra
 coefs
+selected
 ```
 
 Plotting coefficient growth to have some ideas.
@@ -160,6 +168,7 @@ full <- full %>% filter(!(instance %in% useless))
 length(unique(full$instance))
 
 all <- rbind(full, old)
+all <- rbind(all, selected)
 all
 ```
 
