@@ -1,20 +1,2 @@
-polynomials degree
-4 4
-5 3
-7 2
-5 3
-4 4
-5 3
-5 3
-5 3
-5 3
-4 4
-7 2
-5 3
-4 4
-4 2
-5 3
-7 2
-4 2
-5 3
-5 3
+polynomials degree totcoef avgcoef maxcoef
+1 0 2 2.0 2

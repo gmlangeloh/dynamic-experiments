@@ -1,10 +1,31 @@
 import time
 
+#Need functions to compute average, max and total bit length of coefficients
+#in a GB
+cpdef int bits(coefficient):
+  return len(bin(coefficient).lstrip('-0b'))
+
+cpdef int bitlength(MPolynomial_libsingular f):
+  cdef int s = 0
+  for c in f.coefficients():
+    s = bits(c.numerator()) + bits(c.denominator())
+  return s
+
+cpdef tuple bitlength_stats(list G):
+  if len(G) == 0 or G[0].parent().characteristic() != 0:
+    return (0, 0, 0)
+  lengths = [ bitlength(g) for g in G ]
+  max_len = max(lengths)
+  total_len = sum(lengths)
+  avg_len = float(total_len) / len(lengths)
+  return total_len, avg_len, max_len
+
 cdef class Stats:
 
   cdef bool print_results
   cdef bool return_stats
   cdef bool print_criterion
+  cdef bool print_coefficients
   cdef str algorithm
 
   #Statistics
@@ -42,6 +63,11 @@ cdef class Stats:
   cdef float matrix_time
   cdef float addpolys_time
 
+  #Coefficient length data
+  cdef int total_len #total coefficient bitsize in GB
+  cdef int avg_len #average coeff bitsize among polys in GB
+  cdef int max_len #maximum coeff bitsize among polys in GB
+
   def __cinit__(self):
 
     self.print_results = True
@@ -53,11 +79,13 @@ cdef class Stats:
 
     self.reset_all_stats()
 
-  cpdef void set_options(self, bool prnt, bool ret, bool criterion):
+  cpdef void set_options(self, bool prnt, bool ret, bool criterion,
+                         bool coefficients):
 
     self.print_results = prnt
     self.return_stats = ret
     self.print_criterion = criterion
+    self.print_coefficients = coefficients
 
   cpdef void set_algorithm(self, str algorithm):
 
@@ -94,6 +122,10 @@ cdef class Stats:
     self.old_criterion = 0
     self.new_criterion = 0
     self.new_criterion_stepc = 0
+
+    self.total_len = 0
+    self.avg_len = 0
+    self.max_len = 0
 
   cpdef void inc_preprocessing_time(self, float val):
     self.preprocessing_time += val
@@ -163,6 +195,10 @@ cdef class Stats:
     if len(basis) > 0:
         self.ordering = list(basis[0].parent().term_order().weights())
 
+  cpdef void update_coefficient_data(self, list G):
+    if self.print_coefficients:
+      self.total_len, self.avg_len, self.max_len = bitlength_stats(G)
+
   cpdef void report(self):
     if self.print_results:
       print("final order", self.ordering)
@@ -193,6 +229,8 @@ cdef class Stats:
       results += " %d %d %d %d" % (self.number_of_candidates, self.old_criterion, self.new_criterion, self.new_criterion_stepc)
       if state is not None:
         results += " " + state.profile_report()
+    if self.print_coefficients:
+      results += " %d %.2f %d" % (self.total_len, self.avg_len, self.max_len)
     if self.print_results:
       print(results)
     if self.return_stats:
@@ -205,7 +243,12 @@ cdef class Stats:
             (self.preprocessing_time, self.matrix_time, self.addpolys_time))
 
   cpdef str report_timeout(self):
-    return self.algorithm + (' NA' * 10)
+    results = 10 #Number of fields that would be printed
+    if self.print_coefficients:
+        results += 3
+    if self.print_criterion:
+        results += 4
+    return self.algorithm + (' NA' * results)
 
 #I will use this stats instance everywhere
 statistics = Stats()

@@ -1,0 +1,274 @@
+---
+title: "additional_analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(xtable)
+
+full_raw <- read.table("tiamat1-full.out", header=T)
+extra_raw <- read.table("tiamat1-extra.out", header=T)
+coefs_raw <- read.table("tiamat1-coefs2.out", header=T)
+singular <- read.table("singular_results.out")
+old_raw <- read.table("tiamat1-oldresults.out", header=T)
+medium_raw <- read.table("tiamat1-medium.out", header=T)
+selected_raw <- read.table("tiamat1-selected.out", header=T)
+```
+
+```{r}
+full <- full_raw %>%
+  group_by(instance, algorithm, reducer) %>%
+  summarize_all(mean, na.rm=T) %>%
+  select(-rep)
+
+extra <- extra_raw %>%
+  group_by(instance, algorithm, reducer) %>%
+  summarize_all(mean, na.rm=T) %>%
+  select(-rep)
+
+coefs <- coefs_raw %>%
+  group_by(instance, algorithm, reducer) %>%
+  summarize_all(mean, na.rm=T) %>%
+  select(-rep)
+
+old <- old_raw %>%
+  group_by(instance, algorithm, reducer) %>%
+  summarize_all(mean, na.rm=T) %>%
+  select(-rep)
+
+medium <- medium_raw %>%
+  group_by(instance, algorithm, reducer) %>%
+  summarize_all(mean, na.rm=T) %>%
+  select(-rep)
+
+selected <- selected_raw %>%
+  group_by(instance, algorithm, reducer) %>%
+  summarize_all(mean, na.rm=T) %>%
+  select(-rep)
+
+full
+extra
+coefs
+selected
+```
+
+Plotting coefficient growth to have some ideas.
+
+```{r}
+ggplot(coefs, aes(x=instance, y=totalcoefs, fill=algorithm)) + geom_col(position='dodge') + coord_flip() + scale_y_log10()
+```
+
+Checking out if there's anything interesting to show about the Singular results:
+
+```{r}
+colnames(singular) <- c("instance", "time", "polynomials", "monomials", "degree")
+singular
+```
+
+Answer: not really, but I can show some results if that's important.
+
+Defining geometric means (used in the tables in the paper):
+
+```{r}
+#We drop zeroes in the geometric mean, it is important in some cases with overhead 0
+gmean <- function(x, na.rm=FALSE) {
+  exp(mean(log(x[which(x != 0)]), na.rm=na.rm))
+}
+```
+
+Remaking tables for the paper (only includes the initial 30 instances - I think I won't use this one anymore, and only use the big table below):
+
+```{r}
+caption <- "Geometric means of the experiments over all instances (ignoring timeouts)."
+t <- old %>% 
+  group_by(algorithm, reducer) %>%
+  summarize(
+    timeout=sum(is.na(time)),
+    time=gmean(time, na.rm=TRUE),
+    overhead=gmean(dynamic, na.rm=TRUE),
+    polynomials=gmean(polynomials, na.rm=TRUE),
+    monomials=gmean(monomials, na.rm=TRUE),
+    degree=gmean(degree, na.rm=TRUE),
+    sreductions=gmean(sreductions, na.rm=TRUE)
+  ) %>%
+  select(
+    algorithm, reducer, time, overhead, polynomials, 
+    monomials, degree, sreductions,timeout
+  ) %>%
+    rename(
+      "Algorithm" = algorithm,
+      "Reducer" = reducer,
+      "$t$" = time,
+      "$O$" = overhead,
+      "$|G|$" = polynomials,
+      "$|\\Supp(G)|$" = monomials,
+      "$\\deg$" = degree,
+      "sred" = sreductions
+    )
+  print(xtable(t,caption=caption), 
+        include.rownames=F, 
+        sanitize.text.function=function(x){x},
+        NA.string = "NA")
+```
+
+Generating a table to check coefficient growth.
+
+```{r}
+caption <- "Geometric means of the experiments over all instances (ignoring timeouts) over $\\mathbb{Q}$, including total coefficient bitsize."
+t <- coefs %>% 
+  group_by(algorithm) %>%
+  summarize(
+    timeout=sum(is.na(time)),
+    time=gmean(time, na.rm=TRUE),
+    totalcoefs=gmean(totalcoefs, na.rm=TRUE)
+  ) %>%
+  select(
+    algorithm, time, totalcoefs, timeout
+  ) %>%
+    rename(
+      "Algorithm" = algorithm,
+      "$t$" = time,
+      "coef" = totalcoefs
+    )
+  print(xtable(t,caption=caption),
+        include.rownames=F, 
+        sanitize.text.function=function(x){x},
+        NA.string = "NA")
+```
+
+Current results for coefficient tests are a bit weird. Why are bases using grevlex smaller?
+In short, because of the case where Static times out (cyclicnh7). In reality, results for polynomials / monomials / degree are all very similar to the
+modular case.
+
+butcher8: all algorithms timed out
+cyclicn7: all algorithms timed out
+cyclicnh*: all dynamic algorithms win easily here, static timed out
+noon7: everything BUT static timed out
+katsuran7: cp timed out here
+
+```{r}
+coefs %>% filter(instance == "cyclicnh5")
+coefs %>% filter(instance == "cyclicnh6")
+coefs %>% filter(instance == "cyclicnh7")
+coefs
+```
+
+Checking results / table that could be generated for the "full" set. 84 new instances, this sounds useful. What about complete results, using the old
+instances too?
+
+```{r}
+unique(full$instance)
+useless <- c("cyclicn2", "cyclicn3", "cyclicn4-simple", "cyclicn5-permut", "cyclicn5-simple", "cyclicnh2", "cyclicnh3",
+             "katsuran2", "katsuran3", "katsuran4-simple", "katsuran6-simple", "katsuranh2", "katsuranh3", "econ2", "econ3",
+             "econh2", "econh3")
+full <- full %>% filter(!(instance %in% useless))
+length(unique(full$instance))
+
+all <- rbind(full, old)
+all <- rbind(all, selected)
+all
+```
+
+This table looks nice for the paper, including all new results (up until now, at least). It includes 114 ideals!
+
+```{r}
+length(unique(all$instance))
+```
+
+```{r}
+caption <- "Geometric means of the experiments over all instances (ignoring timeouts)."
+t <- all %>% 
+  group_by(algorithm, reducer) %>%
+  summarize(
+    timeout=sum(is.na(time)),
+    time=gmean(time, na.rm=TRUE),
+    overhead=gmean(dynamic, na.rm=TRUE),
+    polynomials=gmean(polynomials, na.rm=TRUE),
+    monomials=gmean(monomials, na.rm=TRUE),
+    degree=gmean(degree, na.rm=TRUE),
+    sreductions=gmean(sreductions, na.rm=TRUE)
+  ) %>%
+  select(
+    algorithm, reducer, time, overhead, polynomials, 
+    monomials, degree, sreductions,timeout
+  ) %>%
+    rename(
+      "Algorithm" = algorithm,
+      "Reducer" = reducer,
+      "$t$" = time,
+      "$O$" = overhead,
+      "$|G|$" = polynomials,
+      "$|\\Supp(G)|$" = monomials,
+      "$\\deg$" = degree,
+      "sred" = sreductions
+    )
+  print(xtable(t,caption=caption), 
+        include.rownames=F, 
+        sanitize.text.function=function(x){x},
+        NA.string = "NA")
+```
+
+Compute the dynamic overhead in the cases where the dynamic algorithms were unable
+to find anything better than grevlex.
+Result: the overhead is large for small instances, but when we take only those that took longer than 1s to run, the situation changes, and the overhead
+tends to be lower than 10%.
+
+```{r}
+all %>% 
+  filter(reducer == "classical", time > 1) %>%
+  select(instance, algorithm, time, dynamic, polynomials) %>% 
+  pivot_wider(names_from = c(algorithm), values_from = c(time, polynomials, dynamic)) %>%
+  filter(polynomials_perturbation == polynomials_static) %>%
+  mutate(overhead = dynamic_perturbation / time_perturbation) %>%
+  select(instance, overhead)
+
+all %>% 
+  filter(reducer == "F4", time > 1) %>%
+  select(instance, algorithm, time, dynamic, polynomials) %>% 
+  pivot_wider(names_from = c(algorithm), values_from = c(time, polynomials, dynamic)) %>%
+  filter(polynomials_perturbation == polynomials_static) %>%
+  mutate(overhead = dynamic_perturbation / time_perturbation) %>%
+  select(instance, overhead)
+
+all %>% 
+  filter(reducer == "classical", time > 1) %>%
+  select(instance, algorithm, time, dynamic, polynomials) %>% 
+  pivot_wider(names_from = c(algorithm), values_from = c(time, polynomials, dynamic)) %>%
+  filter(polynomials_random == polynomials_static) %>%
+  mutate(overhead = dynamic_random / time_random) %>%
+  select(instance, overhead)
+
+all %>% 
+  filter(reducer == "F4", time > 1) %>%
+  select(instance, algorithm, time, dynamic, polynomials) %>% 
+  pivot_wider(names_from = c(algorithm), values_from = c(time, polynomials, dynamic)) %>%
+  filter(polynomials_random == polynomials_static) %>%
+  mutate(overhead = dynamic_random / time_random) %>%
+  select(instance, overhead)
+```
+
+I find the new scatterplot with even more points than before more confusing than helpful, to be honest. I won't include it in the new version.
+
+```{r}
+p <- ggplot(data=all, aes(x=polynomials, y=time, color=algorithm)) +
+  geom_point() +
+  scale_y_log10() +
+  scale_x_log10() +
+  xlab("log(Polynomials)") +
+  ylab("log(Time)") +
+  guides(color=guide_legend("Algorithm")) +
+  theme(legend.position=c(0.87, 0.23))
+#ggsave(paste0("./img/scatterpolytime.pdf"), height=4.5)
+plot(p)
+```
+
+Verifying queue recomputation ratio:
+
+```{r}
+queue <- all %>% filter(!(is.na(time))) %>% mutate(ratio = queue / time) %>% select(instance, algorithm, reducer, ratio)
+queue
+queue %>% group_by(algorithm, reducer) %>% summarize(ratio = mean(ratio))
+```
